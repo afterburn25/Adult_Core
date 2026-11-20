@@ -67,3 +67,8 @@ The tests inject an explicit local in-process fake authority, **not a real key o
 - License-key support and migration UX for existing customers, key rotation, host migration, hosting backups and restore safety.
 - Version-based update entitlements and edition-specific commercial policy, if Lite vs Pro are sold separately. This integration currently uses **one** `SOFTWARE-ADULT-CORE` SKU for both editions; edition selection remains based on actual hosting capabilities.
 - Independent review of copy-protection limitations and the licensing service as a commercial dependency. License checks do **not** make Adult_Core's unfinished adult-content, payment, verification or streaming features production ready.
+
+
+## 0.8.6.3 licensing verification (2026-11-20)
+
+Source [`5b800dd4704b2bdf8b99f8ce51bdd3e70803689e`](https://github.com/afterburn25/Adult_Core/commit/5b800dd4704b2bdf8b99f8ce51bdd3e70803689e) passed [GitHub Actions run 44832503540](https://github.com/afterburn25/Adult_Core/actions/runs/44832503540), including 52 licensing contract/runtime checks, PHP/HTTP tests, disposable real-MySQL installation and authenticated browser/administrator license recovery flows. **This is synthetic Cajun Web Pro authority testing, not live CWP issuance or a production certification.** The required software product/release registration and real staging activation are tracked in [Cajun_Web issue #399](https://github.com/afterburn25/Cajun_Web/issues/399).
