@@ -109,22 +109,42 @@ def main():
             ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)
             studio_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', studio)
             ensure('Studio has anti-CSRF token', studio_csrf is not None)
+            ensure('Live drag/resize slider controls are rendered',
+                   all(f'name="{field}"' in studio for field in ('cutout_x','cutout_y','cutout_width')))
+            code, invalid= req('/admin/design', {
+                'csrf':studio_csrf.group(1), 'theme':'noir-gold','accent':'#d9ae75',
+                'image_side':'right','image_size':'large','hero_asset':'none',
+                'cutout_x':'101','cutout_y':'50','cutout_width':'80',
+                'title':'Rejected coordinates','body':'Must not save'
+            })
+            ensure('Out-of-range placement POST is rejected', code == 422)
+            code, invalid= req('/admin/design', {
+                'csrf':studio_csrf.group(1), 'theme':'noir-gold','accent':'#d9ae75',
+                'image_side':'right','image_size':'large','hero_asset':'none',
+                'cutout_x':'50','cutout_y':'50','cutout_width':'80%;body{display:none}',
+                'title':'CSS injection','body':'Must not save'
+            })
+            ensure('CSS injection in placement is rejected', code == 422)
             code, bad = req('/admin/design', {
                 'csrf':'invalid', 'theme':'noir-gold', 'accent':'#d9ae75',
                 'image_side':'right', 'image_size':'large', 'hero_asset':'none',
+                'cutout_x':'50','cutout_y':'50','cutout_width':'80',
                 'title':'Unsafe', 'body':'should not save'
             })
             ensure('Design Studio POST requires CSRF', code == 403)
             code, _ = req('/admin/design', {
                 'csrf':studio_csrf.group(1), 'theme':'rose-ivory', 'accent':'#ae758b',
                 'image_side':'left', 'image_size':'medium', 'hero_asset':'none',
+                'cutout_x':'24','cutout_y':'70','cutout_width':'61',
                 'title':'Hello <studio>', 'body':'A safe and elegant welcome'
             })
             ensure('Valid design saves with redirect', code == 303)
             code, private_home = req('/')
             ensure('Homepage remains draft until published', code == 503)
             code, designcss = req('/design.css')
-            ensure(f'Validated custom palette delivered (HTTP {code}, body={designcss[:180]!r})', code == 200 and '#ae758b' in designcss)
+            ensure(f'Validated custom palette delivered (HTTP {code}, body={designcss[:180]!r})',
+                   code == 200 and '#ae758b' in designcss and '--cutout-x:24%' in designcss
+                   and '--cutout-y:70%' in designcss and '--cutout-width:61%' in designcss)
             code, noasset = req('/design/asset/12')
             ensure('Unknown or unselected image refused', code == 404)
             # Regular page editor exclusively controls the homepage publishing status.
@@ -174,6 +194,7 @@ def main():
             code, _ = req('/admin/design', {
                 'csrf':studio_csrf.group(1),'theme':'velvet-plum','accent':'#f19ad0',
                 'image_side':'right','image_size':'large','hero_asset':private_id,
+                'cutout_x':'42','cutout_y':'38','cutout_width':'88',
                 'title':'Member studio','body':'Private image stays hidden'
             })
             ensure('Private image selected in visual editor', code == 303)
@@ -190,11 +211,18 @@ def main():
             code, _=req('/admin/design', {
                 'csrf':studio_csrf.group(1),'theme':'noir-gold','accent':'#d9ae75',
                 'image_side':'left','image_size':'medium','hero_asset':public_id,
+                'cutout_x':'37','cutout_y':'71','cutout_width':'62',
                 'title':'Private boutique','body':'Design publishing is explicit'
             })
             ensure('Explicit approved image selection saved', code == 303)
             code, public_home = req('/')
-            ensure('Public homepage points only to approved selected image',code==200 and f'/design/asset/{public_id}' in public_home and f'/design/asset/{private_id}' not in public_home)
+            ensure('Public homepage points only to approved selected image',
+                   code==200 and f'/design/asset/{public_id}' in public_home and f'/design/asset/{private_id}' not in public_home
+                   and 'class="cutout-positioner"' in public_home)
+            code, final_css = req('/design.css')
+            ensure('Saved drag and resize geometry reaches published site',
+                   code == 200 and '--cutout-x:37%' in final_css and '--cutout-y:71%' in final_css
+                   and '--cutout-width:62%' in final_css)
             code, public_image = req('/design/asset/'+public_id)
             ensure('Approved selected image served', code == 200 and 'PNG' in public_image)
             code, old_image = req('/design/asset/'+private_id)

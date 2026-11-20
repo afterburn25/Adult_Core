@@ -68,7 +68,7 @@ final class Layout
         $size = in_array(($design['image_size'] ?? 'large'), ['small','medium','large'], true) ? (string)($design['image_size'] ?? 'large') : 'large';
         $assetId = (int)($design['public_asset_id'] ?? 0);
         $art = $homepage && $assetId > 0
-            ? '<div class="hero-image-frame"><img class="design-portrait" loading="eager" src="/design/asset/' . $assetId . '" alt="Decorative homepage image"></div>'
+            ? '<div class="hero-image-frame"><div class="cutout-positioner"><img class="design-portrait" loading="eager" src="/design/asset/' . $assetId . '" alt="Decorative homepage image"></div></div>'
             : '<div class="art-orbit art-orbit-one"></div><div class="art-orbit art-orbit-two"></div>'
                 . '<div class="art-glass"><div class="art-symbol">' . self::escape($siteFirst) . '<span>✧</span>' . self::escape($siteLast) . '</div><div class="art-caption">CURATED BY YOU <span>YOUR SPACE</span></div></div>'
                 . '<div class="art-spark art-spark-one">✦</div><div class="art-spark art-spark-two">✧</div>';

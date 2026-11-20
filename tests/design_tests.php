@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Design\DesignImages;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\CutoutPlacement;
 use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
 
@@ -18,7 +19,18 @@ function designCheck(bool $truth, string $reason): void {
 
 designCheck(count(ThemeCatalog::THEMES) === 4,'Four distinct layout presets');
 designCheck(array_keys(ThemeCatalog::THEMES) === ['noir-gold','velvet-plum','midnight-teal','rose-ivory'],'Original four keys unchanged, without duplicates');
-designCheck(DesignSchema::VERSION==='m11_visual_design_v1','Separate additive migration');
+designCheck(DesignSchema::VERSION==='m11_visual_design_v1','Original design schema remains stable');
+designCheck(CutoutPlacement::VERSION==='m12_cutout_placement_v1','Additive placement schema');
+designCheck(CutoutPlacement::defaults() === ['cutout_x'=>50,'cutout_y'=>50,'cutout_width'=>80], 'Safe default placement values');
+foreach ([['0','0','20'],['100','100','100'],['23','68','62']] as $coords) {
+    $value=CutoutPlacement::validate(...$coords);
+    designCheck($value['cutout_x']===(int)$coords[0] && $value['cutout_width']===(int)$coords[2], 'Valid cutout placement accepted');
+}
+foreach ([['-1','50','80'],['50','101','80'],['50','50','19'],['50','50','101'],
+    ['50px','50','80'],['50','50','80%;body{display:none}'],['1e2','50','80'],['50','50','80.1'],['00','50','80']] as $coords) {
+    try { CutoutPlacement::validate(...$coords); throw new RuntimeException('Unsafe cutout placement accepted.'); }
+    catch (RuntimeException $e) { designCheck($e->getMessage() !== 'Unsafe cutout placement accepted.', 'Invalid coordinate or CSS injection refused'); }
+}
 foreach (ThemeCatalog::THEMES as $key=>$theme) {
     ThemeCatalog::validate($key,$theme['accent'],'right','large');
     designCheck(true,'Theme preset accepted');
@@ -35,6 +47,7 @@ $design=['theme_key'=>'midnight-teal','accent_color'=>'#ffffff','image_side'=>'l
 $html = Layout::site('A <title>','B & body',[], 'Cutout Studio',true,$design);
 designCheck(str_contains($html,'theme-midnight-teal image-left image-size-medium'),'Layout receives safe preset classes');
 designCheck(str_contains($html,'src="/design/asset/12"'),'Public-approved image uses checked dynamic route');
+designCheck(str_contains($html,'class="cutout-positioner"'),'Published frontend wraps cutout for live placement');
 designCheck(str_contains($html,'&lt;title&gt;')&&!str_contains($html,'<title>A <title>'),'Visual text remains HTML-escaped');
 designCheck(str_contains($html,'/design.css'),'Validated CSS route included');
 designCheck(str_contains(Layout::admin('Studio','Body','/admin/design'), 'href="/admin/design" aria-current="page"'), 'Admin studio navigation active');
@@ -51,8 +64,14 @@ unlink($test);
 $css=file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(is_string($css)&&str_contains($css,'.theme-rose-ivory')&&str_contains($css,'.theme-velvet-plum'),'Built-in layout CSS exists');
 $js=file_get_contents(dirname(__DIR__).'/public/assets/design-editor.js');
-designCheck(is_string($js)&&str_contains($js,'contenteditable')&&str_contains($js,'field.value'),'Live text input sync uses plain text');
+designCheck(is_string($js)&&str_contains($js,'field.value')&&str_contains($js,'node.innerText'),'Live text input sync uses plain text');
+designCheck(str_contains($js,'setPointerCapture') && str_contains($js,'pointermove') && str_contains($js,'pointercancel'), 'Pointer capture supports dragging and cancel');
+designCheck(str_contains($js,'cutout-resize-handle') && str_contains($js,'cutout-move-handle') && str_contains($js,'keydown'), 'Visible resize/drag handles and keyboard support');
+designCheck(str_contains($js,'--cutout-x') && str_contains($js,'--cutout-y') && str_contains($js,'--cutout-width'), 'Preview uses the same CSS variables as public renderer');
 designCheck(str_contains($js, 'Add your cutout photo') && str_contains($css, 'studio-preview-placeholder'), 'Empty hero prompts for user cutout without adding stock photos');
 $source = file_get_contents(dirname(__DIR__) . '/src/Http/DesignController.php');
 designCheck(str_contains((string)$source, 'No cutout — keep theme background'), 'No-cutout option preserves preset styling');
+designCheck(str_contains((string)$source,'cutout-placement-controls') && str_contains((string)$source,'cutout_width'), 'Form declares explicit editor placement controls');
+$studioCSS=(string)file_get_contents(dirname(__DIR__).'/public/assets/style.css');
+designCheck(str_contains($studioCSS,'.cutout-positioner') && str_contains($studioCSS,'touch-action:none'), 'Cutout image placement is styled for touch input');
 echo "Passed $checks visual-design safety checks.\n";

@@ -17,6 +17,7 @@ use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
 use AdultCore\UI\Layout;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\CutoutPlacement;
 use PDO;
 use Throwable;
 use RuntimeException;
@@ -67,6 +68,7 @@ final class SiteAdminController
             // Additive DDL only. A partly-applied migration can be safely re-run.
             SiteSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
+            CutoutPlacement::migrate($pdo);
             MemberSchema::migrate($pdo);
             MemberEmailSchema::migrate($pdo);
             PasswordRecoverySchema::migrate($pdo);

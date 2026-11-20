@@ -1,3 +1,7 @@
+## 2026-11-20 — visual cutout geometry and safety
+
+Store integer X/Y/Width percentages as additive design settings rather than editor-generated HTML or arbitrary CSS. Render only constants interpolated from strict validation to `/design.css` (no user-authored style strings). The editor communicates with the existing authenticated CSRF-protected route and cannot change the public-safe media flag; private images remain preview-only. Avoid per-image public endpoints, public storage exposure, unsandboxed plugins, or duplicate theme IDs. Existing images have legacy size presets converted once on upgrade.
+
 ## Visual design and decorative media separation (0.8.6-design-dev)
 
 - Core-shipped audited theme layouts differ structurally and are CSS/escaped-PHP only. Signed external packages remain data-only: accepting a package never runs uploaded PHP/JS/HTML.

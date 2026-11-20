@@ -24,7 +24,20 @@ final class DesignRepository
         try { ThemeCatalog::validate($theme, $accent, $side, $size); }
         catch (RuntimeException) { return ThemeCatalog::defaults(); }
         $row['hero_asset_id'] = isset($row['hero_asset_id']) ? (int)$row['hero_asset_id'] : null;
-        return $row;
+        $coordinates = CutoutPlacement::defaults();
+        if (CutoutPlacement::installed($this->pdo)) {
+            $columns = $this->pdo->query('SELECT cutout_x, cutout_y, cutout_width FROM ac_design_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+            if (is_array($columns)) {
+                try {
+                    $coordinates = CutoutPlacement::validate(
+                        (string)$columns['cutout_x'], (string)$columns['cutout_y'], (string)$columns['cutout_width']
+                    );
+                } catch (RuntimeException) {
+                    // Broken persisted coordinates are never reflected into public CSS.
+                }
+            }
+        }
+        return array_merge($row, $coordinates);
     }
 
     /** @return list<array<string,mixed>> */
@@ -54,13 +67,36 @@ final class DesignRepository
         return is_array($row) ? $row : null;
     }
 
-    public function save(string $theme, string $accent, string $side, string $size, ?int $assetId): void
+    public function save(string $theme, string $accent, string $side, string $size, ?int $assetId, ?array $placement = null): void
     {
         ThemeCatalog::validate($theme, $accent, $side, $size);
         if ($assetId !== null && $this->asset($assetId) === null) {
             throw new RuntimeException('Choose an uploaded design image.');
         }
-        $s = $this->pdo->prepare('UPDATE ac_design_settings SET theme_key=?,accent_color=?,image_side=?,image_size=?,hero_asset_id=?,updated_at=UTC_TIMESTAMP() WHERE id=1');
-        $s->execute([$theme, strtolower($accent), $side, $size, $assetId]);
+        if (!CutoutPlacement::installed($this->pdo)) {
+            if ($placement !== null) {
+                throw new RuntimeException('Apply the additive cutout-placement migration in Site setup before saving.');
+            }
+            // Existing integration clients may still save legacy settings before M12.
+            $s = $this->pdo->prepare('UPDATE ac_design_settings SET theme_key=?,accent_color=?,image_side=?,image_size=?,hero_asset_id=?,updated_at=UTC_TIMESTAMP() WHERE id=1');
+            $s->execute([$theme, strtolower($accent), $side, $size, $assetId]);
+            return;
+        }
+        if ($placement === null) {
+            $current = $this->current();
+            $placement = [
+                'cutout_x' => $current['cutout_x'],
+                'cutout_y' => $current['cutout_y'],
+                'cutout_width' => $current['cutout_width'],
+            ];
+        }
+        $position = CutoutPlacement::validate(
+            (string)($placement['cutout_x'] ?? ''),
+            (string)($placement['cutout_y'] ?? ''),
+            (string)($placement['cutout_width'] ?? '')
+        );
+        $s = $this->pdo->prepare('UPDATE ac_design_settings SET theme_key=?,accent_color=?,image_side=?,image_size=?,hero_asset_id=?,cutout_x=?,cutout_y=?,cutout_width=?,updated_at=UTC_TIMESTAMP() WHERE id=1');
+        $s->execute([$theme, strtolower($accent), $side, $size, $assetId,
+            $position['cutout_x'], $position['cutout_y'], $position['cutout_width']]);
     }
 }

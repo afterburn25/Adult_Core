@@ -1,3 +1,9 @@
+## 0.8.6.2-design-dev — live cutout drag and resize (2026-11-20)
+
+In the authenticated **Design Studio** (`/admin/design`), choose an existing uploaded PNG/WebP cutout, then drag its image or **Move** handle directly on the theme background; drag the **↘** corner handle to resize with an immediate visual update. Horizontal/vertical/width sliders (with percentage readouts), arrow-key controls, reset, and touch-pointer support are provided. Save to persist relative coordinates in an additive MySQL migration and render the same percentage geometry on the public homepage **only if** the image has been explicitly declared suitable for public decorative use and the homepage is published. Applying `/admin/setup` after backup is required; the prior four built-in themes and their background styling are unchanged.
+
+This does **not** add automatic background removal, public adult-content uploads, real billing, age-verification approval or production readiness. See [`docs/DESIGN_STUDIO.md`](docs/DESIGN_STUDIO.md).
+
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
@@ -90,6 +96,6 @@ Members with an independently confirmed email address can request a one-use pass
 - The first run caught a browser test-order issue: reset rotates CSRF, so the replay test now uses a newly acquired CSRF token to independently assert that the reset token cannot be reused. This is tested, not a production security audit.
 - Real cPanel, email deliverability, identity/age verification, payment processing, Pro streaming, signed restore/update workflow, independent review and production 1.0 remain incomplete.
 
-### 0.8.6.1-design-dev — Theme preservation
+### 0.8.6.1-design-dev theme maintenance
 
-Four built-in theme choices remain unchanged. The admin Design Studio offers an explicit **No cutout — keep theme background** choice and an empty hero image slot for transparent user photos. Concept previews are provided separately; demonstration gallery models and private photos are not automatically published.
+The four original built-in theme selections remain unchanged, with no duplicates. The Design Studio provides an explicit **No cutout — keep theme background** selection and a clear upload placeholder. Theme layout/background styling continues to render when a user does not select an image. Concept screenshots with hero models removed are provided as a **separate reference bundle**, not automatically exposed as real website media.

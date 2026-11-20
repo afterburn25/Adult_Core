@@ -1,6 +1,18 @@
-# 0.8.6.1-design-dev — Theme design maintenance
+# Immediate handoff — 0.8.6.2-design-dev live drag-and-resize (2026-11-20)
 
-Four original `ThemeCatalog::THEMES` IDs remain intact, without duplicates. `/admin/design` supports a clear empty model/cutout slot and a “No cutout — keep theme background” option. Existing CSS theme backdrops are unchanged; edited concept mockup PNGs are distributed separately, not as public gallery assets. No schema migration. Local PHP and HTTP tests pass; verify CI after commit. Production blockers unchanged.
+Target `afterburn25/Adult_Core`, self-hosted Lite shared hosting / Pro verified VPS (not SaaS). Four built-in themes retained unchanged; **no new themes created**. This change adds `src/Design/CutoutPlacement.php` with validated 0–100 X/Y and 20–100 width, additive migration `m12_cutout_placement_v1`, new controls in `DesignController.php`, live pointer/touch/keyboard manipulation in `public/assets/design-editor.js`, positioned image CSS in `style.css`, persistent repository coordinates and matching public `design.css` output. `Layout::site` nests approved public hero art in a `cutout-positioner`. CSS and JavaScript require no CDN, inline scripts or executable plugin install.
+
+**Deployment:** back up site DB, apply `/admin/setup`; until M12 is present `/admin/design` fails closed with a setup link. Existing M11 and selected cutouts remain private/public subject to original approval controls. No change to public web root or mandatory removal of `install/`.
+
+**Tests:** PHP core/security/UI/design suites, Python HTTP smoke, PHP lint and Node JS syntax. Real MySQL CI integration verifies migration twice, saved X/Y/Width, invalid POST rejection, and public `design.css` values on a disposable database. Chromium interaction tests were run locally using a static fixture with the actual shipping CSS/JS; these test the pointer and slider UX without requiring authentication or MySQL. Record the actual CI outcome and commit SHA after publishing; do not claim CI passed until verified.
+
+**Not implemented:** production member billing/media verification/Pro streaming, MFA, backup/restore certification, automatic background removal or arbitrary page-wide layering. Remain development-only.
+
+---
+
+# 0.8.6.1-design-dev theme-design maintenance
+
+The four original `ThemeCatalog::THEMES` keys remain unchanged: `noir-gold`, `velvet-plum`, `midnight-teal`, `rose-ivory`. The studio has a clearly labelled no-cutout state and editable empty picture slot; it does **not** seed any model photos or change the existing CSS layouts. No schema migration is added. Separate edited concept previews (4 individual PNGs plus original references) are packaged outside the runtime ZIP, since gallery photographs in concept art are illustrative and unverified for public deployment. The runtime currently saves a single global selected hero image. Run `php tests/design_tests.php`, all prior unit/HTTP smoke checks and CI after publishing. See `docs/DESIGN_STUDIO.md`. Production blockers remain unchanged.
 
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
 

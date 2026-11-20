@@ -477,3 +477,72 @@ body:not(.public-site):not(.admin-site):not(.member-site):not(.admin-guest) main
 /* Unfilled hero preserves each theme background and never substitutes a demonstration model. */
 .studio-canvas.theme-rose-ivory .studio-preview-placeholder {background:rgba(255,255,255,.30);}
 .studio-canvas.theme-rose-ivory .studio-preview-placeholder small {color:#724754;}
+
+/* Interactive cutout placement — same three CSS variables in studio and public site.
+   Percentages are validated on the server; control JS only edits the administrator preview. */
+.studio-canvas-visual,
+.public-site .hero-image-frame {isolation:isolate;}
+.studio-canvas-visual .cutout-positioner,
+.public-site .hero-image-frame .cutout-positioner {
+  position:absolute;
+  left:var(--cutout-x,50%);
+  top:var(--cutout-y,50%);
+  width:var(--cutout-width,80%);
+  height:auto;
+  max-height:100%;
+  display:grid;
+  place-items:center;
+  transform:translate(-50%,-50%);
+  z-index:2;
+}
+.studio-canvas .studio-canvas-visual .cutout-positioner .design-portrait,
+.public-site .hero-image-frame .cutout-positioner .design-portrait {
+  position:relative;
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:410px;
+  max-width:100%;
+  object-fit:contain;
+  object-position:center;
+  pointer-events:none;
+  user-select:none;
+  -webkit-user-drag:none;
+}
+.public-site .hero-image-frame .cutout-positioner .design-portrait {max-height:510px;}
+.studio-canvas .studio-canvas-visual .cutout-positioner {
+  cursor:grab;
+  touch-action:none;
+  outline:1px dashed var(--design-accent);
+  outline-offset:4px;
+  border-radius:8px;
+}
+.studio-canvas .studio-canvas-visual .cutout-positioner.is-manipulating {cursor:grabbing;outline:2px solid var(--design-accent);}
+.studio-canvas-visual .cutout-move-handle,
+.studio-canvas-visual .cutout-resize-handle {
+  position:absolute;z-index:4;
+  font:700 12px/1.2 system-ui,sans-serif;
+  color:#14111c;
+  background:var(--design-accent);
+  border:2px solid #fff;
+  border-radius:9px;
+  box-shadow:0 6px 20px rgba(0,0,0,.35);
+  cursor:grab;
+  padding:9px 10px;
+  touch-action:none;
+  user-select:none;
+}
+.studio-canvas-visual .cutout-move-handle {top:6px;left:50%;transform:translateX(-50%);white-space:nowrap;}
+.studio-canvas-visual .cutout-resize-handle {bottom:6px;right:6px;font-size:18px;cursor:nwse-resize;}
+.studio-canvas-visual .cutout-move-handle:focus-visible,
+.studio-canvas-visual .cutout-resize-handle:focus-visible {outline:3px solid #fff;outline-offset:3px;}
+.cutout-placement-controls {display:grid;grid-template-columns:1fr;gap:7px;min-width:0;margin:18px 0 22px;border:1px solid var(--line,rgba(255,255,255,.2));border-radius:15px;padding:18px;}
+.cutout-placement-controls legend {font-weight:700;font-size:15px;padding:0 7px;}
+.cutout-placement-controls .muted {font-size:12px;margin:4px 0 9px;}
+.cutout-placement-controls .placement-slider-label {display:flex;justify-content:space-between;align-items:center;margin:5px 0 0;gap:8px;}
+.cutout-placement-controls output {font-variant-numeric:tabular-nums;color:#bdb0ed;font-weight:700;}
+.cutout-placement-controls .placement-range {width:100%;min-height:32px;accent-color:#bda5ee;cursor:pointer;padding:0;}
+.studio-drag-hint {font-size:12px;line-height:1.6;color:var(--muted,#a5acc2);padding:9px 4px;}
+@media (pointer:coarse) {
+  .studio-canvas-visual .cutout-move-handle,.studio-canvas-visual .cutout-resize-handle {min-width:44px;min-height:44px;}
+}

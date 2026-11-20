@@ -79,8 +79,20 @@ if ($path === '/design.css' || preg_match('#^/design/asset/([1-9][0-9]{0,18})$#D
             $current = $repo->current();
             $accent = (string)($current['accent_color'] ?? '#d9ae75');
             if (preg_match('/^#[0-9a-fA-F]{6}$/D', $accent) !== 1) { http_response_code(404); exit; }
+            $placement = \AdultCore\Design\CutoutPlacement::defaults();
+            try {
+                $placement = \AdultCore\Design\CutoutPlacement::validate(
+                    (string)($current['cutout_x'] ?? ''),
+                    (string)($current['cutout_y'] ?? ''),
+                    (string)($current['cutout_width'] ?? '')
+                );
+            } catch (RuntimeException) { /* Retain safe defaults if an older record is malformed. */ }
             header('Content-Type: text/css; charset=UTF-8');
-            echo '.public-site{--design-accent:' . $accent . '}';
+            header('Cache-Control: no-store');
+            echo '.public-site{--design-accent:' . $accent
+                . ';--cutout-x:' . $placement['cutout_x'] . '%'
+                . ';--cutout-y:' . $placement['cutout_y'] . '%'
+                . ';--cutout-width:' . $placement['cutout_width'] . '%}';
         } else {
             $asset = $repo->publicAsset((int)$designMatch[1]);
             if ($asset === null) { http_response_code(404); exit; }

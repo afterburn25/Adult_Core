@@ -1,3 +1,7 @@
+## Latest update — 0.8.6.2-design-dev cutout live manipulation
+
+`src/Design/CutoutPlacement.php` implements strict X/Y/Width percentage validation and additive MySQL schema M12. `DesignController`, `DesignRepository`, public `/design.css`, `Layout::site`, `public/assets/style.css` and `public/assets/design-editor.js` now support a live drag-and-resize cutout editor. Browser pointer/keyboard/mobile fixture test is external to repo; documented in `docs/DESIGN_STUDIO.md`. Keep all four original built-in theme keys (no duplicates). Run all test suites and GitHub MySQL CI before claiming verified. Operator must back up DB and apply `/admin/setup`. No adult media/billing/identity/Pro/1.0 readiness claim.
+
 ## Current 0.8.6-design-dev: Visual Design Studio
 
 Built-in audited themes plus inline homepage plaintext editing and private decorative cutout uploads now exist. Read `docs/DESIGN_STUDIO.md` before changing `src/Design/*`, `/admin/design`, `/design.css`, and `/design/asset/{id}`. Never expose uploaded images directly from public files, never assume public-safe checkbox equals independent age/consent verification, and never enable executing uploaded theme code. Apply `m11_visual_design_v1` via `/admin/setup` on a disposable database. Run `php tests/design_tests.php` and all suites, including GitHub disposable MySQL. Version remains a development preview; MFA/payments/streaming/production not done.
@@ -93,4 +97,4 @@ These are **repository conventions** for continuity across sessions, not an auto
 
 Read `docs/ROADMAP.md` and `docs/SESSION_HANDOFF.md` first. New theme CSS, membership draft schema/authorization, generic event inbox, Pro job envelope and source ZIP builder are incomplete scaffolds. Verify real MySQL before enabling migration and do not infer that payments, consent workflow, streaming or automatic updates are production-ready. Run `php tests/advanced_tests.php` in addition to existing suites, and record any GitHub commit/hash that was actually verified.
 
-**0.8.6.1-design-dev:** Never duplicate the four original theme IDs to show concept mockups. No hero image is valid; preserve theme backgrounds. The concept gallery models are illustrative only, not runtime assets. Preserve installation gates and private image checks.
+**0.8.6.1-design-dev note:** Keep `ThemeCatalog::THEMES` at the four original IDs; never duplicate existing themes to show reference mockups. A theme can have no hero cutout. Background and gallery imagery in concept mockups is NOT automatically licensed or included in the live website. Do not expose private Design Studio images, remove installation locks, or weaken the member-media authorization gate.

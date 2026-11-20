@@ -10,6 +10,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Design\DesignImages;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\CutoutPlacement;
 use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
 use AdultCore\Website\PageRepository;
@@ -55,6 +56,9 @@ final class DesignController
             if ((int)$m->fetchColumn() === 0) {
                 $this->render(503, 'Setup required', '<p>Apply the additive design schema from <a href="/admin/setup">Site setup</a> before editing.</p>'); return;
             }
+            if (!CutoutPlacement::installed($pdo)) {
+                $this->render(503, 'Setup required', '<p>Back up the database, then apply the additive cutout-placement migration from <a href="/admin/setup">Site setup</a> before editing.</p>'); return;
+            }
             $repo = new DesignRepository($pdo);
             if ($method === 'POST') {
                 if ($path === '/admin/design/upload') {
@@ -84,6 +88,7 @@ final class DesignController
         $title = $_POST['title'] ?? null;
         $body = $_POST['body'] ?? null;
         $choice = $_POST['hero_asset'] ?? null;
+        $placement = CutoutPlacement::validate($_POST['cutout_x'] ?? null, $_POST['cutout_y'] ?? null, $_POST['cutout_width'] ?? null);
         if (!is_string($theme) || !is_string($accent) || !is_string($side) || !is_string($size)
             || !is_string($title) || !is_string($body) || !is_string($choice)) {
             throw new RuntimeException('Invalid design settings.');
@@ -100,7 +105,7 @@ final class DesignController
         PageRepository::validate('home',$title,$body,(string)$home['status']);
         $pdo->beginTransaction();
         try {
-            $repo->save($theme,$accent,$side,$size,$assetId);
+            $repo->save($theme,$accent,$side,$size,$assetId,$placement);
             $pageRepo->save((int)$home['id'],'home',trim($title),$body,(string)$home['status']);
             $pdo->commit();
         } catch (Throwable $e) {
@@ -116,6 +121,9 @@ final class DesignController
         $title = is_array($home) ? (string)$home['title'] : 'Your members-only space';
         $body = is_array($home) ? (string)$home['body'] : 'An intimate, beautifully designed membership experience.';
         $selected = $current['hero_asset_id'] ?? null;
+        $placement = CutoutPlacement::validate(
+            (string)$current['cutout_x'], (string)$current['cutout_y'], (string)$current['cutout_width']
+        );
         $notice = match ($_GET['result'] ?? '') {
             'saved' => '<p role="status">Your design and homepage text were saved. Publishing status is unchanged.</p>',
             'uploaded' => '<p role="status">Image uploaded privately. Choose it below and save the design to use it.</p>',
@@ -143,11 +151,23 @@ final class DesignController
         foreach (['right'=>'Right side','left'=>'Left side'] as $v=>$caption) {
             $html .= '<option value="' . $v . '"' . ($current['image_side']===$v?' selected':'') . '>' . $caption . '</option>';
         }
-        $html .= '</select><label for="image-size">Cutout size</label><select id="image-size" name="image_size">';
+        $html .= '</select><label for="image-size">Initial size preset</label><select id="image-size" name="image_size">';
         foreach (['small'=>'Small','medium'=>'Medium','large'=>'Large'] as $v=>$caption) {
             $html .= '<option value="' . $v . '"' . ($current['image_size']===$v?' selected':'') . '>' . $caption . '</option>';
         }
-        $html .= '</select><fieldset class="asset-picker"><legend>Hero image</legend>'
+        $html .= '</select><fieldset class="cutout-placement-controls"><legend>Drag & resize your cutout</legend>'
+            . '<p class="muted">Drag the image or its Move handle over the background. Pull the corner handle to resize it live, or use these keyboard-friendly sliders.</p>';
+        foreach ([
+            ['cutout_x','Horizontal position',0,100,'X'],
+            ['cutout_y','Vertical position',0,100,'Y'],
+            ['cutout_width','Image width',20,100,'Size'],
+        ] as [$field,$label,$min,$max,$short]) {
+            $value = $placement[$field];
+            $html .= '<label class="placement-slider-label" for="' . $field . '"><span>' . $label . '</span><output id="out-' . $field . '" for="' . $field . '">' . $value . '%</output></label>'
+                . '<input class="placement-range" id="' . $field . '" name="' . $field . '" type="range" min="' . $min . '" max="' . $max . '" step="1" value="' . $value . '">';
+        }
+        $html .= '<button id="cutout-reset" type="button" class="button-secondary">Center and reset size</button></fieldset>'
+            . '<fieldset class="asset-picker"><legend>Hero image</legend>'
             . '<label class="asset-choice"><input type="radio" name="hero_asset" value="none"' . ($selected === null?' checked':'') . '> No cutout — keep theme background</label>';
         foreach ($repo->assets() as $asset) {
             $id=(int)$asset['id'];
@@ -166,7 +186,10 @@ final class DesignController
             . '<button class="button-secondary" type="submit">Upload picture</button></form>'
             . '</section><section class="studio-preview-col"><div class="studio-preview-header"><div><p class="eyebrow">LIVE VISUAL EDITOR</p><h2>Click the words to edit</h2></div><a href="/" target="_blank" rel="noopener noreferrer" class="button-secondary">Open published site ↗</a></div>';
         $assetHtml = $selected !== null
-            ? '<img class="design-portrait" alt="Selected decorative image preview" src="/admin/design/asset/' . (int)$selected . '">'
+            ? '<div class="cutout-positioner" id="studio-cutout">'
+                . '<img class="design-portrait" alt="Selected decorative image preview" src="/admin/design/asset/' . (int)$selected . '">'
+                . '<button class="cutout-move-handle" type="button" aria-label="Drag cutout to move">Move ✥</button>'
+                . '<button class="cutout-resize-handle" type="button" aria-label="Drag cutout corner to resize">↘</button></div>'
             : '<span class="studio-preview-placeholder" role="status">+ Add your cutout photo<small>Theme background stays in place</small></span>';
         $html .= '<div class="studio-canvas theme-' . self::e((string)$current['theme_key']) . ' image-' . self::e((string)$current['image_side']) . ' image-size-' . self::e((string)$current['image_size']) . '" id="studio-canvas">'
             . '<div class="studio-canvas-copy"><p class="hero-kicker">PRIVATE · PERSONAL · YOURS</p>'
@@ -174,6 +197,7 @@ final class DesignController
             . '<p id="visual-body" contenteditable="plaintext-only" role="textbox" aria-label="Edit homepage paragraph" aria-multiline="true" spellcheck="true">' . nl2br(self::e($body),false) . '</p>'
             . '<span class="btn btn-primary">Explore membership ↗</span></div>'
             . '<div class="studio-canvas-visual" id="studio-canvas-visual">' . $assetHtml . '</div></div>'
+            . '<p class="studio-drag-hint" role="status" aria-live="polite" id="studio-drag-status">Select a cutout, then drag to move or pull its corner to resize. Changes are live until you save.</p>'
             . '<button class="button-secondary studio-change-image" id="studio-change-image" type="button">Change preview picture ↗</button>'
             . '<p class="muted">This preview is visible to administrators only. A private image will not appear on your published website until it has been marked suitable for public decorative use and selected in a saved design. Homepage draft/published status remains controlled in Pages.</p>'
             . '</section></div><script defer src="/assets/design-editor.js"></script>';

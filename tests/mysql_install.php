@@ -20,6 +20,7 @@ use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\DesignRepository;
+use AdultCore\Design\CutoutPlacement;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
@@ -104,11 +105,24 @@ try {
     SiteSchema::migrate($pdo);  // Repeat-safe.
     DesignSchema::migrate($pdo);
     DesignSchema::migrate($pdo);
+    CutoutPlacement::migrate($pdo);
+    CutoutPlacement::migrate($pdo); // Interrupted/previous upgrades must be restart-safe.
+    $positionColumns = $pdo->query("SHOW COLUMNS FROM ac_design_settings LIKE 'cutout_%'")->fetchAll(PDO::FETCH_ASSOC);
+    if (count($positionColumns)!==3) throw new RuntimeException('Visual positioning columns missing.');
     $design=new DesignRepository($pdo);
     if ($design->current()['theme_key']!=='noir-gold') throw new RuntimeException('Default theme not created.');
     $design->save('velvet-plum','#f19ad0','left','medium',null);
     if ($design->current()['theme_key']!=='velvet-plum' || $design->current()['image_side']!=='left')
         throw new RuntimeException('Theme selection was not persisted.');
+    $design->save('velvet-plum','#f19ad0','left','medium',null,
+        ['cutout_x'=>23,'cutout_y'=>68,'cutout_width'=>62]);
+    $savedPlacement=$design->current();
+    if ($savedPlacement['cutout_x']!==23 || $savedPlacement['cutout_y']!==68 || $savedPlacement['cutout_width']!==62)
+        throw new RuntimeException('Precise cutout coordinates were not persisted.');
+    $design->save('velvet-plum','#f19ad0','left','medium',null);
+    $savedPlacement=$design->current();
+    if ($savedPlacement['cutout_x']!==23 || $savedPlacement['cutout_y']!==68 || $savedPlacement['cutout_width']!==62)
+        throw new RuntimeException('Legacy save unexpectedly reset visual coordinates.');
     // Public image access requires BOTH an admin's explicit public-safe flag and a published homepage.
     $pdo->exec("INSERT INTO ac_design_assets (filename,mime,byte_size,public_ok,created_at)
       VALUES ('" . str_repeat('f',40) . ".png','image/png',120,0,UTC_TIMESTAMP())");

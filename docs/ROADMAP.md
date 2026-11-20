@@ -1,6 +1,12 @@
-## 0.8.6.1-design-dev — Keep four nonduplicated theme selections
+## Current UI milestone — 0.8.6.2-design-dev: live hero cutout manipulation
 
-All four built-in themes retain their IDs and distinct CSS backgrounds. Admin preview now has a clear empty cutout slot. Concept screenshot references keep background/gallery art but are separate from production assets. No adult content automatically imported or made public.
+**Implemented locally (CI verification pending):** in `/admin/design`, cutouts can be repositioned by mouse/touch dragging (or keyboard via Move handle and three range sliders) and resized with a visible corner handle. New percentages persist in additive `m12_cutout_placement_v1` and render through validated public `/design.css` geometry, preserving the four existing themes and explicit public-safe asset policy. Browser pointer-interaction and mobile-width checks passed with a static fixture using the shipped CSS and JavaScript.
+
+**Unfinished:** per-theme independent layouts/draft positioning, true page-wide drag and drop, richer multiple-image layering, visual masks and undo/redo, automatic background removal; also all existing MFA/age/consent/billing/Pro video/update/hosting/independent-audit release gates. No production 1.0 claim.
+
+## 0.8.6.1-design-dev — Theme preservation and cutout slots
+
+The **same four** built-in themes remain selectable (no duplicated IDs). The administrator can explicitly choose no hero cutout while retaining theme background styling, or upload a personal transparent cutout. Four edited concept screenshot pages are supplied **outside the runtime codebase** for reference. Theme background art in these mockups is visual reference; it is not silently installed into public CSS assets. No member media or public adult gallery thumbnails are imported.
 
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
 

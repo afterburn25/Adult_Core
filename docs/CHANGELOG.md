@@ -1,8 +1,17 @@
-## 0.8.6.1-design-dev — Empty hero cutout slots
+## 2026-11-20 — 0.8.6.2-design-dev: drag/resize live cutouts
 
-- Preserved the four built-in theme entries, palettes, layout and backgrounds without duplicates or new tables.
-- Made the no-cutout option clear and added an image-upload placeholder in the live Design Studio preview.
-- Added regression tests and documentation; image concept references (with background/gallery thumbnails) remain outside the runtime gallery.
+- Added additive, restart-safe `CutoutPlacement::migrate()` (`m12_cutout_placement_v1`) with bounded integer coordinates and one-time translation from legacy Small/Medium/Large.
+- Design Studio now displays explicit Move and Resize handles, percentage sliders, reset, keyboard shortcuts and mouse/touch pointer capture with live CSS position/size preview.
+- Public hero uses the same CSS variable geometry only after validated saved settings, and continues to refuse unpublished or private image assets.
+- Extended PHP and disposable-MySQL HTTP/installer tests for unsafe CSS input, coordinate persistence, and public parity. Locally exercised Chromium pointer dragging, resizing, keyboard/reset and mobile layout against a static fixture; GitHub CI/cPanel certification pending.
+- No duplicate themes, new executable plugins, billing, content publishing, or changed installer-folder deletion gate.
+
+## 0.8.6.1-design-dev — Empty hero cutout slots and nonduplicated themes
+
+- Kept all four existing built-in theme identifiers, palettes and layout CSS exactly once; no migration.
+- Clarified the no-cutout selection and added a visible upload slot within the administrative visual editor without replacing the original theme backgrounds.
+- Updated editor JS/CSS, regression checks, and documentation. Created a separate concept-art bundle with background/gallery imagery retained but prominent hero models removed.
+- No production age-verification, consent certification, payments or streaming implemented.
 
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
 

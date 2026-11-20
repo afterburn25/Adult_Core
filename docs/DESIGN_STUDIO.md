@@ -1,3 +1,15 @@
+## Live drag-and-resize controls — 0.8.6.2-design-dev
+
+The four trusted theme IDs are still exactly `noir-gold`, `velvet-plum`, `midnight-teal`, `rose-ivory`. No additional theme/duplicate is created. Their distinct CSS backgrounds and color palettes remain available.
+
+1. **Back up your site database**, then run authenticated `/admin/setup` to apply additive `m12_cutout_placement_v1`; this adds `cutout_x`, `cutout_y`, `cutout_width` to `ac_design_settings` without dropping current settings or assets. Re-running the setup is safe; a partial MySQL ALTER can be resumed. Existing selected images are mapped from the previous Small/Medium/Large setting once.
+2. Open `/admin/design`; choose an already uploaded hero cutout (transparent PNG or WebP recommended). If none is selected, the theme background remains untouched.
+3. Drag the photo itself or the visible **Move ✥** handle across the live preview; pull the **↘** lower-corner handle to resize. Both work with pointer/mouse and touch. The handles accept arrow keys (Shift+arrow = ten percentage points); the labeled X, Y and Width range sliders provide keyboard-accessible fine control and live percentage readouts. Choose **Center and reset size** to restore X=50%, Y=50%, Width=80%.
+4. Select a different built-in theme or color palette and the preview updates without resetting those slider values. Click **Save design changes** to commit the new geometry and homepage plaintext; this does not change the homepage draft/published status. Stored placement uses validated integer percentages (X/Y 0–100; Width 20–100). Placing a cutout near an edge can deliberately crop it inside its image frame.
+5. The public `/design.css` endpoint emits the same validated X/Y/Width values as CSS custom properties; the public hero uses the matching `cutout-positioner` markup. A photo is only served publicly if it is the currently selected approved decorative asset **and** the homepage is independently published. Private preview images are never exposed by the public route.
+
+Limitations: movement is within the hero picture region rather than an arbitrary page-wide freeform canvas; X/Y/Width are shared with the active homepage theme, not independent unsaved drafts for every theme. Background-removal automation, multiple layering, z-index management, crop masks, and undo history are not available. The included preview screenshot uses synthetic art, not a real creator photo. This is still a development build; age/consent, billing, Pro streaming and certification remain blocked.
+
 # Visual Design Studio — 0.8.6-design-dev
 
 **Development feature, not a production adult-content publishing workflow.** The visual studio supports **trusted built-in layouts** and private decorative photo assets. It does not execute third-party uploaded HTML/JS/PHP or treat an upload as verified adult content.
@@ -46,10 +58,10 @@ python3 tests/mysql_http_auth.py
 
 The production image source still lives exclusively under the operator's install; documentation/examples never include customer photos or private signing secrets.
 
-## 0.8.6.1-design-dev — Four existing themes, optional hero cutouts (2026-11-20)
+## 0.8.6.1-design-dev — Keep four presets, leave hero cutouts empty (2026-11-20)
 
-- Kept the **original four theme IDs** unchanged with no duplicate entries: `noir-gold`, `velvet-plum`, `midnight-teal`, `rose-ivory`.
-- The Design Studio now explicitly offers **No cutout — keep theme background**, with a visible **Add your cutout photo** preview slot. Background palettes and audited layouts remain available when no image is selected.
-- Gallery and backdrop photos in the separate edited **concept previews** are illustrative design references. They are not silently copied into publicly served runtime galleries; the actual application keeps theme-native CSS backgrounds.
-- Transparent PNG/WebP files remain private unless explicitly declared public-safe, selected and used on a published homepage; independent verification is still required before any adult member media can be published.
-- No schema migration, production release or paid content functionality is introduced.
+- Retain the **four existing** built-in theme keys (Noir Atelier, Velvet Club, Midnight Studio, Rose Editorial) unchanged. No duplicate themes, new module IDs, or database changes.
+- The Design Studio's empty-image option is now labelled **No cutout — keep theme background**. Its preview shows **Add your cutout photo** and retains the selected layout and palette; selecting an uploaded photo replaces only the empty slot. Theme switching does not inject any example model.
+- The selected hero image remains optional and can be cleared without losing the background styling; the public site uses theme-native abstract decor if no image is selected. The current implementation saves one site-wide selected hero image, **not four separately saved hero images**.
+- Four revised, standalone design **concept previews** with empty hero areas are packaged separately. They retain the backdrop scenes and gallery thumbnail examples. These screenshots are concept art, **not installed PHP theme assets or production-cleared photographs**, and the thumbnail models are not imported automatically into customer sites. Actual live themes use audited CSS layouts/backgrounds.
+- User-provided transparent PNG/WebP remains private on upload and requires existing public-safe confirmation, selection, and a published home page before public delivery. Adults-only media requires independent identity/consent approval and is not accepted as public Design Studio imagery.
