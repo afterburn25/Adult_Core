@@ -1,3 +1,10 @@
+## 2026-11-20 — 0.8.6.3-license-dev: Cajun Web Pro product licensing integration
+
+- Verified Cajun_Web's product-bound validation endpoint contract and wired one shared license authority into Adult_Core. Added mandatory key/hostname validation before MySQL bootstrap, private first-install license state, signed positive/negative cache, runtime revalidation/revocation with limited transient grace, wrong-domain refusal, and authenticated administrator `/admin/license` recovery.
+- Existing Lite/Pro detection, physical installer cleanup, signed install completion, admin sessions/CSRF, package controls and private-media gate remain intact.
+- Added fake-service contract tests, denied-install protection, HTTP license-lock smoke tests, and disposable MySQL/browser assertions; updated CI to run license tests. No live Cajun Web Pro license was provisioned, and existing production hosting has not been tested.
+- **Operator action still required:** register `SOFTWARE-ADULT-CORE` in Cajun Web Pro's software catalog and issue a product-specific license with registered domain before any real installation can pass.
+
 ## 2026-11-20 — 0.8.6.2-design-dev: drag/resize live cutouts
 
 - Added additive, restart-safe `CutoutPlacement::migrate()` (`m12_cutout_placement_v1`) with bounded integer coordinates and one-time translation from legacy Small/Medium/Large.

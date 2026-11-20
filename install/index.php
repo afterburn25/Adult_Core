@@ -86,6 +86,8 @@ if (!extension_loaded('session')) {
                         || str_starts_with($message, 'Installation already running')
                         || str_starts_with($message, 'Installation files already exist')) {
                         $errorMessage = $message;
+                    } elseif (str_contains($message, 'Cajun Web Pro') || str_contains($message, 'License not authorized')) {
+                        $errorMessage = $message;
                     } else {
                         $errorMessage = 'Installation failed. Review database access, empty schema and server permissions.';
                     }
@@ -145,6 +147,14 @@ if (!extension_loaded('session')) {
                 <?php if ($edition !== null && $secureRequest && $errorMessage !== 'Cannot initialize installer session.'): ?>
                     <form method="post" action="/install/" autocomplete="off" class="install-form">
                         <input type="hidden" name="csrf" value="<?= html((string) ($_SESSION['csrf'] ?? '')) ?>">
+                        <div class="form-divider"></div>
+                        <h3>Activation — Cajun Web Pro</h3>
+                        <p class="muted">A valid Adult_Core license for this registered hostname is mandatory. Keys are issued in your Cajun Web Pro software customer portal; install cannot proceed without online authorization.</p>
+                        <label for="license_key">Adult_Core license key</label>
+                        <input id="license_key" name="license_key" type="password" minlength="8" maxlength="255" required autocomplete="off" spellcheck="false" placeholder="Enter your Cajun Web Pro license key">
+                        <label for="license_domain">Registered license domain (without https://)</label>
+                        <input id="license_domain" name="license_domain" type="text" required maxlength="253" spellcheck="false" autocomplete="url" value="<?= html(is_string($_POST['license_domain'] ?? null) ? $_POST['license_domain'] : (string) (parse_url('http://' . (string) ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST) ?: '')) ?>" placeholder="example.com">
+                        <div class="form-divider"></div>
                         <label for="site_name">Website name</label>
                         <input id="site_name" name="site_name" type="text" minlength="2" maxlength="120" required value="<?= html(is_string($_POST['site_name'] ?? null) ? $_POST['site_name'] : '') ?>" placeholder="My Private Membership Site">
                         <div class="form-grid"><div><label for="db_host">Database host</label><input id="db_host" name="db_host" type="text" value="localhost" required></div><div><label for="db_port">Port</label><input id="db_port" name="db_port" type="number" min="1" max="65535" value="3306" required></div></div>

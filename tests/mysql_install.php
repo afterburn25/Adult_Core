@@ -60,6 +60,7 @@ mkdir($root . '/config');
 mkdir($root . '/install');
 mkdir($root . '/storage');
 $inputs = [
+    'license_key' => 'ABCD-EF12-3456-7890', 'license_domain' => '127.0.0.1',
     'db_host' => $host, 'db_port' => (int) $port, 'db_name' => $name,
     'db_user' => $user, 'db_password' => $pass,
     'site_name' => 'Disposable Integration Site',
@@ -67,7 +68,31 @@ $inputs = [
     'admin_password' => 'super-secret-example-password',
 ];
 try {
-    (new InstallService($root))->install($inputs, 'lite');
+    // Explicit rejection must occur before MySQL schema creation.
+    try {
+        (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+            static fn(string $body): array => ['status'=>200, 'body'=>'{"authorized":false}']
+        )))->install($inputs, 'lite');
+        throw new RuntimeException('Rejected vendor license was accepted before installation.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'License not authorized')) throw $error;
+    }
+    Schema::assertFresh($pdo); // No tables may be created for a denied license.
+    if (is_file($root.'/config/license.php') || is_file($root.'/storage/install-state.json')) {
+        throw new RuntimeException('Denied license wrote completion data.');
+    }
+    (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+        static function (string $body): array {
+            $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
+            if (($payload['product_id'] ?? null) !== \AdultCore\Licensing\CajunWebClient::SKU
+                || ($payload['license_key'] ?? null) !== 'ABCD-EF12-3456-7890'
+                || ($payload['domain'] ?? null) !== '127.0.0.1') throw new RuntimeException('Test license validation contract mismatch.');
+            return ['status' => 200, 'body' => '{"authorized":true}'];
+        }
+    )))->install($inputs, 'lite');
+    if ((new \AdultCore\Licensing\LicenseManager($root))->status('127.0.0.1') !== 'valid') {
+        throw new RuntimeException('Completed installation did not persist a valid signed license.');
+    }
     $gate = new InstallationGate($root);
     if ($gate->status() !== InstallationGate::CLEANUP_REQUIRED) {
         throw new RuntimeException('Gate did not enforce installer cleanup.');

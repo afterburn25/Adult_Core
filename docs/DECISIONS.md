@@ -86,3 +86,9 @@ This deliberately leaves executable plugin APIs, theme rendering, migrations and
 ## 2026-11-20 — Defer production launch pending security integration
 
 Theme runtime serves only signed static CSS; neither PHP nor JavaScript from uploaded packages runs in the core. Member data migrations are deliberately not installed automatically until disposable-MySQL and recovery coverage is in place. Billing provider adapters and media streaming are separate, reviewed integrations; cryptographic helper classes do not confer production readiness.
+
+## ADR — Reuse Cajun Web Pro's software licensing authority (2026-11-20)
+
+Adult_Core does not fork the Cajun_Web license generator. It calls Cajun Web Pro's fixed HTTPS `POST /api/validate.php` with the exact catalog SKU `SOFTWARE-ADULT-CORE`, key and canonical registered domain. Do not authorize missing-SKU/unknown-product responses, or treat HTTP200+`authorized:false` as an outage. Product SKU and vendor-issued entitlements require a separate owner configuration on Cajun Web Pro; don't write to its complex payment infrastructure to bootstrap or fake a license.
+
+First-install vendor positive proof precedes MySQL DDL; a private file and HMAC-signed last-success cache enable bounded rate-limited revalidation without hammering vendor APIs. A known denial blocks immediately; transient vendor failures permit up to 72h from the last trusted success and otherwise block. A legacy installation must activate via the authenticated `/admin/license` repair route; the top-level `install/` deletion requirement and signed completion marker remain independent prerequisites. License keys never belong in Git, public HTML, JS, release ZIPs or audit logs.

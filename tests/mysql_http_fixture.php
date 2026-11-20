@@ -53,7 +53,16 @@ if ($action === 'cleanup') {
 }
 Schema::assertFresh($pdo);
 $root = dirname(__DIR__);
-(new InstallService($root))->install([
+(new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+        static function (string $body): array {
+            $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
+            if (($payload['product_id'] ?? null) !== \AdultCore\Licensing\CajunWebClient::SKU
+                || ($payload['license_key'] ?? null) !== 'ABCD-EF12-3456-7890'
+                || ($payload['domain'] ?? null) !== '127.0.0.1') throw new RuntimeException('Test license validation contract mismatch.');
+            return ['status' => 200, 'body' => '{"authorized":true}'];
+        }
+    )))->install([
+    'license_key' => 'ABCD-EF12-3456-7890', 'license_domain' => '127.0.0.1',
     'db_host' => $host, 'db_port' => $port, 'db_name' => $name,
     'db_user' => $user, 'db_password' => $pass, 'site_name' => 'HTTP Fixture <script>alert(1)</script>',
     'admin_email' => 'owner@example.test', 'admin_password' => 'strong-example-admin-password',

@@ -93,7 +93,29 @@ def run():
             assert_http("packages blocked until cleanup", "/admin/packages", 503, "Installation cleanup required")
             assert_http("installer blocked after completion", "/install/", 503, "Installation cleanup required")
 
+            # Signed fixture for a test-only authorized license. Production
+            # installation must get the initial verdict from Cajun Web Pro.
+            (root / "config" / "license.php").write_text(
+                "<?php return ['license_key'=>'ABCD-EF12-3456-7890',"
+                "'domain'=>'127.0.0.1','sku'=>'SOFTWARE-ADULT-CORE'];", encoding="utf-8"
+            )
+            subprocess.check_call([
+                'php','-r',
+                "require 'src/Support/Autoload.php'; "
+                "file_put_contents('storage/license-cache.json', "
+                "\\AdultCore\\Licensing\\LicenseState::encode('ABCD-EF12-3456-7890', "
+                "'127.0.0.1', str_repeat('a', 64), 'valid', time(), time()));",
+            ], cwd=root)
             shutil.rmtree(root / "install")
+            # Removing a license must not unlock a completed installation.
+            license_path = root / "config" / "license.php"
+            license_private = license_path.read_text(encoding="utf-8")
+            license_path.unlink()
+            assert_http("unlicensed public site locked", "/", 503, "license authorization required")
+            assert_http("unlicensed admin dashboard locked", "/admin", 503, "license authorization required")
+            assert_http("admin login remains reachable to repair license", "/admin/login", 200, "Sign in")
+            assert_http("license repair requires admin login", "/admin/license", 302)
+            license_path.write_text(license_private, encoding="utf-8")
             # The public membership runtime remains deliberately disabled,
             # while the newly implemented administrator login is accessible.
             assert_http("public runtime stays unavailable", "/", 503, "Temporarily unavailable")

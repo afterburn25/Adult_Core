@@ -85,6 +85,29 @@ def main():
             code, body = req('/admin')
             ensure('Dashboard loads authenticated', code == 200 and 'HTTP Fixture &lt;script&gt;alert(1)&lt;/script&gt;' in body and '<script>alert(1)</script>' not in body)
             ensure('Edition visible', 'LITE' in body)
+            code, license_page = req('/admin/license')
+            ensure('Licensed admin configuration accessible', code == 200 and 'SOFTWARE-ADULT-CORE' in license_page)
+            ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
+            license_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', license_page)
+            ensure('License changes require CSRF', license_csrf is not None)
+            code, _ = req('/admin/license', {'csrf': 'invalid','license_key':'ABCD-EF12-3456-7890','license_domain':'127.0.0.1'})
+            ensure('Invalid license CSRF rejected', code == 403)
+            code, _ = req('/admin/license', {'csrf': license_csrf.group(1),'license_key':'short','license_domain':'127.0.0.1'})
+            ensure('Malformed license replacement rejected', code == 422)
+            # Removing the private license blocks real authenticated pages, not repair.
+            installed_license = root / 'config/license.php'
+            private_contents = installed_license.read_bytes()
+            installed_license.unlink()
+            try:
+                code, locked = req('/admin')
+                ensure('Authenticated dashboard locks without valid license', code == 503 and 'license authorization required' in locked)
+                code, repair = req('/admin/license')
+                ensure('Authenticated license repair works while blocked', code == 200 and 'license' in repair.lower())
+                code, locked = req('/p/anything')
+                ensure('Public content locks without valid license', code == 503)
+            finally:
+                installed_license.write_bytes(private_contents)
+
             # Browser-driven additive migration and public page editor.
             code, setup = req('/admin/setup')
             ensure('Authenticated setup page', code == 200 and 'Apply additive migrations' in setup)

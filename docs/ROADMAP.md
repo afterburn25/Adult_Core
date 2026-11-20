@@ -1,3 +1,9 @@
+## Cajun Web Pro license integration — 0.8.6.3-license-dev
+
+**Implemented in source:** mandatory product-bound Cajun Web Pro vendor validation before initial database setup; private server-side key storage; HMAC-sealed hourly runtime cache, explicit revocation and 72-hour bounded transient-outage grace; wrong-domain lockout; authenticated CSRF-protected `/admin/license` repair for legacy installations. Existing Lite/Pro capability selection and mandatory physical `install/` deletion are preserved.
+
+**Not yet done:** Register/publish the `SOFTWARE-ADULT-CORE` SKU in Cajun Web Pro (not found in its code/catalog definitions), validate a real staging key/domain and live hosted TLS, add software update-version entitlements, test existing-host migration and enterprise license support. Production readiness remains blocked by unrelated release gates. See [CAJUN_WEB_PRO_LICENSING.md](CAJUN_WEB_PRO_LICENSING.md).
+
 ## Current UI milestone — 0.8.6.2-design-dev: live hero cutout manipulation
 
 **Implemented locally (CI verification pending):** in `/admin/design`, cutouts can be repositioned by mouse/touch dragging (or keyboard via Move handle and three range sliders) and resized with a visible corner handle. New percentages persist in additive `m12_cutout_placement_v1` and render through validated public `/design.css` geometry, preserving the four existing themes and explicit public-safe asset policy. Browser pointer-interaction and mobile-width checks passed with a static fixture using the shipped CSS and JavaScript.

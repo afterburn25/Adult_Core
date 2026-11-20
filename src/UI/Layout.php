@@ -128,6 +128,7 @@ final class Layout
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
             ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
+            ['url' => '/admin/license', 'label' => 'License', 'icon' => 'shield'],
             ['url' => '/admin/members', 'label' => 'Members', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],

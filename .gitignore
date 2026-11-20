@@ -20,3 +20,6 @@
 
 # Private shared-host email transport settings
 /config/email.php
+
+# Private Cajun Web Pro activation credential (never include in releases).
+/config/license.php

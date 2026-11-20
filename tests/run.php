@@ -151,6 +151,7 @@ rmdir($fixtureRoot . '/storage');
 rmdir($fixtureRoot);
 
 $goodInput = [
+    'license_key' => 'ABCD-EF12-3456-7890', 'license_domain' => 'example.test',
     'db_host' => 'localhost', 'db_port' => '3306', 'db_name' => 'test_db',
     'db_user' => 'test_user', 'db_password' => 'some-private-pass',
     'site_name' => 'Test Membership', 'admin_email' => 'OWNER@EXAMPLE.COM',
@@ -159,6 +160,8 @@ $goodInput = [
 $validated = InstallInput::validate($goodInput);
 assertCheck('Valid installer input normalizes email and port', $validated['admin_email'] === 'owner@example.com' && $validated['db_port'] === 3306);
 foreach ([
+    'Invalid license key rejected' => ['license_key', 'short'],
+    'Invalid license hostname rejected' => ['license_domain', 'https://bad.example.com/x'],
     'Invalid DB host rejects DSN injection' => ['db_host', 'localhost;dbname=bad'],
     'Invalid DB name rejects SQL injection' => ['db_name', 'name`;DROP TABLE x'],
     'Weak admin password rejected' => ['admin_password', '123'],

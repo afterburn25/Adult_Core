@@ -11,6 +11,7 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Capability\HostInspector;
 use AdultCore\Package\PackageStore;
+use AdultCore\Licensing\LicenseManager;
 use AdultCore\UI\Layout;
 use AdultCore\UI\Dashboard;
 use PDO;
@@ -66,6 +67,12 @@ final class AdminController
             $this->redirect('/admin/login', 302);
             return;
         }
+        // License repair remains available to a signed-in administrator even
+        // when the rest of the site is blocked by the licensing gate.
+        if ($path === '/admin/license') {
+            $this->licensePage($method, $admin);
+            return;
+        }
         if ($path === '/admin/design' || $path === '/admin/design/upload' || str_starts_with($path, '/admin/design/asset/')) {
             (new DesignController($this->root))->handle($path, $method, $admin);
             return;
@@ -105,11 +112,66 @@ final class AdminController
         }
     }
 
+    /** Only an existing admin can repair or replace the private license key. */
+    private function licensePage(string $method, array $admin): void
+    {
+        if (!RolePolicy::allows($admin['role'], 'admin.dashboard.view')) {
+            $this->error(403, 'Access denied', 'Administrator permission is required.');
+            return;
+        }
+        if (!in_array($method, ['GET', 'POST'], true)) {
+            $this->methodNotAllowed('GET, POST');
+            return;
+        }
+        $manager = new LicenseManager($this->root);
+        $error = null;
+        if ($method === 'POST') {
+            if (!AdminSession::csrfValid($_POST['csrf'] ?? null)) {
+                $this->error(403, 'Invalid security token', 'Reload the licensing form and try again.');
+                return;
+            }
+            try {
+                $key = $_POST['license_key'] ?? null;
+                $domain = $_POST['license_domain'] ?? null;
+                if (!is_string($key) || !is_string($domain)) throw new \InvalidArgumentException('Enter your key and registered domain.');
+                // Scope limiter for repeated vendor-key guesses. No key is logged.
+                (new \AdultCore\Installer\InstallRateLimiter($this->root . '/storage'))->consume(
+                    'license:' . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')
+                );
+                $manager->replaceLicense($key, $domain);
+                $this->redirect('/admin/license?updated=1');
+                return;
+            } catch (\InvalidArgumentException | \RuntimeException $exception) {
+                $error = $exception->getMessage();
+                http_response_code(422);
+            } catch (Throwable) {
+                $error = 'License activation is temporarily unavailable. Try again later.';
+                http_response_code(503);
+            }
+        }
+        $saved = $manager->config();
+        $state = $manager->status();
+        $domain = $saved['domain'] ?? '';
+        $content = '<p class="eyebrow">CAJUN WEB PRO · PRODUCT LICENSING</p><h1>Adult_Core license</h1>'
+            . '<p class="intro">Activation is required to install and use Adult_Core. Licenses are issued and administered by Cajun Web Pro. '
+            . 'Your key is stored privately and never displayed in this workspace.</p>'
+            . '<section class="panel"><p><strong>Current status:</strong> ' . self::escape($state) . '</p>'
+            . '<p><strong>Product SKU:</strong> SOFTWARE-ADULT-CORE</p>'
+            . '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p></section>'
+            . ($error !== null ? '<div class="alert-error" role="alert">' . self::escape($error) . '</div>' : '')
+            . '<section class="panel"><h2>Activate or replace license</h2><form method="post" action="/admin/license" class="install-form" autocomplete="off">'
+            . '<input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
+            . '<label for="license-key">License key</label><input id="license-key" name="license_key" type="password" required autocomplete="off" maxlength="255">'
+            . '<label for="license-domain">Registered domain</label><input id="license-domain" name="license_domain" required maxlength="253" value="' . self::escape($domain) . '">'
+            . '<button type="submit" class="install-button">Validate and save license</button></form></section>';
+        $this->page('License activation', $content);
+    }
+
     private function login(string $method): void
     {
         $admin = $this->currentAdmin();
         if ($admin !== null) {
-            $this->redirect('/admin');
+            $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
             return;
         }
         $error = null;
@@ -133,7 +195,7 @@ final class AdminController
                         $error = 'Invalid email or password.';
                     } else {
                         AdminSession::authenticate($account['id']);
-                        $this->redirect('/admin');
+$this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
                         return;
                     }
                 } catch (\RuntimeException $e) {

@@ -52,6 +52,8 @@ jobs:
         run: php tests/ui_tests.php
       - name: Visual Design Studio safety tests
         run: php tests/design_tests.php
+      - name: Cajun Web Pro licensing contract and gate tests
+        run: php tests/licensing_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

@@ -64,6 +64,19 @@ if ($path === '/install') {
     exit;
 }
 
+// Cajun Web Pro is the single license authority for Adult_Core. An installed
+// site with a missing, revoked, wrong-domain or stale-unverified license stays
+// inaccessible. Only authenticated license recovery and admin sign-in remain.
+$licenseStatus = (new \AdultCore\Licensing\LicenseManager($root))->status();
+if ($licenseStatus !== 'valid' && !in_array($path, ['/admin/login', '/admin/logout', '/admin/license'], true)) {
+    http_response_code(503);
+    header('Retry-After: 1800');
+    $heading = 'Adult_Core license authorization required';
+    $message = 'The Cajun Web Pro license for this installation is missing, deactivated, registered for another hostname, or could not be validated within the permitted temporary-outage window. All site and workspace features stay locked. A site administrator can sign in and update the license at /admin/license.';
+    require $root . '/src/Installer/LockedScreen.php';
+    exit;
+}
+
 // Built-in layout palette and explicitly public-safe decorative assets only.
 if ($path === '/design.css' || preg_match('#^/design/asset/([1-9][0-9]{0,18})$#D', $path, $designMatch) === 1) {
     if (!in_array(($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET','HEAD'], true)) {

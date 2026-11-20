@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Installer;
 
 use InvalidArgumentException;
+use AdultCore\Licensing\CajunWebClient;
 
 final class InstallInput
 {
@@ -12,6 +13,8 @@ final class InstallInput
     public static function validate(array $fields): array
     {
         $take = static fn(string $key): string => is_string($fields[$key] ?? null) ? trim($fields[$key]) : '';
+        $licenseKey = CajunWebClient::key($take('license_key'));
+        $licenseDomain = CajunWebClient::domain($take('license_domain'));
         $dbHost = $take('db_host');
         $dbName = $take('db_name');
         $dbUser = $take('db_user');
@@ -36,6 +39,7 @@ final class InstallInput
             throw new InvalidArgumentException('Please check database settings, site name, email and password (minimum 12 characters; both passwords must match).');
         }
         return [
+            'license_key' => $licenseKey, 'license_domain' => $licenseDomain,
             'db_host' => $dbHost,
             'db_port' => (int) $portString,
             'db_name' => $dbName,

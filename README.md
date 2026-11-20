@@ -1,3 +1,10 @@
+
+## Cajun Web Pro mandatory licensing (0.8.6.3-license-dev)
+
+First installation now requires a **Cajun Web Pro Adult_Core software license key** and the pre-registered installation hostname. The installer validates `product_id=SOFTWARE-ADULT-CORE` through Cajun Web Pro **before touching MySQL**. Installed sites periodically revalidate and block feature routes when the license is missing, revoked or unverifiable beyond a bounded outage grace. Signed installation cleanup remains mandatory, and authenticated license repair is at `/admin/license`.
+
+**Vendor setup required:** The `Cajun_Web` repository has a functioning product-bound licensing API, but no Adult_Core catalog SKU was identified. An operator must first register `SOFTWARE-ADULT-CORE`, publish its product/release and issue/register an eligible customer license in Cajun Web Pro. See **[integration and security guide](docs/CAJUN_WEB_PRO_LICENSING.md)**. Do not use a made-up key or assume paid license checkout has been tested.
+
 ## 0.8.6.2-design-dev — live cutout drag and resize (2026-11-20)
 
 In the authenticated **Design Studio** (`/admin/design`), choose an existing uploaded PNG/WebP cutout, then drag its image or **Move** handle directly on the theme background; drag the **↘** corner handle to resize with an immediate visual update. Horizontal/vertical/width sliders (with percentage readouts), arrow-key controls, reset, and touch-pointer support are provided. Save to persist relative coordinates in an additive MySQL migration and render the same percentage geometry on the public homepage **only if** the image has been explicitly declared suitable for public decorative use and the homepage is published. Applying `/admin/setup` after backup is required; the prior four built-in themes and their background styling are unchanged.
