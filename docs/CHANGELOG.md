@@ -79,3 +79,9 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
 GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.
+
+## Verified CI — 0.8.2-dev (2026-11-20)
+
+- Source commit: [`b9f47e8a5d0e269030f092feadc400d5df98e00e`](https://github.com/afterburn25/Adult_Core/commit/b9f47e8a5d0e269030f092feadc400d5df98e00e).
+- GitHub Actions [run 44738983959](https://github.com/afterburn25/Adult_Core/actions/runs/44738983959) **passed** on PHP 8.3 and disposable MySQL. Validation covered new signed-verification tests, encrypted snapshot and release manifest checks, real installer/member/moderation integration, and HTTP lifecycle checks.
+- This is **not** a passed production 1.0 release: no contracted independent age-verification provider, approved adult payment processor, Pro video workers, actual cPanel/VPS certification, restored backups, complete signed updates, MFA or independent security audit. No public adult content, real payments or streaming are authorized.
