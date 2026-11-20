@@ -9,6 +9,8 @@ use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberSession;
+use AdultCore\Moderation\ModerationRepository;
+use AdultCore\Moderation\ModerationSchema;
 use PDO;
 use Throwable;
 
@@ -36,6 +38,7 @@ final class MemberController
                 if (!MemberSession::csrfValid($_POST['csrf'] ?? null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
                 MemberSession::logout(); $this->redirect('/'); return;
             }
+            if ($path === '/members/report') { $this->report($pdo,$method,$accounts); return; }
             if ($path === '/members') {
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 $member = $this->member($accounts);
@@ -43,6 +46,7 @@ final class MemberController
                 $this->view(200,'Member account','<p>Signed in as <strong>' . self::e($member['email']) . '</strong>.</p>'
                     . '<p>Account status: <strong>' . self::e($member['status']) . '</strong>.</p>'
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
+                    . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
                 return;
             }
@@ -53,6 +57,44 @@ final class MemberController
         } catch (Throwable) {
             $this->view(503,'Temporarily unavailable','<p>The member service is not available.</p>');
         }
+    }
+
+    private function report(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST');return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login');return; }
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([ModerationSchema::VERSION]);
+        if ((int)$q->fetchColumn()!==1) { $this->view(503,'Reporting unavailable','<p>Reporting has not been set up.</p>');return; }
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload and retry.</p>');return;
+            }
+            $id=filter_var($_POST['content_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            $reason=$_POST['reason']??null;
+            if ($id===false || !is_string($reason)) {
+                $this->view(422,'Invalid report','<p>Enter a valid content ID and reason.</p>');return;
+            }
+            try {
+                (new ModerationRepository($pdo))->submitReport((int)$member['id'],(int)$id,$reason);
+                $this->redirect('/members/report?result=received');
+            } catch (\PDOException) {
+                $this->view(503,'Reporting unavailable','<p>Report could not be saved. Try again later.</p>');
+            } catch (\RuntimeException $e) {
+                $this->view(422,'Invalid report','<p>'.self::e($e->getMessage()).'</p>');
+            }
+            return;
+        }
+        $prefill=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        $html='<p class="intro">Report suspected nonconsensual, underage, privacy-invasive or unsafe material. Reports quarantine the content pending review. Do not submit identity documents or sensitive personal data here.</p>';
+        if (($_GET['result']??'')==='received') $html.='<p role="status">Your report has been received if the content ID exists. Thank you.</p>';
+        $html.='<section class="panel"><form method="post" action="/members/report" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+            .'<label for="report-id">Content ID</label><input id="report-id" name="content_id" type="number" min="1" required value="'.($prefill!==false?(int)$prefill:'').'">'
+            .'<label for="report-reason">Reason</label><textarea id="report-reason" name="reason" minlength="10" maxlength="1000" rows="5" required></textarea>'
+            .'<button class="install-button" type="submit">Submit safety report</button></form></section>';
+        $this->view(200,'Report content',$html);
     }
 
     private function form(string $path, string $method, MemberAccounts $accounts): void

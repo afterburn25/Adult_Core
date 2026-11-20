@@ -11,6 +11,7 @@ use AdultCore\Website\PageRepository;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Membership\MembershipSchema;
+use AdultCore\Moderation\ModerationSchema;
 use PDO;
 use Throwable;
 use RuntimeException;
@@ -62,6 +63,7 @@ final class SiteAdminController
             SiteSchema::migrate($pdo);
             MemberSchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
+            ModerationSchema::migrate($pdo);
             header('Location: /admin/pages?result=setup', true, 303);
             return;
         }
@@ -147,7 +149,7 @@ final class SiteAdminController
         http_response_code($code);
         echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<title>' . self::e($title) . ' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head><body><div class="shell">'
-            . '<header class="topbar"><a href="/admin">Admin dashboard</a><nav class="site-nav"><a href="/admin/pages">Pages</a><a href="/admin/members">Members</a><a href="/admin/packages">Packages</a></nav></header>'
+            . '<header class="topbar"><a href="/admin">Admin dashboard</a><nav class="site-nav"><a href="/admin/pages">Pages</a><a href="/admin/members">Members</a><a href="/admin/packages">Packages</a><a href="/admin/moderation">Moderation</a></nav></header>'
             . '<main><h1>' . self::e($title) . '</h1>' . $body . '</main><footer>Adult Core administration</footer></div></body></html>';
     }
 

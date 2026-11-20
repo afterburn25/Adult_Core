@@ -25,6 +25,10 @@ final class Entitlements
         if (!is_array($record) || $record['status'] !== 'published' || $record['review_status'] !== 'approved'
             || $record['user_status'] !== 'active') return false;
 
+        // Open reports deny even otherwise valid media entitlements.
+        $open=$this->pdo->prepare("SELECT 1 FROM ac_content_reports WHERE content_id=? AND status='open' LIMIT 1");
+        $open->execute([$contentId]);
+        if ($open->fetchColumn()) return false;
         if ((int)$record['requires_consent'] === 1) {
             // A content item requiring performer consent must have approved verification evidence.
             // Production publishing must also ensure EVERY depicted performer is represented.
