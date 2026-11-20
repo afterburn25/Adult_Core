@@ -129,6 +129,7 @@ final class Layout
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
             ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
             ['url' => '/admin/license', 'label' => 'License', 'icon' => 'shield'],
+            ['url' => '/admin/upgrade', 'label' => 'Edition upgrade', 'icon' => 'settings'],
             ['url' => '/admin/members', 'label' => 'Members', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],
@@ -151,7 +152,8 @@ final class Layout
         }
         if ($edition === 'lite') {
             $nav .= '<a class="pro-upgrade-link" href="' . $upgradeUrl . '" target="_blank" rel="noopener noreferrer">'
-                . 'Upgrade to Pro <span aria-hidden="true">↗</span></a>';
+                . 'Buy Pro license <span aria-hidden="true">↗</span></a>'
+                . '<a class="pro-upgrade-link" href="/admin/upgrade">Activate Pro on this site <span aria-hidden="true">↗</span></a>';
         }
         $logout = is_string($csrf) && preg_match('/^[a-f0-9]{64}$/D', $csrf) === 1
             ? '<form method="post" action="/admin/logout" class="logout-form"><input type="hidden" name="csrf" value="' . self::escape($csrf) . '">'

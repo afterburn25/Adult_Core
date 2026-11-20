@@ -107,7 +107,13 @@ def run():
                 "'127.0.0.1', str_repeat('a', 64), 'valid', time(), time(), 'SOFTWARE-ADULT-CORE-LITE'));",
             ], cwd=root)
             shutil.rmtree(root / "install")
-            # Removing a license must not unlock a completed installation.
+            pending = root / 'storage' / '.edition-upgrade-pending'
+            pending.write_text('synthetic interrupted upgrade', encoding='utf-8')
+            assert_http('interrupted upgrade denies public site', '/', 503, 'Edition upgrade recovery required')
+            assert_http('interrupted upgrade denies admin login', '/admin/login', 503, 'Edition upgrade recovery required')
+            assert_http('interrupted upgrade denies installer', '/install/', 503, 'Edition upgrade recovery required')
+            pending.unlink()
+                        # Removing a license must not unlock a completed installation.
             license_path = root / "config" / "license.php"
             license_private = license_path.read_text(encoding="utf-8")
             license_path.unlink()

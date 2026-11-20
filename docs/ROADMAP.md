@@ -1,6 +1,6 @@
-## CI-verified build — 0.8.6.4-license-dev (2026-11-20)
+# Lite-to-Pro verified transition — 0.8.6.5-upgrade-dev (2026-11-20)
 
-[GitHub Actions run 44836418600](https://github.com/afterburn25/Adult_Core/actions/runs/44836418600) **passed** for [source commit `5d1bcf7df16e68929f0dfe68eafa79127f6c913e`](https://github.com/afterburn25/Adult_Core/commit/5d1bcf7df16e68929f0dfe68eafa79127f6c913e), including 370 local-style checks, PHP lint, disposable real MySQL installation, and MySQL-backed authenticated HTTP integration. Product-specific Lite/Pro/one-time/monthly license validation and paid-module licensing remain **mocked at the Cajun Web Pro HTTPS boundary**; real staging catalog issuance, recurring billing, domain transfer, migration and cPanel/Pro hosting verification are outstanding. Updated owner setup is tracked in [Cajun_Web #399](https://github.com/afterburn25/Cajun_Web/issues/399).
+**Implemented in development:** admin `/admin/upgrade` can accept a separately issued Pro one-time/monthly key on the same domain and preserve the existing installation, database, member/page/content/design rows and original install timestamp. Checks require Pro-host capabilities, verified product SKU, authenticated settings administrator, step-up password, CSRF, rate limit and off-site backup acknowledgement. A private snapshot plus fail-closed upgrade-pending gate and CLI rollback guard interruptions. This update does not provide a complete backup/restore engine, production worker, real vendor checkout, independent security audit or production migration certification. Cross-product paid module licenses remain independent. More: `docs/LITE_TO_PRO_UPGRADE.md`.
 
 ## Roadmap — edition-bound monthly licensing (2026-11-20)
 

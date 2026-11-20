@@ -1,6 +1,9 @@
-## CI-verified build — 0.8.6.4-license-dev (2026-11-20)
+## 0.8.6.5-upgrade-dev — In-place Lite-to-Pro transition (2026-11-20)
 
-[GitHub Actions run 44836418600](https://github.com/afterburn25/Adult_Core/actions/runs/44836418600) **passed** for [source commit `5d1bcf7df16e68929f0dfe68eafa79127f6c913e`](https://github.com/afterburn25/Adult_Core/commit/5d1bcf7df16e68929f0dfe68eafa79127f6c913e), including 370 local-style checks, PHP lint, disposable real MySQL installation, and MySQL-backed authenticated HTTP integration. Product-specific Lite/Pro/one-time/monthly license validation and paid-module licensing remain **mocked at the Cajun Web Pro HTTPS boundary**; real staging catalog issuance, recurring billing, domain transfer, migration and cPanel/Pro hosting verification are outstanding. Updated owner setup is tracked in [Cajun_Web #399](https://github.com/afterburn25/Cajun_Web/issues/399).
+- Added authenticated `/admin/upgrade` with step-up password check, CSRF, rate limiting, backup acknowledgement and Pro host/agent readiness.
+- Added `EditionUpgrade` preflight, product-bound Pro license validation, in-place `ac_installations.edition` update, HMAC-signed installation marker rewrite, fresh vendor-bound license receipt, and private short-lived rollback snapshot.
+- `InstallationGate` now blocks all HTTP routes during an incomplete upgrade. Emergency recovery is CLI-only; no web rollback endpoint or unverified Pro activation.
+- Added unit/browser/disposable-MySQL tests for denial cases, fault-injected rollback and preservation of member/page/theme/content records. Real purchased keys, cPanel/VPS hosting and external restore remain unverified.
 
 ## Changelog — edition-bound monthly licensing (2026-11-20)
 

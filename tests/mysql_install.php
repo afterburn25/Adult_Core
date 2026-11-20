@@ -338,7 +338,87 @@ try {
     if ($gate->status() !== InstallationGate::READY) {
         throw new RuntimeException('Gate did not unlock after installer deletion.');
     }
-    echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
+    // Upgrade the original installation in place, preserving real MySQL content,
+    // themes, members and moderation history, with fault-injected rollback first.
+    $proKey='PRO-MONTH-2026-TEST';
+    $proClient=new \AdultCore\Licensing\CajunWebClient(
+        static function(string $request)use($proKey):array{
+            $payload=json_decode($request,true,8,JSON_THROW_ON_ERROR);
+            $allowed=($payload['license_key']??null)===$proKey
+                &&($payload['domain']??null)==='127.0.0.1'
+                &&($payload['product_id']??null)===\AdultCore\Licensing\CajunWebClient::SKU_PRO_MONTH;
+            return ['status'=>200,'body'=>json_encode(['authorized'=>$allowed],JSON_THROW_ON_ERROR)];
+        }
+    );
+    // The real CI host is intentionally Lite-only; this injected capability
+    // list represents a verified Pro host strictly for this disposable test.
+    $capabilities=(new \AdultCore\Edition\EditionSelector($root.'/config/editions'))
+        ->manifest('pro')['required_capabilities'];
+    $capabilityProbe=static fn():array=>$capabilities;
+    $normalUpgrade=new \AdultCore\Licensing\EditionUpgrade($root,$proClient,$capabilityProbe);
+    $beforeCount=(int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn();
+    $beforeTitle=(string)$pdo->query("SELECT title FROM ac_pages WHERE slug='about'")->fetchColumn();
+    $beforeTheme=(string)$pdo->query('SELECT theme_key FROM ac_design_settings WHERE id=1')->fetchColumn();
+    $beforeContent=(int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn();
+    $beforeInstalledAt=json_decode((string)file_get_contents($root.'/storage/install-state.json'),true)['installed_at'];
+    try { $normalUpgrade->preflight('ABCD-EF12-3456-7890','127.0.0.1');
+        throw new RuntimeException('Lite key was accepted for Pro upgrade.');
+    } catch (RuntimeException $e) { if ($e->getMessage()==='Lite key was accepted for Pro upgrade.') throw $e; }
+    try { $normalUpgrade->preflight($proKey,'other.example');
+        throw new RuntimeException('Cross-domain Pro upgrade was accepted.');
+    } catch (RuntimeException $e) { if ($e->getMessage()==='Cross-domain Pro upgrade was accepted.') throw $e; }
+    $noAgent=new \AdultCore\Licensing\EditionUpgrade($root,$proClient,static fn():array=>['php_83']);
+    try {$noAgent->upgrade($proKey,'127.0.0.1');
+        throw new RuntimeException('Pro upgrade allowed on Lite-only host.');
+    } catch (RuntimeException $e) { if ($e->getMessage()==='Pro upgrade allowed on Lite-only host.') throw $e; }
+    $fault=new \AdultCore\Licensing\EditionUpgrade($root,$proClient,$capabilityProbe,
+        static function():void{throw new RuntimeException('Synthetic interruption after committed edition change.');});
+    try { $fault->upgrade($proKey,'127.0.0.1');
+        throw new RuntimeException('Injected Pro upgrade failure was ignored.');
+    } catch (RuntimeException $e) { if ($e->getMessage()==='Injected Pro upgrade failure was ignored.') throw $e; }
+    if ($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='lite'
+        || (new \AdultCore\Licensing\LicenseManager($root))->config()['edition']!=='lite'
+        || (new InstallationGate($root))->status()!==InstallationGate::READY
+        || is_dir($root.'/storage/.edition-upgrade-backup')
+        || is_file($root.'/storage/.edition-upgrade-pending')) {
+        throw new RuntimeException('Failed Pro upgrade did not atomically recover Lite metadata and gate.');
+    }
+    // Simulate a hard process stop after the DB commit: no catch handler has
+    // restored files. The signed maintenance sentinel must block HTTP until
+    // explicit operator CLI-equivalent rollback recovers the original Lite.
+    $takeBackup = new ReflectionMethod(\AdultCore\Licensing\EditionUpgrade::class, 'takeBackup');
+    $takeBackup->invoke($normalUpgrade, (string)(require $root.'/config/app-key.php'));
+    \AdultCore\Installer\AtomicFile::write($root.'/storage/.edition-upgrade-pending', 'synthetic crash');
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1 AND edition='lite'");
+    if ((new InstallationGate($root))->status()!==InstallationGate::EDITION_UPGRADE_PENDING)
+        throw new RuntimeException('Crashed upgrade failed to lock every site route.');
+    $normalUpgrade->rollback();
+    if ((new InstallationGate($root))->status()!==InstallationGate::READY
+        || $pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='lite'
+        || (new \AdultCore\Licensing\LicenseManager($root))->config()['edition']!=='lite') {
+        throw new RuntimeException('CLI recovery failed to restore Lite after a simulated hard crash.');
+    }
+    $normalUpgrade->upgrade($proKey,'127.0.0.1');
+    $newLicense=(new \AdultCore\Licensing\LicenseManager($root))->config();
+    if ($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='pro'
+        || ($newLicense['edition']??null)!=='pro'
+        || ($newLicense['term']??null)!=='month'
+        || (new InstallationGate($root))->status()!==InstallationGate::READY
+        || is_file($root.'/storage/.edition-upgrade-pending')
+        || is_dir($root.'/storage/.edition-upgrade-backup')) {
+        throw new RuntimeException('Pro upgrade did not persist and verify complete edition transition.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()!==$beforeCount
+        || (string)$pdo->query("SELECT title FROM ac_pages WHERE slug='about'")->fetchColumn()!==$beforeTitle
+        || (string)$pdo->query('SELECT theme_key FROM ac_design_settings WHERE id=1')->fetchColumn()!==$beforeTheme
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent
+        || json_decode((string)file_get_contents($root.'/storage/install-state.json'),true)['installed_at']!==$beforeInstalledAt) {
+        throw new RuntimeException('Pro upgrade modified existing content, members, theme or install timestamp.');
+    }
+    try { $normalUpgrade->upgrade($proKey,'127.0.0.1');
+        throw new RuntimeException('Second upgrade wrongly accepted on installed Pro edition.');
+    } catch (RuntimeException $e) { if ($e->getMessage()==='Second upgrade wrongly accepted on installed Pro edition.') throw $e; }
+    echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
     foreach (['ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {

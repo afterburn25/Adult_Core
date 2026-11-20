@@ -46,6 +46,10 @@ if ($state !== InstallationGate::READY) {
             'Installer missing',
             'Installation is not complete and install/ is missing. Restore the install/ directory from the matching release package. The site and /admin remain locked.',
         ],
+        InstallationGate::EDITION_UPGRADE_PENDING => [
+            'Edition upgrade recovery required',
+            'A Lite-to-Pro upgrade was interrupted. The website is locked to protect existing data. Use SSH or the hosting terminal to run php scripts/recover-edition-upgrade.php --rollback, then review the verified Lite installation before retrying.',
+        ],
         InstallationGate::INVALID_STATE => [
             'Installation state invalid',
             'Installation state or private configuration is missing, unsigned or invalid. Access remains locked. Restore a trusted backup and do not delete files to bypass installation.',
@@ -68,7 +72,7 @@ if ($path === '/install') {
 // site with a missing, revoked, wrong-domain or stale-unverified license stays
 // inaccessible. Only authenticated license recovery and admin sign-in remain.
 $licenseStatus = (new \AdultCore\Licensing\LicenseManager($root))->status();
-if ($licenseStatus !== 'valid' && !in_array($path, ['/admin/login', '/admin/logout', '/admin/license'], true)) {
+if ($licenseStatus !== 'valid' && !in_array($path, ['/admin/login', '/admin/logout', '/admin/license', '/admin/upgrade'], true)) {
     http_response_code(503);
     header('Retry-After: 1800');
     $heading = 'Adult_Core license authorization required';

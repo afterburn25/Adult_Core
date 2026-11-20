@@ -54,6 +54,8 @@ jobs:
         run: php tests/design_tests.php
       - name: Cajun Web Pro licensing contract and gate tests
         run: php tests/licensing_tests.php
+      - name: Lite-to-Pro edition upgrade safety checks
+        run: php tests/upgrade_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

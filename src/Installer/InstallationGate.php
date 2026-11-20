@@ -21,6 +21,7 @@ final class InstallationGate
     public const READY = 'ready';
     public const INSTALLER_MISSING = 'installer_missing';
     public const INVALID_STATE = 'invalid_state';
+    public const EDITION_UPGRADE_PENDING = 'edition_upgrade_pending';
 
     public function __construct(private readonly string $projectRoot)
     {
@@ -28,6 +29,12 @@ final class InstallationGate
 
     public function status(): string
     {
+        // An interrupted cross-DB/filesystem edition transition must never serve requests.
+        // Recovery is deliberately CLI-only: no browser path can waive this marker.
+        if (file_exists($this->projectRoot . '/storage/.edition-upgrade-pending')
+            || is_link($this->projectRoot . '/storage/.edition-upgrade-pending')) {
+            return self::EDITION_UPGRADE_PENDING;
+        }
         $installDirectoryPresent = is_dir($this->projectRoot . '/install');
         $stateFile = $this->projectRoot . '/storage/install-state.json';
 

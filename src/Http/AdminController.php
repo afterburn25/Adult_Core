@@ -12,6 +12,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Capability\HostInspector;
 use AdultCore\Package\PackageStore;
 use AdultCore\Licensing\LicenseManager;
+use AdultCore\Licensing\EditionUpgrade;
 use AdultCore\UI\Layout;
 use AdultCore\UI\Dashboard;
 use PDO;
@@ -71,6 +72,10 @@ final class AdminController
         // when the rest of the site is blocked by the licensing gate.
         if ($path === '/admin/license') {
             $this->licensePage($method, $admin);
+            return;
+        }
+        if ($path === '/admin/upgrade') {
+            $this->upgradePage($method, $admin);
             return;
         }
         if ($path === '/admin/design' || $path === '/admin/design/upload' || str_starts_with($path, '/admin/design/asset/')) {
@@ -166,8 +171,92 @@ final class AdminController
             . '<label for="license-key">License key</label><input id="license-key" name="license_key" type="password" required autocomplete="off" maxlength="255">'
             . '<label for="license-domain">Registered domain</label><input id="license-domain" name="license_domain" required maxlength="253" value="' . self::escape($domain) . '">'
             . '<button type="submit" class="install-button">Validate and save license</button></form>'
-            . '<p class="muted">Replacing a key cannot change Lite into Pro: a separately verified upgrade/migration is required. Purchase or manage subscriptions at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a>.</p></section>';
+            . '<p class="muted">Replacing a key here cannot change Lite into Pro. To preserve your existing website, use the <a href="/admin/upgrade">verified Lite-to-Pro upgrade</a> with a purchased Pro license. Purchase or manage subscriptions at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a>.</p></section>';
         $this->page('License activation', $content);
+    }
+
+    /** Same-installation edition change, never a fresh installer or new database. */
+    private function upgradePage(string $method, array $admin): void
+    {
+        if (!RolePolicy::allows($admin['role'], 'site.settings.manage')) {
+            $this->error(403, 'Access denied', 'Administrator settings permission is required.');
+            return;
+        }
+        if (!in_array($method, ['GET','POST'], true)) {
+            $this->methodNotAllowed('GET, POST');
+            return;
+        }
+        $manager = new LicenseManager($this->root);
+        $licensed = $manager->config();
+        $upgrade = new EditionUpgrade($this->root);
+        $error = null;
+        if ($method === 'POST') {
+            if (!AdminSession::csrfValid($_POST['csrf'] ?? null)) {
+                $this->error(403, 'Invalid security token', 'Reload the upgrade form and try again.');
+                return;
+            }
+            try {
+                if ($licensed === null || $licensed['edition'] !== 'lite') {
+                    throw new \RuntimeException('This installation is not licensed as Lite.');
+                }
+                if (($_POST['backup_confirm'] ?? null) !== '1'
+                    || ($_POST['upgrade_confirm'] ?? null) !== 'UPGRADE') {
+                    throw new \RuntimeException('Confirm your offline backup and the upgrade action before continuing.');
+                }
+                $candidate = $_POST['pro_license_key'] ?? null;
+                $password = $_POST['admin_password'] ?? null;
+                if (!is_string($candidate) || !is_string($password) || strlen($password) > 72) {
+                    throw new \InvalidArgumentException('Provide the Pro license key and current administrator password.');
+                }
+                (new \AdultCore\Installer\InstallRateLimiter($this->root . '/storage'))->consume(
+                    'edition:' . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')
+                );
+                // Step-up credential check. An open administrator session is not
+                // sufficient to mutate the edition and private license secrets.
+                $identity = (new AdminAccounts(Connection::open($this->root)))->verifyCredentials($admin['email'], $password);
+                if ($identity === null || $identity['id'] !== $admin['id']) {
+                    throw new \RuntimeException('Administrator password verification failed.');
+                }
+                $upgrade->upgrade($candidate, $licensed['domain']);
+                $this->redirect('/admin/license?upgraded=1');
+                return;
+            } catch (\InvalidArgumentException | \RuntimeException $exception) {
+                // Vendor keys, passwords and external transport failures must not be echoed.
+                $error = $exception->getMessage();
+                http_response_code(422);
+            } catch (Throwable) {
+                $error = 'Edition upgrade unavailable. No license key was displayed.';
+                http_response_code(503);
+            }
+        }
+        $missing=[];
+        try { $missing = $upgrade->prerequisites(); }
+        catch (Throwable) { $missing = ['Host capability inspection unavailable']; }
+        $pro = ($licensed['edition'] ?? null) === 'pro';
+        $content = '<p class="eyebrow">EDITION MANAGEMENT</p><h1>Upgrade Lite to Pro</h1>'
+            . '<p class="intro">Keep this installation and its database, pages, members, designs, and uploads. '
+            . 'Your Pro license determines the upgraded edition; upgrading does not issue a license or charge a payment.</p>'
+            . '<section class="panel"><h2>Upgrade readiness</h2>'
+            . '<p><strong>Current edition:</strong> ' . self::escape(strtoupper((string)($licensed['edition'] ?? 'Unknown'))) . '</p>'
+            . '<p><strong>Registered domain:</strong> ' . self::escape((string)($licensed['domain'] ?? 'Unavailable')) . '</p>'
+            . '<p><strong>Pro hosting requirements:</strong> ' . ($missing === [] ? 'Verified by this host check.'
+                : 'Not ready — ' . self::escape(implode(', ', $missing))) . '</p>'
+            . '<p class="muted">A real Pro agent and persistent process support are required. No automatic downgrade or host transfer occurs.</p></section>'
+            . ($error !== null ? '<div class="alert-error" role="alert">' . self::escape($error) . '</div>' : '')
+            . ($pro ? '<section class="panel"><h2>Already upgraded</h2><p>The current edition is Pro. No migration is needed.</p></section>'
+                : '<section class="panel"><h2>Activate a purchased Pro license</h2>'
+                . '<p>Before upgrading, take and test a full off-server backup of your files and database. Allow a maintenance window. '
+                . 'Pro subscriptions are issued and renewed by Cajun Web Pro.</p>'
+                . '<form method="post" action="/admin/upgrade" class="install-form" autocomplete="off">'
+                . '<input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
+                . '<label for="pro-key">New Pro license key</label><input id="pro-key" type="password" name="pro_license_key" required maxlength="255" autocomplete="off">'
+                . '<label for="upgrade-password">Current administrator password</label><input id="upgrade-password" type="password" name="admin_password" required maxlength="72" autocomplete="current-password">'
+                . '<label><input type="checkbox" name="backup_confirm" value="1" required> I have a verified off-server backup of the existing installation.</label>'
+                . '<label for="upgrade-confirm">Type UPGRADE to confirm</label><input id="upgrade-confirm" name="upgrade_confirm" required maxlength="7" autocomplete="off">'
+                . '<button class="install-button" type="submit"' . ($missing !== [] ? ' disabled' : '') . '>Verify license and upgrade this installation</button>'
+                . '</form><p class="muted">Get a Pro license at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a> '
+                . '(purchase-page placeholder). The site will fail closed if an interrupted upgrade requires CLI recovery.</p></section>');
+        $this->page('Upgrade to Pro', $content);
     }
 
     private function login(string $method): void

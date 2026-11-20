@@ -1,4 +1,4 @@
-# Adult_Core licensing — Cajun Web Pro integration (0.8.6.4-dev)
+# Adult_Core licensing — Cajun Web Pro integration (0.8.6.5-upgrade-dev)
 
 **One universal Adult_Core installer. The verified license KEY determines Lite/Pro and billing term.** Never choose an edition from host type, a browser dropdown, or a query string. Licensed Pro still requires the actual Pro agent/persistent process capabilities; a Pro key on a Lite-only server blocks installation, never silently downgrades. Licenses are issued and billed exclusively in [Cajun_Web](https://github.com/afterburn25/Cajun_Web) (`site/api/validate.php`, software catalog and license/recurring billing modules).
 
@@ -45,3 +45,7 @@ A Lite site shows disabled **Video streaming**, **Live broadcasts**, **Real-time
 ## Required production verification
 
 Register all four SKUs and sample module SKU in Cajun Web Pro; verify actual issuance/checkout/renewal/expiry/cancellation/domain movement and event propagation against a staging domain, with billing approval. Validate real cPanel Lite and separately provisioned Pro hosts, and test wrong SKU, wrong edition, outage/rate-limit and revoked module keys. Complete verified edition upgrade migrations and independent security audit before a 1.0 claim. This is **development-only**.
+
+## Safe Lite-to-Pro upgrade (0.8.6.5-upgrade-dev)
+
+The original `SOFTWARE-ADULT-CORE-LITE` or `SOFTWARE-ADULT-CORE-LITE-MONTH` key cannot itself unlock Pro. Purchase/issue a `SOFTWARE-ADULT-CORE-PRO` or `SOFTWARE-ADULT-CORE-PRO-MONTH` license on Cajun Web Pro, register the **same existing domain**, provision a compatible host with a verified Pro agent, then use the authenticated `/admin/upgrade` form on that existing Adult_Core installation. The Cajun Web Pro upgrade product page is **not yet assigned**; the purchase link is the placeholder `https://cajunwebpro.com`. No user profile, theme, media or page is recopied. The upgrade changes only DB edition metadata and HMAC-signed private edition/license records with a recovery sentinel. Unlike the prior cross-edition replacement prohibition, `/admin/license` still rejects cross-edition keys; only `/admin/upgrade` performs the guarded transition. Full off-site backup and restore test required before a real upgrade. See `docs/LITE_TO_PRO_UPGRADE.md`.

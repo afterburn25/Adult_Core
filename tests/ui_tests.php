@@ -70,6 +70,7 @@ uiCheck(is_string($css) && !str_contains($css, '@import'), 'No external styleshe
 $liteNav=\AdultCore\UI\Layout::admin('Dashboard','<p>Welcome</p>','/admin',null,'lite');
 uiCheck(str_contains($liteNav,'Pro Version Only')&&str_contains($liteNav,'aria-disabled="true"'),'Lite admin displays disabled Pro-only controls');
 uiCheck(str_contains($liteNav,'href="https://cajunwebpro.com"'),'Lite admin upgrade links to placeholder owner website');
+uiCheck(str_contains($liteNav,'href="/admin/upgrade"'),'Lite admin offers an in-place edition upgrade workflow');
 $proNav=\AdultCore\UI\Layout::admin('Dashboard','<p>Welcome</p>','/admin',null,'pro');
 uiCheck(str_contains($proNav,'In development')&&!str_contains($proNav,'Pro Version Only'),'Pro admin shows not-yet-implemented features without upgrade pitch');
 echo "Passed $checks UI design-system checks.\n";

@@ -90,6 +90,28 @@ def main():
             ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
             license_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', license_page)
             ensure('License changes require CSRF', license_csrf is not None)
+            code, upgrade_page = req('/admin/upgrade')
+            ensure('Edition upgrade form is authenticated and identifies current Lite edition',
+                   code == 200 and 'Upgrade Lite to Pro' in upgrade_page and 'LITE' in upgrade_page)
+            ensure('Upgrade requires password and verified backup confirmation',
+                   'name="admin_password"' in upgrade_page and 'name="backup_confirm"' in upgrade_page)
+            ensure('Purchase placeholder points only to Cajun Web Pro main site',
+                   'href="https://cajunwebpro.com"' in upgrade_page)
+            code, _ = req('/admin/upgrade', {
+                'csrf':'bad', 'pro_license_key':'PRO-MONTH-2026-TEST',
+                'admin_password':'strong-example-admin-password','backup_confirm':'1','upgrade_confirm':'UPGRADE'
+            })
+            ensure('Pro upgrade refuses invalid CSRF', code == 403)
+            code, _ = req('/admin/upgrade', {
+                'csrf': license_csrf.group(1),'pro_license_key':'PRO-MONTH-2026-TEST',
+                'admin_password':'strong-example-admin-password','upgrade_confirm':'UPGRADE'
+            })
+            ensure('Pro upgrade refuses missing backup acknowledgment', code == 422)
+            code, _ = req('/admin/upgrade', {
+                'csrf': license_csrf.group(1),'pro_license_key':'PRO-MONTH-2026-TEST',
+                'admin_password':'wrong-password','backup_confirm':'1','upgrade_confirm':'UPGRADE'
+            })
+            ensure('Pro upgrade refuses incorrect password', code == 422)
             code, _ = req('/admin/license', {'csrf': 'invalid','license_key':'ABCD-EF12-3456-7890','license_domain':'127.0.0.1'})
             ensure('Invalid license CSRF rejected', code == 403)
             code, _ = req('/admin/license', {'csrf': license_csrf.group(1),'license_key':'short','license_domain':'127.0.0.1'})
