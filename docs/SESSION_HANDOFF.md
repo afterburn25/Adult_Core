@@ -1,3 +1,16 @@
+# Latest handoff — 0.8.3-dev (2026-11-20)
+
+**Codebase:** `afterburn25/Adult_Core` (independently installed Lite shared hosting / Pro provisioned VPS, not SaaS). **Development only: NOT 1.0.**
+
+- Member email ownership: `src/Member/{MemberEmailSchema,EmailConfirmations,EmailDelivery}.php`, opt-in `config/email.example.php`, browser `/members/email` and `/members/email/confirm`. Form uses GET preview and CSRF-protected POST, SHA-256 token hashes, 30m TTL, 5m resend cooldown, replays rejected. Registration stays pending, neither age nor identity verified. Mail delivery is optional and untested on real hosting.
+- Additive migration `m9_member_email_v1` runs under `/admin/setup` after a backup; `Entitlements::canView` now requires email confirmation for members. Existing users without proof remain denied.
+- Tests: local PHP/HTTP, `tests/mysql_install.php` email replay/expiry/cooldown, `tests/mysql_http_auth.py` browser confirmation using disposable **test-only** CLI token issuer. Check CI after the GitHub publish and record run result.
+- Unchanged non-negotiables: remove `install/` manually to unlock site; protect public web root; signed add-on Lite/Pro compatibility; verification provider disabled by default; no adult content approval/publication; no payment or Pro streaming; `ReleaseReadiness` continues blocking 1.0.
+- Next: replace generic verification HMAC scaffold with contracted provider adapter and verified subject binding, secure performer evidence retention and release procedures, admin MFA/recovery, payment onboarding, Pro worker, signed restores/updates and real cPanel/VPS certification.
+- Read `docs/EMAIL_CONFIRMATION.md`, `docs/VERIFICATION.md`, `docs/RELEASE_GATES.md`, `docs/ROADMAP.md`, `AGENTS.md` and preceding handoffs below.
+
+---
+
 # Latest handoff — 0.8.2-dev (2026-11-20)
 
 Worktree target: `afterburn25/Adult_Core`, self-hosted Lite/Pro, NOT SaaS. This build must **NOT** be labeled 1.0 or used with real adult media/payments.
@@ -135,9 +148,3 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
 GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.
-
-## Verified CI — 0.8.2-dev (2026-11-20)
-
-- Source commit: [`b9f47e8a5d0e269030f092feadc400d5df98e00e`](https://github.com/afterburn25/Adult_Core/commit/b9f47e8a5d0e269030f092feadc400d5df98e00e).
-- GitHub Actions [run 44738983959](https://github.com/afterburn25/Adult_Core/actions/runs/44738983959) **passed** on PHP 8.3 and disposable MySQL. Validation covered new signed-verification tests, encrypted snapshot and release manifest checks, real installer/member/moderation integration, and HTTP lifecycle checks.
-- This is **not** a passed production 1.0 release: no contracted independent age-verification provider, approved adult payment processor, Pro video workers, actual cPanel/VPS certification, restored backups, complete signed updates, MFA or independent security audit. No public adult content, real payments or streaming are authorized.

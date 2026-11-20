@@ -6,7 +6,7 @@ namespace AdultCore\Member;
 
 use RuntimeException;
 
-/** Opt-in PHP mail transport; SMTP API integration is future work. */
+/** Opt-in PHP mail transport for compatible shared hosts; SMTP API integration is future work. */
 final class EmailDelivery
 {
     public static function loadConfig(string $root): ?array
@@ -19,7 +19,7 @@ final class EmailDelivery
         return $config;
     }
 
-    /** Validate an HTTPS origin; never derive a sensitive URL from HTTP_HOST. */
+    /** Validates a fixed HTTPS origin, not a request-supplied Host header. */
     public static function validateConfig(array $config): void
     {
         $from=$config['from']??null;
@@ -44,6 +44,7 @@ final class EmailDelivery
         if (filter_var($recipient,FILTER_VALIDATE_EMAIL)===false || preg_match('/[\r\n]/',$recipient)
             || !preg_match('/^[a-f0-9]{64}$/D',$token)) throw new RuntimeException('Invalid email delivery request.');
         $url=$config['base_url'].'/members/email/confirm?token='.$token;
+        // The message uses deliberately neutral copy to protect account privacy.
         $headers=['From: '.$config['from'],'Content-Type: text/plain; charset=UTF-8', 'Auto-Submitted: auto-generated'];
         return mail($recipient,'Confirm your account',"Confirm ownership of this email address using this one-time link:\n\n"
             .$url."\n\nThe link expires after 30 minutes. If you did not request it, ignore this message.\n",

@@ -1,3 +1,7 @@
+
+## 2026-11-20 — Explicit separation of email ownership and adult verification
+
+Email confirmation is a one-time hashed token delivered to an account's email address. It never changes member status to active and never grants a paid or age-verified entitlement. Database and HTTP checks require a confirmed email before private content access. Hosts may opt in to an origin-pinned PHP mail adapter; no recipient link is derived from a request Host header. A link GET is side-effect free and POST has CSRF protection to avoid scanner-triggered confirmation. Provider-reviewed identity/age and consent remain separate workflows.
 ## 2026-11-20 — Verification and release safety decisions
 
 1. External verification evidence is transported through a disabled-by-default signed adapter. No real provider is included, and administrators cannot self-certify age or consent. Revocations deny access; event ordering prevents delayed verification from undoing revocation.

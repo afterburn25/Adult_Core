@@ -74,7 +74,10 @@ final class MemberController
                 if (!MemberSession::csrfValid($_POST['csrf'] ?? null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
                 MemberSession::logout(); $this->redirect('/'); return;
             }
-            if ($path === '/members/report') { $this->report($pdo,$method,$accounts); return; }
+            if ($path === '/members/report') {
+                $this->report($pdo, $method, $accounts);
+                return;
+            }
             if ($path === '/members') {
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 $member = $this->member($accounts);
@@ -97,42 +100,38 @@ final class MemberController
         }
     }
 
-    private function report(PDO $pdo,string $method,MemberAccounts $accounts): void
+    private function report(PDO $pdo, string $method, MemberAccounts $accounts): void
     {
-        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST');return; }
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
         $member=$this->member($accounts);
-        if ($member===null) { $this->redirect('/members/login');return; }
+        if ($member===null) { $this->redirect('/members/login'); return; }
         $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
         $q->execute([ModerationSchema::VERSION]);
-        if ((int)$q->fetchColumn()!==1) { $this->view(503,'Reporting unavailable','<p>Reporting has not been set up.</p>');return; }
+        if ((int)$q->fetchColumn()!==1) { $this->view(503,'Reporting unavailable','<p>Reporting is not yet set up.</p>'); return; }
         if ($method==='POST') {
-            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
-                $this->view(403,'Invalid token','<p>Reload and retry.</p>');return;
-            }
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
             $id=filter_var($_POST['content_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
             $reason=$_POST['reason']??null;
-            if ($id===false || !is_string($reason)) {
-                $this->view(422,'Invalid report','<p>Enter a valid content ID and reason.</p>');return;
-            }
+            if ($id===false || !is_string($reason)) { $this->view(422,'Invalid report','<p>Enter a valid content ID and reason.</p>'); return; }
             try {
                 (new ModerationRepository($pdo))->submitReport((int)$member['id'],(int)$id,$reason);
                 $this->redirect('/members/report?result=received');
             } catch (\PDOException) {
-                $this->view(503,'Reporting unavailable','<p>Report could not be saved. Try again later.</p>');
+                $this->view(503,'Reporting unavailable','<p>The report could not be saved. Please try again later.</p>');
             } catch (\RuntimeException $e) {
                 $this->view(422,'Invalid report','<p>'.self::e($e->getMessage()).'</p>');
             }
             return;
         }
         $prefill=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-        $html='<p class="intro">Report suspected nonconsensual, underage, privacy-invasive or unsafe material. Reports quarantine the content pending review. Do not submit identity documents or sensitive personal data here.</p>';
+        $html='<p class="intro">Report suspected nonconsensual, underage, privacy-invasive or otherwise unsafe material. Reports immediately quarantine the referenced content pending review. Never include identification documents or other sensitive personal data in this form.</p>';
         if (($_GET['result']??'')==='received') $html.='<p role="status">Your report has been received if the content ID exists. Thank you.</p>';
         $html.='<section class="panel"><form method="post" action="/members/report" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
             .'<label for="report-id">Content ID</label><input id="report-id" name="content_id" type="number" min="1" required value="'.($prefill!==false?(int)$prefill:'').'">'
-            .'<label for="report-reason">Reason</label><textarea id="report-reason" name="reason" minlength="10" maxlength="1000" rows="5" required></textarea>'
+            .'<label for="report-reason">Reason (10–1000 characters)</label><textarea id="report-reason" name="reason" required minlength="10" maxlength="1000" rows="5"></textarea>'
             .'<button class="install-button" type="submit">Submit safety report</button></form></section>';
-        $this->view(200,'Report content',$html);
+        $this->view(200,'Report content', $html);
     }
 
     private function emailConfirmation(PDO $pdo, string $method, MemberAccounts $accounts): void
@@ -196,7 +195,7 @@ final class MemberController
                                 EmailDelivery::send(strtolower(trim($email)),$token,$mailCfg);
                             }
                         } catch (Throwable) {
-                            // Registration stays pending; do not disclose delivery or token details.
+                            // Registration is still pending. Never disclose transport or token details publicly.
                         }
                         $this->view(200,'Registration received','<p>Your account is pending review. Registration alone never grants access to adult content. <a href="/members/login">Sign in</a>.</p>');
                         return;

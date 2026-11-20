@@ -43,7 +43,7 @@ final class Entitlements
         }
         if (in_array($record['role'], ['owner', 'admin'], true)) return true;
         if ($record['role'] !== 'member') return false;
-        // Email ownership is independent of adult age verification.
+        // Email ownership is an additional independent prerequisite, not age verification.
         $email=$this->pdo->prepare('SELECT 1 FROM ac_member_email_confirmations WHERE user_id=? AND confirmed_at IS NOT NULL LIMIT 1');
         $email->execute([$userId]);
         if (!$email->fetchColumn()) return false;

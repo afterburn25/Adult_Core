@@ -19,6 +19,8 @@ use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
@@ -98,6 +100,8 @@ try {
     SiteSchema::migrate($pdo);  // Repeat-safe.
     MemberSchema::migrate($pdo);
     MemberSchema::migrate($pdo);
+    MemberEmailSchema::migrate($pdo);
+    MemberEmailSchema::migrate($pdo);
     $repo = new PageRepository($pdo);
     if ($repo->published('home') !== null) {
         throw new RuntimeException('Default homepage unexpectedly public before review.');
@@ -119,6 +123,22 @@ try {
         || $accounts->verify('newmember@example.test', 'wrong') !== null) {
         throw new RuntimeException('Member registration must remain pending and use password hashes.');
     }
+    $emailConfirmations=new EmailConfirmations($pdo);
+    if ($emailConfirmations->verified((int)$member['id'])) throw new RuntimeException('Member automatically email-confirmed.');
+    $firstEmailToken=$emailConfirmations->issue((int)$member['id']);
+    if (strlen($firstEmailToken)!==64 || preg_match('/^[a-f0-9]{64}$/D',$firstEmailToken)!==1) throw new RuntimeException('Email token format invalid.');
+    if ($emailConfirmations->confirm('not-a-token') || $emailConfirmations->verified((int)$member['id'])) throw new RuntimeException('Bad email confirmation was accepted.');
+    try { $emailConfirmations->issue((int)$member['id']); throw new RuntimeException('Resend cooldown was bypassed.'); }
+    catch (RuntimeException $e) { if ($e->getMessage()==='Resend cooldown was bypassed.') throw $e; }
+    // Explicitly expire the first token and verify it is never accepted.
+    $pdo->prepare('UPDATE ac_member_email_confirmations SET expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND),issued_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 10 MINUTE) WHERE user_id=?')->execute([$member['id']]);
+    if ($emailConfirmations->confirm($firstEmailToken)) throw new RuntimeException('Expired email token was accepted.');
+    $secondEmailToken=$emailConfirmations->issue((int)$member['id']);
+    if ($emailConfirmations->confirm($firstEmailToken) || !$emailConfirmations->confirm($secondEmailToken)
+        || $emailConfirmations->confirm($secondEmailToken) || !$emailConfirmations->verified((int)$member['id'])) {
+        throw new RuntimeException('Email token single-use confirmation failed.');
+    }
+    if ($accounts->byId((int)$member['id'])['status']!=='pending') throw new RuntimeException('Email confirmation activated pending member.');
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn() !== 0) {
         throw new RuntimeException('Registration must never self-verify age.');
     }
@@ -217,7 +237,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['storage', 'config'] as $directory) {

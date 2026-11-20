@@ -42,7 +42,7 @@ final class EmailConfirmations
         }
     }
 
-    /** Inbox possession only, never identity, age or consent. */
+    /** The URL secret proves inbox possession only, never identity, age, or consent. */
     public function confirm(string $token): bool
     {
         if (!preg_match('/^[a-f0-9]{64}$/D',$token)) return false;

@@ -7,13 +7,14 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Database\Schema;
 use AdultCore\Installer\InstallService;
+use AdultCore\Member\EmailConfirmations;
 
 if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     fwrite(STDERR, "Refusing fixture: explicit disposable database confirmation is required.\n");
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -26,8 +27,17 @@ if (!is_string($name) || !is_string($user) || !is_string($pass)
     throw new RuntimeException('Missing or unsafe disposable test database configuration.');
 }
 $pdo = new PDO("mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4", $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+if ($action === 'issue-email') {
+    // Disposable CLI test helper only. This token MUST NEVER be emitted by production routes.
+    $q=$pdo->prepare("SELECT id FROM ac_users WHERE email='member@test.example' AND role='member' LIMIT 1");
+    $q->execute();
+    $id=$q->fetchColumn();
+    if ($id===false) throw new RuntimeException('Disposable test member missing.');
+    echo (new EmailConfirmations($pdo))->issue((int)$id);
+    exit;
+}
 if ($action === 'cleanup') {
-    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     echo "Disposable HTTP test database cleared.\n";

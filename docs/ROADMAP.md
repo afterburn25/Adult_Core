@@ -1,11 +1,17 @@
+## 0.8.3-dev — Member email ownership (2026-11-20)
+
+- **Implemented:** additive email-confirmation migration, hashed one-time 30-minute tokens, 5-minute resend cooldown, neutral opt-in PHP mail transport, public confirmation preview (GET) plus CSRF-protected consuming POST, member email settings, and private-access refusal until email ownership is confirmed. Does not activate members or self-certify age.
+- **Verification:** local unit/HTTP suite; disposable MySQL and real HTTP CI must pass before this release is called integration-verified. Mail delivery and actual shared-host behavior remain unverified.
+- **Still open:** contracted age/identity provider, consent workflow, adult-content approvals, admin MFA, approved payments, Pro worker, backup/restore updater, cPanel/VPS certification and independent security review.
+
 # Adult_Core roadmap — current iteration
 
-**2026-11-20, version 0.8.2-dev (development only).** The project has not reached production 1.0.
+**2026-11-20, version 0.8.3-dev (development only).** The project has not reached production 1.0.
 
 | Target | Current status | Verified work | Unfinished prerequisites |
 |---|---|---|---|
 | 0.6 Public frontend & themes | **ALPHA** | Publish/draft plain-text pages, browser editor, public navigation and selected signed CSS | Full layout templates, signed theme updates/rollback, cPanel validation |
-| 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, admin member listing | Email confirmation, MFA/recovery, real age/identity verification, profile and tier UX |
+| 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, email confirmation tokens & browser flow, admin member listing | Admin MFA/recovery, real age/identity verification, profile and tier UX, verified email delivery on shared hosting |
 | 0.8 Private content | **FOUNDATION + VERIFICATION SCAFFOLD** | Private media gate, triage, signed verification protocol tests, revocation and pending performer roster | Real content uploads, contracted independent provider, lawful consent/approval and appeals |
 | 0.9 Payments | **FOUNDATION ONLY** | Existing generic verified event inbox | Approved provider, real processor webhook adapter and checkout, renewals/refunds/disputes |
 | 0.10 Pro streaming | **FOUNDATION ONLY** | Signed job envelope and non-executing replay-safe inbox | Verified VPS, FFmpeg worker, segment authorization, live/realtime streaming |
@@ -75,9 +81,3 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
 GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.
-
-## Verified CI — 0.8.2-dev (2026-11-20)
-
-- Source commit: [`b9f47e8a5d0e269030f092feadc400d5df98e00e`](https://github.com/afterburn25/Adult_Core/commit/b9f47e8a5d0e269030f092feadc400d5df98e00e).
-- GitHub Actions [run 44738983959](https://github.com/afterburn25/Adult_Core/actions/runs/44738983959) **passed** on PHP 8.3 and disposable MySQL. Validation covered new signed-verification tests, encrypted snapshot and release manifest checks, real installer/member/moderation integration, and HTTP lifecycle checks.
-- This is **not** a passed production 1.0 release: no contracted independent age-verification provider, approved adult payment processor, Pro video workers, actual cPanel/VPS certification, restored backups, complete signed updates, MFA or independent security audit. No public adult content, real payments or streaming are authorized.

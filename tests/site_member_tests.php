@@ -5,6 +5,8 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSession;
+use AdultCore\Member\EmailDelivery;
+use AdultCore\Member\MemberEmailSchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
 PageRepository::validate('home','Hello','Safe plain text','published');claim(true,'Valid home page');
@@ -17,6 +19,13 @@ MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true
 foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@example.com',str_repeat('p',73)]] as $case) {
     try { MemberAccounts::validate(...$case); throw new RuntimeException('Bad registration accepted'); }
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Bad registration accepted', 'Invalid registration rejected'); }
+}
+claim(MemberEmailSchema::VERSION==='m9_member_email_v1','Email schema has a distinct migration version');
+EmailDelivery::validateConfig(['enabled'=>true,'base_url'=>'https://example.com','from'=>'accounts@example.com']);
+claim(true,'Valid HTTPS email origin');
+foreach (['http://example.com','https://example.com/path','https://example.com?param=1','https://user@example.com','https://example.com:8080','https://example.com/'] as $invalid) {
+    try { EmailDelivery::validateConfig(['enabled'=>true,'base_url'=>$invalid,'from'=>'accounts@example.com']); throw new RuntimeException('Unsafe email origin accepted'); }
+    catch (RuntimeException $e) { claim($e->getMessage() !== 'Unsafe email origin accepted','Unsafe email origin rejected'); }
 }
 // Session tests use an isolated test directory and can run without MySQL.
 $root = sys_get_temp_dir().'/ac-member-session-'.bin2hex(random_bytes(5));

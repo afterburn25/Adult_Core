@@ -1,3 +1,7 @@
+
+## 0.8.3-dev continuation note
+
+Before modifying member auth or media access, read `docs/EMAIL_CONFIRMATION.md`. The member email verification table is additive via `/admin/setup`; missing confirmation must fail closed. Never treat email ownership as age/identity verification. Do not log raw confirmation tokens. Keep `install/` cleanup gate and Lite/Pro restriction intact. Run the disposable MySQL email-confirmation and browser tests in CI after every change.
 ## Current release status (0.8.2-dev)
 
 The application is **not production-ready**. Read `docs/SESSION_HANDOFF.md` and `docs/ROADMAP.md` first. Independent verification/provider adapter is not connected; webhooks disabled by default; performer roster and protected media checks are fail-closed. Signed archive verification and encrypted small-DB snapshot are foundations only, NOT a production updater or restoration system. Always run verification and release-security suites, and confirm disposable-MySQL CI before declaring DB compatibility. Never claim this is complete through 1.0.

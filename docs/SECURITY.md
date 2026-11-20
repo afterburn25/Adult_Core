@@ -1,3 +1,7 @@
+
+## Member email ownership (0.8.3-dev)
+
+`ac_member_email_confirmations` stores only SHA-256 token hashes, never the plaintext link secret. Token TTL is 30 minutes, resend cooldown 5 minutes, and consuming POST requires a member-session CSRF token. A GET from an email scanner is side-effect free. Email sender address and HTTPS base URL come from a private site-operator config, not the Host header. Private content is denied if member email ownership is not confirmed. This is **not adult age/identity verification**. The native PHP mail transport and mail deliverability have NOT been tested in production.
 ## 0.8.2-dev notes — proof of age, consent and release security
 
 - New `SignedAssertion` requires HMAC with five-minute freshness, limited canonical claims, 24h event recency and replay/out-of-order protection. The generic contract is **not a certified provider integration**; enabling requires a contracted provider and a reviewed, private adapter. No raw ID documents or biometrics are collected.
