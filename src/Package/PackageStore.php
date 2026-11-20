@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace AdultCore\Package;
 
 use AdultCore\Module\ModuleCompatibility;
+use AdultCore\Licensing\CajunWebClient;
+use AdultCore\Licensing\ModuleLicenseManager;
 use JsonException;
 use RuntimeException;
 use Throwable;
@@ -15,12 +17,14 @@ final class PackageStore
     private readonly string $directory;
     private readonly PackageVerifier $verifier;
     private readonly ModuleCompatibility $compatibility;
+    private readonly ModuleLicenseManager $moduleLicenses;
 
-    public function __construct(private readonly string $root)
+    public function __construct(private readonly string $root, private readonly ?CajunWebClient $licenseClient = null)
     {
         $this->directory = $root . '/storage/packages';
         $this->verifier = new PackageVerifier($root . '/config/trusted-publishers');
         $this->compatibility = new ModuleCompatibility();
+        $this->moduleLicenses = new ModuleLicenseManager($root,$licenseClient);
     }
 
     /** @param list<string> $capabilities */
@@ -93,9 +97,9 @@ final class PackageStore
     }
 
     /** @param list<string> $capabilities */
-    public function changeStatus(string $type, string $id, bool $enable, string $edition, array $capabilities): void
+    public function changeStatus(string $type, string $id, bool $enable, string $edition, array $capabilities, ?string $moduleLicenseKey = null): void
     {
-        $this->locked(function () use ($type, $id, $enable, $edition, $capabilities): void {
+        $this->locked(function () use ($type, $id, $enable, $edition, $capabilities, $moduleLicenseKey): void {
             $category = self::category($type);
             self::validateId($id);
             $registry = $this->readRegistry();
@@ -105,6 +109,14 @@ final class PackageStore
             if ($enable) {
                 $manifest = $this->installedManifest($type, $id);
                 $this->assertCompatible($manifest, $edition, $capabilities, $this->runtimeActiveModules($registry, $edition, $capabilities));
+                if ($type === 'module' && isset($manifest['license_sku'])) {
+                    if (is_string($moduleLicenseKey) && trim($moduleLicenseKey) !== '') {
+                        $this->moduleLicenses->activate($id, $manifest['license_sku'], $moduleLicenseKey);
+                    }
+                    if ($this->moduleLicenses->status($id, $manifest['license_sku']) !== 'valid') {
+                        throw new RuntimeException('This paid module requires an authorized Cajun Web Pro module license.');
+                    }
+                }
                 if ($type === 'theme') {
                     foreach ($registry['themes'] as &$theme) {
                         $theme['enabled'] = false;
@@ -147,6 +159,10 @@ final class PackageStore
                 try {
                     $manifest = $this->installedManifest($type, $id);
                     $reasons = $this->compatibility->blockedReasons($manifest, $edition, $capabilities, $active);
+                    if ($type === 'module' && isset($manifest['license_sku'])
+                        && $this->moduleLicenses->status($id, $manifest['license_sku']) !== 'valid') {
+                        $reasons[] = 'Paid module license is not authorized.';
+                    }
                     if (($manifest['version'] ?? null) !== $state['version']) {
                         $reasons[] = 'Registered version does not match the installed package.';
                     }
@@ -154,12 +170,13 @@ final class PackageStore
                         'id' => $id, 'type' => $type,
                         'name' => $manifest['name'], 'version' => $state['version'],
                         'enabled' => $state['enabled'], 'publisher' => $state['publisher'], 'blocked' => $reasons,
+                        'license_sku' => $manifest['license_sku'] ?? null,
                     ];
                 } catch (Throwable) {
                     $result[] = [
                         'id' => $id, 'type' => $type, 'name' => $id, 'version' => $state['version'],
                         'enabled' => false, 'publisher' => $state['publisher'],
-                        'blocked' => ['Package signature or file integrity verification failed.'],
+                        'blocked' => ['Package signature or file integrity verification failed.'], 'license_sku' => null,
                     ];
                 }
             }
@@ -278,9 +295,8 @@ final class PackageStore
         }
         try {
             $manifest = $this->installedManifest('module', $id);
-            if ($manifest['version'] !== $registry['modules'][$id]['version']) {
-                return false;
-            }
+            if ($manifest['version'] !== $registry['modules'][$id]['version']) return false;
+            if (isset($manifest['license_sku']) && $this->moduleLicenses->status($id,$manifest['license_sku']) !== 'valid') return false;
             $trail[] = $id;
             foreach ($manifest['dependencies'] as $dependency) {
                 if (!$this->runtimeModuleReady($dependency, $registry, $edition, $capabilities, $trail)) {

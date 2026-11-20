@@ -546,3 +546,10 @@ body:not(.public-site):not(.admin-site):not(.member-site):not(.admin-guest) main
 @media (pointer:coarse) {
   .studio-canvas-visual .cutout-move-handle,.studio-canvas-visual .cutout-resize-handle {min-width:44px;min-height:44px;}
 }
+
+/* Lite seats display Pro capabilities as disabled, accessible upgrade prompts. */
+.admin-sidebar .pro-feature-label { margin-top: 1.5rem; }
+.admin-sidebar .pro-feature-locked { cursor: not-allowed; opacity: .51; filter: grayscale(.58); user-select: none; display: flex; flex-wrap: wrap; }
+.admin-sidebar .pro-feature-locked small { width: 100%; margin-left: 32px; font-size: .69rem; letter-spacing: .04em; color: #e3bbdf; opacity: .95; }
+.admin-sidebar .pro-upgrade-link { display: flex; justify-content: center; align-items: center; margin: 12px 14px 20px; padding: 10px 14px; border: 1px solid #d5ad8f; border-radius: 12px; color: #f7e9db; background: rgba(164,110,112,.15); text-decoration: none; font-weight: 700; }
+.admin-sidebar .pro-upgrade-link:hover, .admin-sidebar .pro-upgrade-link:focus-visible { background: rgba(164,110,112,.35); outline-offset: 3px; }

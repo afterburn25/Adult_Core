@@ -1,3 +1,7 @@
+## Session handoff — edition-bound monthly licensing (2026-11-20)
+
+Version `0.8.6.4-license-dev`: **one installable software**, key-selects Lite/Pro and either one-time or monthly term via Cajun Web Pro's four separate product SKUs. Pro eligibility is independently enforced from verified host capabilities; cross-edition license replacement is blocked until safe migration is implemented. Paid static add-ons may declare signed `license_sku` and require a distinct vendor key before enabling; runtime eligibility rechecks signed entitlement caches. Lite admin displays disabled Pro-only features with **Pro Version Only** and an upgrade link to https://cajunwebpro.com (placeholder). No customer payment or live license issuance was performed. The earlier single SKU is retired for new installs; existing installations require a matching replacement key. Operator must register catalog offerings and test actual monthly billing externally. Details: `docs/CAJUN_WEB_PRO_LICENSING.md`. Release 1.0 still blocked by production compliance, payment, streaming and security gates.
+
 # Handoff — Cajun Web Pro mandatory product licensing (0.8.6.3-license-dev)
 
 - Inspected the **actual** `afterburn25/Cajun_Web` default branch: `site/api/validate.php`, `site/api/handlers/license.php`, `site/app/licenses/service.php`, `site/app/licenses/software_grants.php` and owner licensing documentation. Product-bound POST requires `license_key`, canonical `domain` and exact `product_id`; HTTP200 `authorized:false` is definitive denial, all non-200 replies are inconclusive. `version` is optional and is omitted until `SOFTWARE-ADULT-CORE` is registered and released. The target product was NOT found in source search.
@@ -231,8 +235,3 @@ GitHub Actions run 44733014757 passed PHP lint, moderation input validation, dis
 ## Verified GitHub CI — 0.8.6.2 design cutout controls (2026-11-20)
 
 Source commit [`bb06da70cfcfce2e18b012c139a0cf37f37980c0`](https://github.com/afterburn25/Adult_Core/commit/bb06da70cfcfce2e18b012c139a0cf37f37980c0) passed [GitHub Actions run 44830354150](https://github.com/afterburn25/Adult_Core/actions/runs/44830354150) on PHP 8.3 and disposable MySQL. PHP lint and all registered test suites passed, including the new repeat-safe cutout migration, persisted X/Y/Width, invalid POST refusal, and public CSS geometry checked through authenticated HTTP. The local Chromium pointer interaction and mobile fixture also passed. This does not certify Apache/cPanel, actual customer assets, real verification/payment/Pro services or a production 1.0 release.
-
-
-## 0.8.6.3 licensing verification (2026-11-20)
-
-Source [`5b800dd4704b2bdf8b99f8ce51bdd3e70803689e`](https://github.com/afterburn25/Adult_Core/commit/5b800dd4704b2bdf8b99f8ce51bdd3e70803689e) passed [GitHub Actions run 44832503540](https://github.com/afterburn25/Adult_Core/actions/runs/44832503540), including 52 licensing contract/runtime checks, PHP/HTTP tests, disposable real-MySQL installation and authenticated browser/administrator license recovery flows. **This is synthetic Cajun Web Pro authority testing, not live CWP issuance or a production certification.** The required software product/release registration and real staging activation are tracked in [Cajun_Web issue #399](https://github.com/afterburn25/Cajun_Web/issues/399).

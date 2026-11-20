@@ -67,4 +67,9 @@ uiCheck(is_string($css) && str_contains($css, 'prefers-reduced-motion'), 'Reduce
 uiCheck(is_string($css) && str_contains($css, '@media(max-width:480px)'), 'Small-screen responsive grid');
 uiCheck(is_string($css) && !str_contains($css, '@import'), 'No external stylesheet import');
 
+$liteNav=\AdultCore\UI\Layout::admin('Dashboard','<p>Welcome</p>','/admin',null,'lite');
+uiCheck(str_contains($liteNav,'Pro Version Only')&&str_contains($liteNav,'aria-disabled="true"'),'Lite admin displays disabled Pro-only controls');
+uiCheck(str_contains($liteNav,'href="https://cajunwebpro.com"'),'Lite admin upgrade links to placeholder owner website');
+$proNav=\AdultCore\UI\Layout::admin('Dashboard','<p>Welcome</p>','/admin',null,'pro');
+uiCheck(str_contains($proNav,'In development')&&!str_contains($proNav,'Pro Version Only'),'Pro admin shows not-yet-implemented features without upgrade pitch');
 echo "Passed $checks UI design-system checks.\n";

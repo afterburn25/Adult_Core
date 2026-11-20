@@ -59,6 +59,9 @@ mkdir($root);
 mkdir($root . '/config');
 mkdir($root . '/install');
 mkdir($root . '/storage');
+mkdir($root . '/public');
+mkdir($root . '/config/editions');
+foreach (['lite','pro'] as $editionFile) copy(dirname(__DIR__).'/config/editions/'.$editionFile.'.json', $root.'/config/editions/'.$editionFile.'.json');
 $inputs = [
     'license_key' => 'ABCD-EF12-3456-7890', 'license_domain' => '127.0.0.1',
     'db_host' => $host, 'db_port' => (int) $port, 'db_name' => $name,
@@ -78,16 +81,31 @@ try {
         if (!str_contains($error->getMessage(), 'License not authorized')) throw $error;
     }
     Schema::assertFresh($pdo); // No tables may be created for a denied license.
+    // A Pro key cannot silently install Lite just because the host lacks a Pro agent.
+    try {
+        (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+            static function(string $body): array {
+                $payload=json_decode($body,true,8,JSON_THROW_ON_ERROR);
+                return ['status'=>200,'body'=>(($payload['product_id']??'')===\AdultCore\Licensing\CajunWebClient::SKU_PRO_ONCE)
+                    ? '{"authorized":true}' : '{"authorized":false}'];
+            }
+        )))->install($inputs, 'lite');
+        throw new RuntimeException('Pro license was allowed to downgrade to Lite.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'lacks required capabilities:')) throw $error;
+    }
+    Schema::assertFresh($pdo); // A Pro license on Lite capabilities must leave no tables.
+
     if (is_file($root.'/config/license.php') || is_file($root.'/storage/install-state.json')) {
         throw new RuntimeException('Denied license wrote completion data.');
     }
     (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
         static function (string $body): array {
             $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
-            if (($payload['product_id'] ?? null) !== \AdultCore\Licensing\CajunWebClient::SKU
+            if (!in_array(($payload['product_id'] ?? null), array_keys(\AdultCore\Licensing\CajunWebClient::products()), true)
                 || ($payload['license_key'] ?? null) !== 'ABCD-EF12-3456-7890'
                 || ($payload['domain'] ?? null) !== '127.0.0.1') throw new RuntimeException('Test license validation contract mismatch.');
-            return ['status' => 200, 'body' => '{"authorized":true}'];
+            return ['status' => 200, 'body' => (($payload['product_id'] ?? '') === \AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE ? '{"authorized":true}' : '{"authorized":false}')];
         }
     )))->install($inputs, 'lite');
     if ((new \AdultCore\Licensing\LicenseManager($root))->status('127.0.0.1') !== 'valid') {
@@ -326,6 +344,9 @@ try {
     foreach (['ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
+    foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');
+    @rmdir($root.'/config/editions');
+    @rmdir($root.'/public');
     foreach (['storage', 'config'] as $directory) {
         foreach (glob($root . '/' . $directory . '/*') ?: [] as $file) {
             unlink($file);

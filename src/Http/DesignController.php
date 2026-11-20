@@ -129,7 +129,7 @@ final class DesignController
             'uploaded' => '<p role="status">Image uploaded privately. Choose it below and save the design to use it.</p>',
             default => '',
         };
-        $csrf = self::e(AdminSession::csrf());
+        $csrf = self::e(AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
         $html = '<p class="intro">Choose a layout, change its colors, click the headline or paragraph to edit directly, and layer your own transparent cutout image over the theme background.</p>' . $notice;
         $html .= '<div class="design-studio"><section class="panel studio-controls"><h2>Theme & palette</h2><p class="muted">Four original themes—one selection each. Switching themes keeps their distinct layout and background styling; the model cutout is optional.</p>'
             . '<form id="design-form" method="post" action="/admin/design" class="install-form">'
@@ -209,7 +209,7 @@ final class DesignController
         http_response_code($code);
         echo Layout::admin($title,
             '<div class="admin-heading"><div><p class="eyebrow">THEME BUILDER</p><h1>' . self::e($title) . '</h1></div><span class="page-heading-tag">Adult Core / Design</span></div>' . $content,
-            '/admin/design',AdminSession::csrf());
+            '/admin/design',AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
     }
 
     private static function e(string $value): string

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Licensing;
 
 use AdultCore\Installer\AtomicFile;
+use AdultCore\Installer\InstallationState;
 use RuntimeException;
 
 /** Install-time activation, server-side renewal, and online Cajun Web Pro revocation enforcement. */
@@ -22,13 +23,11 @@ final class LicenseManager
     {
         $key = CajunWebClient::key($key);
         $domain = CajunWebClient::domain($domain);
-        $result = $this->authority()->validate($key, $domain);
-        if ($result !== 'valid') {
-            throw new RuntimeException($result === 'denied'
-                ? 'License not authorized for Adult_Core on this domain. Register this domain in Cajun Web Pro.'
-                : 'Cajun Web Pro validation is temporarily unavailable. Installation was not started.');
+        $product = $this->authority()->resolve($key, $domain);
+        if ($product === null) {
+            throw new RuntimeException('License not authorized for Adult_Core Lite or Pro on this domain. Check your Cajun Web Pro registration.');
         }
-        return ['license_key' => $key, 'domain' => $domain, 'sku' => CajunWebClient::SKU];
+        return ['license_key' => $key, 'domain' => $domain] + $product;
     }
 
     /** Only used once, before the install completion marker is written. */
@@ -37,7 +36,7 @@ final class LicenseManager
         $path = $this->root . '/config/license.php';
         AtomicFile::write($path, $this->configCode($record));
         AtomicFile::write($this->root . '/storage/license-cache.json', LicenseState::encode(
-            $record['license_key'], $record['domain'], $appKey, 'valid', time(), time()
+            $record['license_key'], $record['domain'], $appKey, 'valid', time(), time(), $record['sku']
         ));
     }
 
@@ -47,6 +46,12 @@ final class LicenseManager
         $record = $this->verifyForInstall($key, $domain);
         $appKey = $this->appKey();
         if ($appKey === null) throw new RuntimeException('Installation secret unavailable.');
+        // Never change a live edition by replacing a key; signed installation
+        // state, DB migrations and verified Pro host requirements must agree.
+        $installed = $this->signedEdition($appKey);
+        if ($installed === null || $record['edition'] !== $installed) {
+            throw new RuntimeException('This license belongs to another edition. An edition upgrade requires a separate verified migration; no files were changed.');
+        }
         $lock = $this->root . '/storage/.license-update.lock';
         $fp = @fopen($lock, 'c+');
         if ($fp === false) throw new RuntimeException('License update lock unavailable.');
@@ -54,7 +59,7 @@ final class LicenseManager
             if (!flock($fp, LOCK_EX)) throw new RuntimeException('License update lock unavailable.');
             $this->replacePrivate($this->root . '/config/license.php', $this->configCode($record));
             $this->replacePrivate($this->root . '/storage/license-cache.json', LicenseState::encode(
-                $record['license_key'], $record['domain'], $appKey, 'valid', time(), time()
+                $record['license_key'], $record['domain'], $appKey, 'valid', time(), time(), $record['sku']
             ));
         } finally {
             flock($fp, LOCK_UN);
@@ -90,10 +95,10 @@ final class LicenseManager
             if (!flock($fp, LOCK_EX | LOCK_NB)) return $this->transientVerdict($cached, $now);
             $cached = $this->cache($record, $appKey);
             if ($cached !== null && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return $cached['verdict'];
-            $verdict = $this->authority()->validate($record['license_key'], $record['domain']);
+            $verdict = $this->authority()->validate($record['license_key'], $record['domain'], $record['sku']);
             if ($verdict === 'valid' || $verdict === 'denied') {
                 $last = $verdict === 'valid' ? $now : ($cached['last_success'] ?? 0);
-                $raw = LicenseState::encode($record['license_key'], $record['domain'], $appKey, $verdict, $now, $last);
+                $raw = LicenseState::encode($record['license_key'], $record['domain'], $appKey, $verdict, $now, $last, $record['sku']);
                 try { $this->replacePrivate($this->root . '/storage/license-cache.json', $raw); }
                 catch (\Throwable) { return 'unavailable'; }
                 return $verdict;
@@ -105,20 +110,38 @@ final class LicenseManager
         }
     }
 
-    /** @return array{license_key:string,domain:string,sku:string}|null */
+    /** @return array{license_key:string,domain:string,sku:string,edition:string,term:string}|null */
     public function config(): ?array
     {
         $path = $this->root . '/config/license.php';
         if (!is_file($path) || is_link($path) || !is_readable($path)) return null;
         try {
             $value = require $path;
-            if (!is_array($value) || ($value['sku'] ?? null) !== CajunWebClient::SKU) return null;
+            if (!is_array($value) || !is_string($value['sku'] ?? null)) return null;
+            $identity = CajunWebClient::identity($value['sku']);
+            if ($identity === null) return null;
+            $key = $this->appKey();
+            // Before the first install marker, only the installation service
+            // writes config. Once a marker exists it must be valid and edition-matched.
+            if (is_file($this->root . '/storage/install-state.json')
+                && ($key === null || $this->signedEdition($key) !== $identity['edition'])) return null;
             return [
                 'license_key' => CajunWebClient::key((string) ($value['license_key'] ?? '')),
                 'domain' => CajunWebClient::domain((string) ($value['domain'] ?? '')),
-                'sku' => CajunWebClient::SKU,
+                'sku' => $value['sku'], 'edition' => $identity['edition'], 'term' => $identity['term'],
             ];
         } catch (\Throwable) { return null; }
+    }
+
+    /** Edition comes from the HMAC-signed marker, never an HTTP parameter. */
+    private function signedEdition(string $appKey): ?string
+    {
+        $path = $this->root . '/storage/install-state.json';
+        if (!is_file($path) || is_link($path)) return null;
+        $raw = @file_get_contents($path);
+        if (!is_string($raw) || !InstallationState::valid($raw, $appKey)) return null;
+        $state = json_decode($raw, true);
+        return in_array($state['edition'] ?? null, ['lite','pro'], true) ? $state['edition'] : null;
     }
 
     private function appKey(): ?string
@@ -136,7 +159,7 @@ final class LicenseManager
         $path = $this->root . '/storage/license-cache.json';
         if (!is_file($path) || !is_readable($path) || is_link($path)) return null;
         $raw = @file_get_contents($path);
-        return is_string($raw) ? LicenseState::decode($raw, $record['license_key'], $record['domain'], $appKey) : null;
+        return is_string($raw) ? LicenseState::decode($raw, $record['license_key'], $record['domain'], $appKey, $record['sku']) : null;
     }
 
     private function transientVerdict(?array $cached, int $now): string

@@ -97,14 +97,14 @@ def run():
             # installation must get the initial verdict from Cajun Web Pro.
             (root / "config" / "license.php").write_text(
                 "<?php return ['license_key'=>'ABCD-EF12-3456-7890',"
-                "'domain'=>'127.0.0.1','sku'=>'SOFTWARE-ADULT-CORE'];", encoding="utf-8"
+                "'domain'=>'127.0.0.1','sku'=>'SOFTWARE-ADULT-CORE-LITE'];", encoding="utf-8"
             )
             subprocess.check_call([
                 'php','-r',
                 "require 'src/Support/Autoload.php'; "
                 "file_put_contents('storage/license-cache.json', "
                 "\\AdultCore\\Licensing\\LicenseState::encode('ABCD-EF12-3456-7890', "
-                "'127.0.0.1', str_repeat('a', 64), 'valid', time(), time()));",
+                "'127.0.0.1', str_repeat('a', 64), 'valid', time(), time(), 'SOFTWARE-ADULT-CORE-LITE'));",
             ], cwd=root)
             shutil.rmtree(root / "install")
             # Removing a license must not unlock a completed installation.

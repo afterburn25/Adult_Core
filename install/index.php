@@ -20,13 +20,13 @@ $root = dirname(__DIR__);
 $host = new HostInspector($root);
 $report = $host->inspect($_SERVER['DOCUMENT_ROOT'] ?? null);
 $choice = (new EditionSelector($root . '/config/editions'))->select($report['capabilities']);
-$edition = $choice['edition'];
+$edition = $choice['missing_lite'] === [] ? 'lite' : null; // Host readiness only; the key determines installed edition.
 $modules = [];
 $compatibility = new ModuleCompatibility();
 foreach (glob($root . '/modules/*/module.json') ?: [] as $manifestPath) {
     try {
         $module = ManifestLoader::load($manifestPath);
-        $module['reasons'] = $compatibility->blockedReasons($module, $edition, $report['capabilities']);
+        $module['reasons'] = $compatibility->blockedReasons($module, 'lite', $report['capabilities']);
         $modules[] = $module;
     } catch (Throwable) {
         $modules[] = ['id' => basename(dirname($manifestPath)), 'name' => 'Invalid module', 'reasons' => ['Manifest is invalid.']];
@@ -70,7 +70,7 @@ if (!extension_loaded('session')) {
                 try {
                     (new InstallRateLimiter($root . '/storage'))->consume(is_string($remote) ? $remote : 'unknown');
                     $input = InstallInput::validate($_POST);
-                    (new InstallService($root))->install($input, $edition);
+                    (new InstallService($root))->install($input);
                     unset($_SESSION['csrf']);
                     session_destroy();
                     $success = true;
@@ -86,7 +86,7 @@ if (!extension_loaded('session')) {
                         || str_starts_with($message, 'Installation already running')
                         || str_starts_with($message, 'Installation files already exist')) {
                         $errorMessage = $message;
-                    } elseif (str_contains($message, 'Cajun Web Pro') || str_contains($message, 'License not authorized')) {
+                    } elseif (str_contains($message, 'Cajun Web Pro') || str_contains($message, 'License not authorized') || str_contains($message, 'capabilities:')) {
                         $errorMessage = $message;
                     } else {
                         $errorMessage = 'Installation failed. Review database access, empty schema and server permissions.';
@@ -116,14 +116,12 @@ if (!extension_loaded('session')) {
     <main>
         <p class="eyebrow">SELF-HOSTED · ONE CORE · TWO EDITIONS</p>
         <h1>Install Adult Core</h1>
-        <p class="intro">We check your hosting capabilities, select the supported edition and securely configure a fresh MySQL database. The website and admin remain locked until you delete the <code>install/</code> folder after setup.</p>
+        <p class="intro">Your Cajun Web Pro license key selects Lite or Pro; we verify that this server meets its requirements before creating a fresh MySQL database. The website and admin remain locked until you delete the <code>install/</code> folder after setup.</p>
         <section class="edition">
             <div>
-                <div class="muted small">AUTOMATIC EDITION SELECTION</div>
-                <h2><?= $edition === null ? 'Installation blocked' : html(strtoupper($edition)) . ' Edition' ?></h2>
-                <p><?= $edition === 'pro'
-                    ? 'Verified local Pro agent supports the advanced edition.'
-                    : ($edition === 'lite' ? 'Shared-hosting requirements passed. Additional VPS features are not available.' : 'Fix the minimum requirements before proceeding.') ?></p>
+                <div class="muted small">LICENSE-SELECTED EDITION · HOST CAPABILITY CHECK</div>
+                <h2><?= $edition === null ? 'Installation blocked' : 'Lite hosting requirements passed' ?></h2>
+                <p><?= $edition === null ? 'Fix minimum PHP and storage requirements.' : 'Your license key determines which edition is installed. Pro keys additionally require a verified Pro agent and background worker capability.' ?></p>
             </div>
             <div class="pill <?= $edition === null ? 'pill-no' : 'pill-yes' ?>"><?= $edition === null ? 'BLOCKED' : 'ELIGIBLE' ?></div>
         </section>
@@ -149,7 +147,7 @@ if (!extension_loaded('session')) {
                         <input type="hidden" name="csrf" value="<?= html((string) ($_SESSION['csrf'] ?? '')) ?>">
                         <div class="form-divider"></div>
                         <h3>Activation — Cajun Web Pro</h3>
-                        <p class="muted">A valid Adult_Core license for this registered hostname is mandatory. Keys are issued in your Cajun Web Pro software customer portal; install cannot proceed without online authorization.</p>
+                        <p class="muted">A valid Adult_Core Lite or Pro key (one-time or monthly) for this hostname is mandatory. The key determines the edition automatically. Keys are issued in your Cajun Web Pro software customer portal; install cannot proceed without online authorization.</p>
                         <label for="license_key">Adult_Core license key</label>
                         <input id="license_key" name="license_key" type="password" minlength="8" maxlength="255" required autocomplete="off" spellcheck="false" placeholder="Enter your Cajun Web Pro license key">
                         <label for="license_domain">Registered license domain (without https://)</label>
@@ -165,7 +163,7 @@ if (!extension_loaded('session')) {
                         <label for="admin_email">Administrator email</label><input id="admin_email" name="admin_email" type="email" maxlength="190" required value="<?= html(is_string($_POST['admin_email'] ?? null) ? $_POST['admin_email'] : '') ?>">
                         <label for="admin_password">Administrator password (12–72 characters)</label><input id="admin_password" name="admin_password" type="password" minlength="12" maxlength="72" required autocomplete="new-password">
                         <label for="admin_password_confirm">Confirm administrator password</label><input id="admin_password_confirm" name="admin_password_confirm" type="password" minlength="12" maxlength="72" required autocomplete="new-password">
-                        <button class="install-button" type="submit">Install <?= html(strtoupper($edition)) ?> Edition</button>
+                        <button class="install-button" type="submit">Validate license and install its edition</button>
                         <p class="muted form-note">There is no automatic overwrite or reset. A successful setup locks the site until the <code>install/</code> directory is manually deleted.</p>
                     </form>
                 <?php else: ?>
@@ -183,7 +181,7 @@ if (!extension_loaded('session')) {
                     </div>
                 <?php endforeach; ?>
             </div>
-            <p>This is an installer milestone, not a live membership website. A working site/admin runtime and production payment/content moderation features are still to come.</p>
+            <p>Compatibility preview below assumes Lite; the licensed edition and verified host capabilities are enforced during setup. This is a development build, not a live membership website. A working site/admin runtime and production payment/content moderation features are still to come.</p>
         </section>
     </main>
     <footer>Adult Core · Milestone 2 · Installation code outside the public document root</footer>

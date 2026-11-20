@@ -7,6 +7,8 @@ namespace AdultCore\Installer;
 use AdultCore\Database\Schema;
 use AdultCore\Licensing\LicenseManager;
 use AdultCore\Licensing\CajunWebClient;
+use AdultCore\Capability\HostInspector;
+use AdultCore\Edition\EditionSelector;
 use PDO;
 use PDOException;
 use RuntimeException;
@@ -20,11 +22,9 @@ final class InstallService
     }
 
     /** @param array<string,mixed> $fields Validated by InstallInput. */
-    public function install(array $fields, string $edition): void
+    public function install(array $fields, ?string $legacyHostSuggestion = null): void
     {
-        if (!in_array($edition, ['lite', 'pro'], true)) {
-            throw new RuntimeException('Unsupported edition.');
-        }
+        $edition = 'unverified';
         $storage = $this->root . '/storage';
         $lock = fopen($storage . '/.installation.lock', 'c+');
         if ($lock === false || !flock($lock, LOCK_EX | LOCK_NB)) {
@@ -45,6 +45,14 @@ final class InstallService
             // Denied or unreachable licensing means zero database creation and no completion marker.
             $licensing = new LicenseManager($this->root, $this->licenseClient);
             $license = $licensing->verifyForInstall((string) ($fields['license_key'] ?? ''), (string) ($fields['license_domain'] ?? ''));
+            $edition = $license['edition']; // LICENSE chooses edition, NOT host auto-selection or a form field.
+            $actualDocroot = PHP_SAPI === 'cli' ? $this->root . '/public'
+                : (is_string($_SERVER['DOCUMENT_ROOT'] ?? null) ? $_SERVER['DOCUMENT_ROOT'] : null);
+            $capabilities = (new HostInspector($this->root))->inspect($actualDocroot)['capabilities'];
+            $missing = (new EditionSelector($this->root . '/config/editions'))->missing($edition, $capabilities);
+            if ($missing !== []) {
+                throw new RuntimeException('Your ' . strtoupper($edition) . ' license is valid, but this server lacks required capabilities: ' . implode(', ', $missing) . '. Installation was not started.');
+            }
             $dsn = 'mysql:host=' . $fields['db_host'] . ';port=' . $fields['db_port'] . ';dbname=' . $fields['db_name'] . ';charset=utf8mb4';
             $pdo = new PDO($dsn, $fields['db_user'], $fields['db_password'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

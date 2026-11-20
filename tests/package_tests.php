@@ -112,6 +112,44 @@ try {
     verifyPackageTest('Pro-only module accepted when edition is Pro', $store->isRunnable('module', 'pro-only', 'pro', $caps));
     verifyPackageTest('Pro-only module cannot run under Lite context', !$store->isRunnable('module', 'pro-only', 'lite', $caps));
 
+    // Product licenses are independent from the core edition license.
+    file_put_contents($root.'/config/app-key.php', '<?php return '.var_export(str_repeat('a',64),true).';');
+    file_put_contents($root.'/config/license.php', '<?php return '.var_export([
+        'license_key'=>'ABCD-EF12-3456-7890','domain'=>'example.test',
+        'sku'=>\AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE,'edition'=>'lite','term'=>'once'
+    ],true).';');
+    $paidSku='SOFTWARE-ADULT-CORE-MODULE-CHAT';
+    $paidZip=$fixtureDir.'/paid-chat.zip';
+    $paidManifest=manifestFixture('paid-chat');
+    $paidManifest['license_sku']=$paidSku;
+    packageFixture($paidZip,$paidManifest,['readme.txt'=>'Test paid module'], $privateKey);
+    $licenseClient=new \AdultCore\Licensing\CajunWebClient(static function(string $body)use($paidSku):array{
+        $data=json_decode($body,true,8,JSON_THROW_ON_ERROR);
+        $allowed=($data['product_id']??null)===$paidSku
+            &&($data['license_key']??null)==='AAAA-BBBB-CCCC-DDDD'
+            &&($data['domain']??null)==='example.test';
+        return ['status'=>200,'body'=>json_encode(['authorized'=>$allowed],JSON_THROW_ON_ERROR)];
+    });
+    $paidStore=new PackageStore($root,$licenseClient);
+    $paidStore->install($paidZip,'lite',$caps);
+    verifyPackageTest('Paid module accepted as signed but default disabled', !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    expectRefusal('Paid module cannot activate without separate key',fn()=> $paidStore->changeStatus('module','paid-chat',true,'lite',$caps));
+    expectRefusal('Wrong paid module key denied',fn()=> $paidStore->changeStatus('module','paid-chat',true,'lite',$caps,'FAKE-FAKE-FAKE-FAKE'));
+    $paidStore->changeStatus('module','paid-chat',true,'lite',$caps,'AAAA-BBBB-CCCC-DDDD');
+    verifyPackageTest('Correct paid module key activates', $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $licenseCache=$root.'/storage/packages/module-licenses/paid-chat.json';
+    verifyPackageTest('Module receipt does not expose key', !str_contains((string)file_get_contents($licenseCache),'AAAA-BBBB-CCCC-DDDD'));
+    file_put_contents($licenseCache, \AdultCore\Licensing\LicenseState::encode('AAAA-BBBB-CCCC-DDDD','example.test',str_repeat('a',64),'denied',time(),time()-5,$paidSku));
+    verifyPackageTest('Revoked module receipt prevents runtime', !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $paidStore->changeStatus('module','paid-chat',false,'lite',$caps);
+    // An unsigned or invalid module SKU must fail signature-manifest admission.
+    $badSku=manifestFixture('bad-sku');$badSku['license_sku']='SOFTWARE-ADULT-CORE-LITE';
+    $badZip=$fixtureDir.'/bad-sku.zip';packageFixture($badZip,$badSku,['readme.txt'=>'Invalid entitlement'], $privateKey);
+    expectRefusal('Theme/add-on SKU cannot masquerade as a core SKU',fn()=> $verifier->inspect($badZip));
+    $fakeTheme=manifestFixture('paid-theme','theme');$fakeTheme['license_sku']=$paidSku;
+    $fakeZip=$fixtureDir.'/paid-theme.zip';packageFixture($fakeZip,$fakeTheme,['readme.txt'=>'No paid themes'], $privateKey);
+    expectRefusal('Theme cannot include module-only license SKU',fn()=> $verifier->inspect($fakeZip));
+
     $dependentZip = $fixtureDir . '/dependent-module.zip';
     packageFixture($dependentZip, manifestFixture('dependent-module', 'module', ['lite', 'pro'], ['base-module']), ['info.json' => '{}'], $privateKey);
     $store->install($dependentZip, 'lite', $caps);

@@ -1,0 +1,115 @@
+<?php
+
+declare(strict_types=1);
+
+namespace AdultCore\Licensing;
+
+use AdultCore\Installer\AtomicFile;
+use RuntimeException;
+
+/** A signed, private module entitlement cache; paid add-ons never inherit a core key. */
+final class ModuleLicenseManager
+{
+    public function __construct(private readonly string $root, private readonly ?CajunWebClient $client = null) {}
+
+    private function authority(): CajunWebClient { return $this->client ?? new CajunWebClient(); }
+    public static function sku(string $sku): bool
+    {
+        return preg_match('/^SOFTWARE-ADULT-CORE-MODULE-[A-Z0-9_-]{2,50}$/D', $sku) === 1;
+    }
+    private static function id(string $id): string
+    {
+        if (!preg_match('/^[a-z][a-z0-9-]{1,63}$/D', $id)) throw new RuntimeException('Invalid add-on identifier.');
+        return $id;
+    }
+    private function directory(): string { return $this->root . '/storage/packages/module-licenses'; }
+    private function secret(): string
+    {
+        $path = $this->root.'/config/app-key.php';
+        if (!is_file($path) || is_link($path)) throw new RuntimeException('Private application key unavailable.');
+        $key = require $path;
+        if (!is_string($key) || !preg_match('/^[a-f0-9]{64}$/D', $key)) throw new RuntimeException('Private application key invalid.');
+        return $key;
+    }
+    private function domain(): string
+    {
+        $record=(new LicenseManager($this->root))->config();
+        if ($record === null) throw new RuntimeException('Core license unavailable.');
+        return $record['domain'];
+    }
+    public function activate(string $id, string $sku, string $key): void
+    {
+        $id=self::id($id);
+        if (!self::sku($sku)) throw new RuntimeException('Module has no recognized licensed product.');
+        $key=CajunWebClient::key($key);
+        $domain=$this->domain();
+        if ($this->authority()->validate($key,$domain,$sku) !== 'valid') {
+            throw new RuntimeException('Cajun Web Pro did not authorize this module license.');
+        }
+        $dir=$this->directory();
+        if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir)) throw new RuntimeException('Private module license storage unavailable.');
+        $secret=$this->secret();
+        $lock=@fopen($dir.'/.lock','c+');
+        if (!is_resource($lock)) throw new RuntimeException('Module license lock unavailable.');
+        try {
+            if (!flock($lock,LOCK_EX)) throw new RuntimeException('Module license lock unavailable.');
+            self::writePrivate($dir.'/'.$id.'.php', "<?php\nreturn ".var_export(['key'=>$key,'sku'=>$sku,'domain'=>$domain],true).";\n");
+            self::writePrivate($dir.'/'.$id.'.json',LicenseState::encode($key,$domain,$secret,'valid',time(),time(),$sku));
+        } finally { flock($lock,LOCK_UN);fclose($lock); }
+    }
+    /** @return 'valid'|'denied'|'unavailable' */
+    public function status(string $id, string $sku): string
+    {
+        if (!self::sku($sku)) return 'denied';
+        try {
+            $id=self::id($id);
+            $dir=$this->directory();
+            $path=$dir.'/'.$id.'.php';
+            if (!is_file($path) || is_link($path)) return 'denied';
+            $record=require $path;
+            if (!is_array($record) || ($record['sku']??null)!==$sku || ($record['domain']??null)!==$this->domain()) return 'denied';
+            $key=CajunWebClient::key((string)($record['key']??''));
+            $domain=$record['domain'];$secret=$this->secret();
+            $cachePath=$dir.'/'.$id.'.json';
+            $read=function()use($cachePath,$key,$domain,$secret,$sku):?array{
+                if (!is_file($cachePath) || is_link($cachePath) || filesize($cachePath)>4096) return null;
+                $raw=@file_get_contents($cachePath);
+                return is_string($raw)?LicenseState::decode($raw,$key,$domain,$secret,$sku):null;
+            };
+            $cached=$read();$now=time();
+            if($cached!==null && $cached['checked_at']+LicenseManager::REFRESH_SECONDS>$now)return $cached['verdict'];
+            $lock=@fopen($dir.'/.lock','c+');
+            if(!is_resource($lock))return self::grace($cached,$now);
+            try {
+                if(!flock($lock,LOCK_EX|LOCK_NB))return self::grace($cached,$now);
+                $cached=$read();
+                if($cached!==null && $cached['checked_at']+LicenseManager::REFRESH_SECONDS>$now)return $cached['verdict'];
+                $answer=$this->authority()->validate($key,$domain,$sku);
+                if($answer==='valid'||$answer==='denied'){
+                    $last=$answer==='valid'?$now:($cached['last_success']??0);
+                    self::writePrivate($cachePath,LicenseState::encode($key,$domain,$secret,$answer,$now,$last,$sku));
+                    return $answer;
+                }
+                return self::grace($cached,$now);
+            }finally{flock($lock,LOCK_UN);fclose($lock);}
+        }catch(\Throwable){return 'unavailable';}
+    }
+    private static function grace(?array $receipt,int $now): string
+    {
+        if ($receipt!==null && $receipt['verdict']==='denied')return 'denied';
+        return $receipt!==null&&$receipt['verdict']==='valid'&&$receipt['last_success']>0
+            &&$receipt['last_success']+LicenseManager::TRANSIENT_GRACE_SECONDS>$now?'valid':'unavailable';
+    }
+    private static function writePrivate(string $path,string $body):void
+    {
+        $dir=dirname($path);
+        if (is_link($path) || !is_dir($dir) || (file_exists($path)&&!is_file($path)))throw new RuntimeException('Module license path unsafe.');
+        $temp=tempnam($dir,'.module-license-');
+        if($temp===false)throw new RuntimeException('Module license storage unavailable.');
+        try {
+            if(!chmod($temp,0600)||file_put_contents($temp,$body,LOCK_EX)!==strlen($body)||!rename($temp,$path)){
+                throw new RuntimeException('Module license could not be saved.');
+            }
+        }finally{if(is_file($temp))@unlink($temp);}
+    }
+}

@@ -56,10 +56,10 @@ $root = dirname(__DIR__);
 (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
         static function (string $body): array {
             $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
-            if (($payload['product_id'] ?? null) !== \AdultCore\Licensing\CajunWebClient::SKU
+            if (!in_array(($payload['product_id'] ?? null), array_keys(\AdultCore\Licensing\CajunWebClient::products()), true)
                 || ($payload['license_key'] ?? null) !== 'ABCD-EF12-3456-7890'
                 || ($payload['domain'] ?? null) !== '127.0.0.1') throw new RuntimeException('Test license validation contract mismatch.');
-            return ['status' => 200, 'body' => '{"authorized":true}'];
+            return ['status' => 200, 'body' => (($payload['product_id'] ?? '') === \AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE ? '{"authorized":true}' : '{"authorized":false}')];
         }
     )))->install([
     'license_key' => 'ABCD-EF12-3456-7890', 'license_domain' => '127.0.0.1',

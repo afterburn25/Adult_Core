@@ -111,6 +111,12 @@ final class PackageVerifier
             || !in_array($data['type'] ?? null, ['module', 'theme'], true)) {
             throw new RuntimeException('Invalid package identifier, version or type.');
         }
+        if (isset($data['license_sku'])) {
+            if ($data['type'] !== 'module' || !is_string($data['license_sku'])
+                || !\AdultCore\Licensing\ModuleLicenseManager::sku($data['license_sku'])) {
+                throw new RuntimeException('Invalid signed paid-module SKU.');
+            }
+        }
         foreach (['editions', 'required_capabilities', 'dependencies'] as $field) {
             if (!is_array($data[$field] ?? null) || !array_is_list($data[$field])) {
                 throw new RuntimeException('Invalid package field ' . $field . '.');

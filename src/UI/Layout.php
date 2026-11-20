@@ -122,7 +122,7 @@ final class Layout
      * This method is called only by authenticated admin routes. The caller remains
      * responsible for validating the session, role and CSRF before dispatch.
      */
-    public static function admin(string $title, string $content, string $currentPath = '/admin', ?string $csrf = null): string
+    public static function admin(string $title, string $content, string $currentPath = '/admin', ?string $csrf = null, string $edition = 'unknown'): string
     {
         $links = [
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
@@ -141,6 +141,18 @@ final class Layout
                 . ($active ? ' aria-current="page"' : '') . '>' . self::icon($link['icon']) . '<span>' . self::escape($link['label']) . '</span>'
                 . ($active ? '<span class="current-dot" aria-hidden="true"></span>' : '') . '</a>';
         }
+        // Present Pro-only modules on Lite without supplying live routes or unauthorized controls.
+        $upgradeUrl = 'https://cajunwebpro.com'; // Placeholder until the verified upgrade URL exists.
+        $nav .= '<div class="sidebar-group-label pro-feature-label">PRO FEATURES</div>';
+        foreach (['Video streaming', 'Live broadcasts', 'Real-time chat', 'Video processing'] as $proFeature) {
+            $nav .= '<div class="admin-nav-link pro-feature-locked" aria-disabled="true">'
+                . self::icon('puzzle') . '<span>' . self::escape($proFeature) . '</span>'
+                . '<small>' . ($edition === 'lite' ? 'Pro Version Only' : 'In development') . '</small></div>';
+        }
+        if ($edition === 'lite') {
+            $nav .= '<a class="pro-upgrade-link" href="' . $upgradeUrl . '" target="_blank" rel="noopener noreferrer">'
+                . 'Upgrade to Pro <span aria-hidden="true">↗</span></a>';
+        }
         $logout = is_string($csrf) && preg_match('/^[a-f0-9]{64}$/D', $csrf) === 1
             ? '<form method="post" action="/admin/logout" class="logout-form"><input type="hidden" name="csrf" value="' . self::escape($csrf) . '">'
                 . '<button type="submit" class="admin-logout">' . self::icon('logout') . '<span>Sign out</span></button></form>'
@@ -150,7 +162,7 @@ final class Layout
             . '<div class="sidebar-brand">' . self::brand(true) . '</div>'
             . '<div class="sidebar-group-label">WORKSPACE</div><nav class="admin-nav" aria-label="Administrator sections">' . $nav . '</nav>'
             . '<div class="sidebar-bottom"><div class="sidebar-edition"><span class="status-light"></span><div><strong>Development preview</strong>'
-            . '<small>Lite / Pro architecture</small></div></div>' . $logout . '</div></aside>'
+            . '<small>' . self::escape($edition === 'pro' ? 'Pro edition' : ($edition === 'lite' ? 'Lite edition' : 'License recovery')) . '</small></div></div>' . $logout . '</div></aside>'
             . '<div class="admin-workspace"><header class="admin-topbar"><div class="admin-breadcrumb">Workspace <span>/</span> <strong>' . self::escape($title) . '</strong></div>'
             . '<div class="admin-toolbar"><span class="toolbar-status"><span class="status-light"></span> Secure workspace</span>'
             . '<a class="btn btn-topbar" href="/" target="_blank" rel="noopener noreferrer">View site ' . self::icon('external') . '</a></div></header>'

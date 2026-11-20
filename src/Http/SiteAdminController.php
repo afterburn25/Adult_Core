@@ -168,7 +168,7 @@ final class SiteAdminController
         echo Layout::admin($title,
             '<div class="admin-heading page-heading"><div><p class="eyebrow">CONTENT MANAGEMENT</p><h1>'
             . self::e($title) . '</h1></div><span class="page-heading-tag">Adult Core / Workspace</span></div>' . $body,
-            is_string($path) ? $path : '/admin/pages', AdminSession::csrf());
+            is_string($path) ? $path : '/admin/pages', AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
     }
 
     private static function e(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }

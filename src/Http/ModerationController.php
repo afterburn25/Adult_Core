@@ -82,7 +82,7 @@ final class ModerationController
 
     private function dashboard(ModerationRepository $repo): string
     {
-        $csrf=self::e(AdminSession::csrf());
+        $csrf=self::e(AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
         $html='<p class="intro">Private content stays unpublished until independent age, consent, and media review integrations are implemented. This panel supports draft preparation, quarantine, rejection, and report triage only. Closing a report does not restore content.</p>';
         if (($_GET['result']??'')==='saved') $html.='<p role="status">Moderation action recorded.</p>';
         $html.='<section class="panel"><h2>Create private content draft</h2><form method="post" action="/admin/moderation" class="install-form">'
@@ -132,7 +132,7 @@ final class ModerationController
         echo Layout::admin($title,
             '<div class="admin-heading page-heading"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>'
             . self::e($title) . '</h1></div><span class="page-heading-tag">Restricted workflow</span></div>' . $body,
-            '/admin/moderation', AdminSession::csrf());
+            '/admin/moderation', AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
     }
 
     private static function e(string $v):string {return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}

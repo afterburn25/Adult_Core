@@ -156,14 +156,17 @@ final class AdminController
             . '<p class="intro">Activation is required to install and use Adult_Core. Licenses are issued and administered by Cajun Web Pro. '
             . 'Your key is stored privately and never displayed in this workspace.</p>'
             . '<section class="panel"><p><strong>Current status:</strong> ' . self::escape($state) . '</p>'
-            . '<p><strong>Product SKU:</strong> SOFTWARE-ADULT-CORE</p>'
+            . '<p><strong>Licensed edition:</strong> ' . self::escape(strtoupper((string)($saved['edition'] ?? 'Unknown'))) . '</p>'
+            . '<p><strong>Billing term:</strong> ' . self::escape(($saved['term'] ?? '') === 'month' ? 'Monthly subscription' : 'One-time / unconfigured') . '</p>'
+            . '<p><strong>Product SKU:</strong> ' . self::escape((string)($saved['sku'] ?? 'not configured')) . '</p>'
             . '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p></section>'
             . ($error !== null ? '<div class="alert-error" role="alert">' . self::escape($error) . '</div>' : '')
             . '<section class="panel"><h2>Activate or replace license</h2><form method="post" action="/admin/license" class="install-form" autocomplete="off">'
             . '<input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
             . '<label for="license-key">License key</label><input id="license-key" name="license_key" type="password" required autocomplete="off" maxlength="255">'
             . '<label for="license-domain">Registered domain</label><input id="license-domain" name="license_domain" required maxlength="253" value="' . self::escape($domain) . '">'
-            . '<button type="submit" class="install-button">Validate and save license</button></form></section>';
+            . '<button type="submit" class="install-button">Validate and save license</button></form>'
+            . '<p class="muted">Replacing a key cannot change Lite into Pro: a separately verified upgrade/migration is required. Purchase or manage subscriptions at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a>.</p></section>';
         $this->page('License activation', $content);
     }
 
@@ -289,7 +292,7 @@ $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admi
                         if (!is_string($type) || !is_string($id)) {
                             throw new \RuntimeException('Invalid package action.');
                         }
-                        $store->changeStatus($type, $id, $action === 'enable', $edition, $capabilities);
+                        $store->changeStatus($type, $id, $action === 'enable', $edition, $capabilities, is_string($_POST['module_license_key'] ?? null) ? $_POST['module_license_key'] : null);
                     } else {
                         throw new \RuntimeException('Invalid package action.');
                     }
@@ -347,8 +350,11 @@ $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admi
                 . '<input type="hidden" name="type" value="' . self::escape($package['type']) . '">'
                 . '<input type="hidden" name="id" value="' . self::escape($package['id']) . '">'
                 . '<input type="hidden" name="action" value="' . ($package['enabled'] ? 'disable' : 'enable') . '">'
+                . (!$package['enabled'] && is_string($package['license_sku'] ?? null)
+                    ? '<label for="package-license-' . self::escape($package['id']) . '">Module license key (' . self::escape($package['license_sku']) . ')</label>'
+                        . '<input type="password" id="package-license-' . self::escape($package['id']) . '" name="module_license_key" autocomplete="off" placeholder="Enter paid module key">' : '')
                 . '<button class="button-secondary" type="submit"'
-                . (!$package['enabled'] && $package['blocked'] !== [] ? ' disabled' : '') . '>'
+                . (!$package['enabled'] && array_filter($package['blocked'], static fn(string $reason):bool => $reason !== 'Paid module license is not authorized.') !== [] ? ' disabled' : '') . '>'
                 . ($package['enabled'] ? 'Disable' : 'Enable') . '</button></form></div>';
         }
         return $out . '</section><section class="notice"><p>Activation records are implemented; a runtime extension API and '
@@ -380,7 +386,7 @@ $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admi
             return;
         }
         $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/admin'), PHP_URL_PATH);
-        echo Layout::admin($title, $content, is_string($path) ? $path : '/admin', AdminSession::csrf());
+        echo Layout::admin($title, $content, is_string($path) ? $path : '/admin', AdminSession::csrf(), (new LicenseManager($this->root))->config()['edition'] ?? 'unknown');
     }
 
     private static function escape(string $input): string

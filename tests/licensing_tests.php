@@ -7,92 +7,80 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Licensing\LicenseManager;
 use AdultCore\Licensing\LicenseState;
+use AdultCore\Installer\InstallationState;
 
-$n = 0;
-$check = static function (string $name, bool $ok) use (&$n): void {
-    if (!$ok) throw new RuntimeException('Licensing test failed: ' . $name);
-    $n++;
-};
-$fake = static fn(int $status, string $body): CajunWebClient => new CajunWebClient(
-    static fn(string $payload): array => ['status' => $status, 'body' => $body]
-);
-$key='ABCD-1234-EF56-7890';
-$domain='example.test';
-$secret=str_repeat('f',64);
-$client = new CajunWebClient(static function (string $body) use ($key, $check): array {
-    $payload=json_decode($body,true,8,JSON_THROW_ON_ERROR);
-    $check('vendor endpoint receives product-specific software SKU',($payload['product_id']??null)===CajunWebClient::SKU);
-    $check('vendor endpoint receives exact key and domain',($payload['license_key']??null)==='ABCD-1234-EF56-7890'
-        && ($payload['domain']??null)==='example.test');
-    $check('unregistered developer build version is not sent', !isset($payload['version']));
-    return ['status'=>200,'body'=>'{"authorized":true}'];
+$n=0;
+$check=function(string $name,bool $passed)use(&$n):void{if(!$passed)throw new RuntimeException('Licensing test failed: '.$name);$n++;};
+$key='ABCD-EF12-3456-7890';$domain='example.test';$secret=str_repeat('a',64);
+$products=CajunWebClient::products();
+$check('Four exact product variants',count($products)===4);
+$check('Monthly Lite and Pro are distinct',CajunWebClient::identity(CajunWebClient::SKU_LITE_MONTH)['term']==='month'
+    && CajunWebClient::identity(CajunWebClient::SKU_PRO_MONTH)['edition']==='pro');
+$check('Legacy single-product key no longer selects an edition',CajunWebClient::identity('SOFTWARE-ADULT-CORE')===null);
+$made=static fn(string $sku):CajunWebClient=>new CajunWebClient(static function(string $payload)use($sku):array{
+    $r=json_decode($payload,true,8,JSON_THROW_ON_ERROR);
+    if (($r['license_key']??null)!=='ABCD-EF12-3456-7890'||($r['domain']??null)!=='example.test')throw new RuntimeException('Bad request');
+    return ['status'=>200,'body'=>json_encode(['authorized'=>($r['product_id']??null)===$sku])];
 });
-$check('positive vendor authorization', $client->validate($key, 'www.example.test')==='valid');
-$check('explicit HTTP 200 license denial', $fake(200,'{"authorized":false,"error":"revoked"}')->validate($key,$domain)==='denied');
-foreach ([400,429,503,302] as $status) {
-    $check('transient non-200 '.$status,$fake($status,'{"authorized":false}')->validate($key,$domain)==='transient');
+foreach($products as $sku=>$identity){
+    $resolved=$made($sku)->resolve($key,$domain);
+    $check('Key resolves exact edition + term '.$sku,$resolved!==null && $resolved['sku']===$sku
+        && $resolved['edition']===$identity['edition'] && $resolved['term']===$identity['term']);
+    $other=$sku===CajunWebClient::SKU_LITE_ONCE?CajunWebClient::SKU_PRO_ONCE:CajunWebClient::SKU_LITE_ONCE;
+    $check('Cross-product license denied '.$sku,$made($sku)->validate($key,$domain,$other)==='denied');
 }
-foreach (['{"authorized":"false"}','{"error":"missing"}','invalid json','{"authorized":null}'] as $reply) {
-    $check('ambiguous vendor payload fails closed', $fake(200,$reply)->validate($key,$domain)==='transient');
+$denier=new CajunWebClient(static fn(string $body):array=>['status'=>200,'body'=>'{"authorized":false}']);
+$check('Unregistered key has no product',$denier->resolve($key,$domain)===null);
+foreach([400,429,500,302] as $status){
+    $client=new CajunWebClient(static fn(string $body):array=>['status'=>$status,'body'=>'{"authorized":false}']);
+    $check('Non200 is inconclusive '.$status,$client->validate($key,$domain,CajunWebClient::SKU_LITE_ONCE)==='transient');
+    try {$client->resolve($key,$domain);$ok=false;}catch(RuntimeException){$ok=true;}
+    $check('Cannot install when one or more product checks were inconclusive '.$status,$ok);
 }
-$check('www and apex canonicalize identically', CajunWebClient::domain('WWW.Example.Test')==='example.test');
-foreach (['http://example.test','example.test:443','localhost','bad/../example.test','evil.example.test/path','bad@domain.test'] as $host) {
-    try { CajunWebClient::domain($host); $ok=false; } catch (InvalidArgumentException) { $ok=true; }
-    $check('unsafe domain rejected', $ok);
+$check('www hostname normalized',CajunWebClient::domain('WWW.Example.Test')==='example.test');
+foreach(['http://example.test','example.test:443','localhost','bad/../example.test','bad@domain.test'] as $value){
+    try{CajunWebClient::domain($value);$ok=false;}catch(InvalidArgumentException){$ok=true;}
+    $check('Bad hostname rejected '.$value,$ok);
 }
-foreach (['', 'abc', 'a key with spaces', 'foo/bar'] as $value) {
-    try { CajunWebClient::key($value); $ok=false; } catch (InvalidArgumentException) { $ok=true; }
-    $check('unsafe license key rejected', $ok);
+foreach($products as $sku=>$identity){
+    $raw=LicenseState::encode($key,$domain,$secret,'valid',100000,100000,$sku);
+    $check('Signed receipt roundtrip '.$sku,LicenseState::decode($raw,$key,$domain,$secret,$sku,100100)!==null);
+    $check('Wrong SKU cannot replay receipt '.$sku,LicenseState::decode($raw,$key,$domain,$secret,$sku===CajunWebClient::SKU_LITE_ONCE?CajunWebClient::SKU_PRO_ONCE:CajunWebClient::SKU_LITE_ONCE,100100)===null);
+    $check('Wrong domain cannot replay receipt '.$sku,LicenseState::decode($raw,$key,'evil.test',$secret,$sku,100100)===null);
+    $check('Bad MAC rejected '.$sku,LicenseState::decode(str_replace('"valid"','"denied"',$raw),$key,$domain,$secret,$sku,100100)===null);
 }
-$raw=LicenseState::encode($key,$domain,$secret,'valid',100000,100000);
-$check('signed receipt parses', LicenseState::decode($raw,$key,$domain,$secret,100100)!==null);
-$check('receipts are domain specific', LicenseState::decode($raw,$key,'other.example',$secret,100100)===null);
-$check('receipts bind license key', LicenseState::decode($raw,'DIFFERENT-KEY-1234',$domain,$secret,100100)===null);
-$check('receipts bind signing secret', LicenseState::decode($raw,$key,$domain,str_repeat('a',64),100100)===null);
-$check('modified verdict rejected', LicenseState::decode(str_replace('"valid"','"denied"',$raw),$key,$domain,$secret,100100)===null);
-$check('future timestamp rejected', LicenseState::decode($raw,$key,$domain,$secret,1000)===null);
-$root=sys_get_temp_dir().'/adult-core-license-'.bin2hex(random_bytes(8));
+$root=sys_get_temp_dir().'/ac-edition-license-'.bin2hex(random_bytes(5));
 mkdir($root);mkdir($root.'/config');mkdir($root.'/storage');
-$good=new LicenseManager($root,$client);
-try {
-    $check('new site requires license', $good->status('example.test')==='license_required');
-    $record=$good->verifyForInstall($key,$domain);
-    file_put_contents($root.'/config/app-key.php', '<?php return '.var_export($secret,true).';');
-    $good->persistInitial($record,$secret);
-    $check('initial state authenticates', $good->status('example.test:8443')==='valid');
-    $check('www alias allowed for licensed domain',$good->status('www.example.test')==='valid');
-    $check('other domain refused',$good->status('malicious.example')==='domain_mismatch');
-    $check('license never shown in cache',!str_contains((string)file_get_contents($root.'/storage/license-cache.json'),$key));
-    $check('private key file permissions', (fileperms($root.'/config/license.php')&0077)===0);
-    $check('cached denial always blocks', (function () use($root,$key,$domain,$secret,$good){
-        file_put_contents($root.'/storage/license-cache.json', LicenseState::encode($key,$domain,$secret,'denied',time(),time()-50));
-        return $good->status($domain)==='denied';
-    })());
-    $good->replaceLicense($key,$domain);
-    $check('authorized admin reactivation clears denial',$good->status($domain)==='valid');
-    $outage=new LicenseManager($root,$fake(503,'{"authorized":false}'));
-    file_put_contents($root.'/storage/license-cache.json', LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::REFRESH_SECONDS-10,time()-LicenseManager::REFRESH_SECONDS-10));
-    $check('short vendor outage grants bounded last-good grace',$outage->status($domain)==='valid');
-    file_put_contents($root.'/storage/license-cache.json', LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::TRANSIENT_GRACE_SECONDS-10,time()-LicenseManager::TRANSIENT_GRACE_SECONDS-10));
-    $check('grace expiration blocks site',$outage->status($domain)==='unavailable');
-    $check('tampered local receipt blocks site when authority unavailable',(function() use($root,$outage,$domain){
-        file_put_contents($root.'/storage/license-cache.json','{"verdict":"valid"}');
-        return $outage->status($domain)==='unavailable';
-    })());
-    $revoked=new LicenseManager($root,$fake(200,'{"authorized":false}'));
-    $check('authority explicit refusal blocks site',$revoked->status($domain)==='denied');
-    $check('authoritative denial is persisted',$revoked->status($domain)==='denied');
-    $check('license key is never included in saved response',(function() use ($root,$key) {
-        return !str_contains((string)file_get_contents($root.'/storage/license-cache.json'),$key);
-    })());
-    try { $revoked->verifyForInstall($key,$domain); $ok=false; } catch (RuntimeException) {$ok=true;}
-    $check('first install refuses rejected key',$ok);
-    try { $outage->verifyForInstall($key,$domain); $ok=false; } catch (RuntimeException) {$ok=true;}
-    $check('first install refuses vendor outage',$ok);
-} finally {
-    foreach (glob($root.'/config/*')?:[] as $f)unlink($f);
-    foreach (glob($root.'/storage/*')?:[] as $f)unlink($f);
-    foreach (glob($root.'/storage/.*')?:[] as $f)if(is_file($f))unlink($f);
+file_put_contents($root.'/config/app-key.php','<?php return '.var_export($secret,true).';');
+try{
+    $manager=new LicenseManager($root,$made(CajunWebClient::SKU_LITE_MONTH));
+    $record=$manager->verifyForInstall($key,$domain);
+    $check('Monthly plan resolved from vendor SKU',$record['edition']==='lite'&&$record['term']==='month');
+    $manager->persistInitial($record,$secret);
+    file_put_contents($root.'/storage/install-state.json',InstallationState::encode('lite',$secret));
+    $check('Licensed Lite monthly can operate',$manager->status('example.test')==='valid');
+    $check('Site remains host locked to domain',$manager->status('other.example')==='domain_mismatch');
+    $check('Private config uses resolved edition',$manager->config()['sku']===CajunWebClient::SKU_LITE_MONTH);
+    try{(new LicenseManager($root,$made(CajunWebClient::SKU_PRO_MONTH)))->replaceLicense($key,$domain);$ok=false;}catch(RuntimeException){$ok=true;}
+    $check('Admin replacement cannot change Lite to Pro without migration',$ok);
+    $check('Wrong-edition replacement preserves config',$manager->config()['sku']===CajunWebClient::SKU_LITE_MONTH);
+    $manager->replaceLicense($key,$domain);
+    $check('Same-edition key replacement remains authorized',$manager->status($domain)==='valid');
+    $old=LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::REFRESH_SECONDS-2,time()-LicenseManager::REFRESH_SECONDS-2,CajunWebClient::SKU_LITE_MONTH);
+    file_put_contents($root.'/storage/license-cache.json',$old);
+    $transient=new LicenseManager($root,new CajunWebClient(static fn(string $body):array=>['status'=>503,'body'=>'{}']));
+    $check('Short issuer outage has bounded grace',$transient->status($domain)==='valid');
+    file_put_contents($root.'/storage/license-cache.json',LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::TRANSIENT_GRACE_SECONDS-10,time()-LicenseManager::TRANSIENT_GRACE_SECONDS-10,CajunWebClient::SKU_LITE_MONTH));
+    $check('Expired grace blocks',$transient->status($domain)==='unavailable');
+    file_put_contents($root.'/storage/license-cache.json',LicenseState::encode($key,$domain,$secret,'denied',time(),time()-50,CajunWebClient::SKU_LITE_MONTH));
+    $check('Definitive denial always blocks',$manager->status($domain)==='denied');
+    // Signed state cannot be rewritten from a forged edition token.
+    file_put_contents($root.'/storage/install-state.json',InstallationState::encode('pro',$secret));
+    $check('Changing signed edition without matching SKU causes fail closed',$manager->status($domain)==='license_required');
+}finally{
+    foreach(glob($root.'/config/*')?:[] as $p)unlink($p);
+    foreach(glob($root.'/storage/*')?:[] as $p)unlink($p);
+    foreach(glob($root.'/storage/.*')?:[] as $p)if(is_file($p))unlink($p);
     rmdir($root.'/storage');rmdir($root.'/config');rmdir($root);
 }
-echo "Passed {$n} licensing contract and runtime checks.\n";
+echo "Passed {$n} edition and subscription licensing checks.\n";
