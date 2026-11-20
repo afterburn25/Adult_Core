@@ -48,6 +48,8 @@ jobs:
         run: php tests/verification_tests.php
       - name: Release manifest and encrypted snapshot authentication
         run: php tests/release_security_tests.php
+      - name: Shared UI design system and escaping tests
+        run: php tests/ui_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

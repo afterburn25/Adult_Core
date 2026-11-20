@@ -1,3 +1,7 @@
+## 0.8.5-ui-dev interface handoff
+
+The UI is now shared: `src/UI/Layout.php`, `src/UI/Dashboard.php`, and the design tokens in `public/assets/style.css`. Keep public/member/guest/admin templates consistent; do not inline new unrelated headers in controllers. Run `php tests/ui_tests.php` and all previous tests, and verify desktop/mobile layouts before changing navigation. Public site brand uses installed site name; admin brand is Adult Core. No external JS/fonts/trackers were introduced. The existing auth/install gates, CSRF, private media restrictions and future administrator MFA requirement are unchanged. Read `docs/UI_DESIGN.md`.
+
 ## 0.8.4-dev member recovery — read first
 
 Read `docs/PASSWORD_RECOVERY.md` before modifying login, member sessions, email delivery or private media. Password resets require a confirmed member email, issue hashed one-time tokens, enforce cooldown and invalidate member sessions by database generation. Administrator accounts are **not** recovered through this route. Missing recovery migration must fail closed; `/admin/setup` adds `m10_member_recovery_v1`. Never treat reset as adult age verification or membership activation. Run disposable MySQL CI and update this handoff after publication.

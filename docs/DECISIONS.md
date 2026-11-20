@@ -1,3 +1,7 @@
+## 2026-11-20 — Unified, script-free premium UI
+
+All web-facing layouts live in `src/UI/Layout.php`, with truthful dashboard components in `src/UI/Dashboard.php`. Controllers continue performing authorization, validation and escaping before calling layout helpers. Layout methods escape titles, nav names and site branding and only accept trusted HTML assembled by server controllers. The UI does **not** introduce client-side executable scripts, remote web fonts or external analytics. Admin sidebars are rendered only after the existing gate and authenticated role revalidation; login and errors use a guest shell. Selected verified theme CSS can still override presentation, but signed assets never execute PHP or JavaScript. The design has no capability to publish unverified content or grant entitlements.
+
 ## 2026-11-20 — Member password resets and session revocation
 
 - Member password recovery requires a previously **confirmed** email address, not self-reported age. Only `member` roles can reset through public routes; admin MFA and admin recovery stay separate.

@@ -16,6 +16,7 @@ use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSession;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
+use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -323,10 +324,7 @@ final class MemberController
     private function view(int $status, string $title, string $content): void
     {
         http_response_code($status);
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>'.self::e($title).' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head>'
-            . '<body><div class="shell"><header class="topbar"><a href="/">Home</a><span>Membership accounts</span></header>'
-            . '<main class="admin-login"><h1>'.self::e($title).'</h1>'.$content.'</main><footer>Adult Core · Self-hosted</footer></div></body></html>';
+        echo Layout::member($title, $content);
     }
 
     private function denyMethod(string $allowed): void { header('Allow: '.$allowed);$this->view(405,'Method not allowed','<p>Unsupported method.</p>'); }

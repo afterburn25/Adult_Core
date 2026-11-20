@@ -1,12 +1,21 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Version: `0.8.4-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Version: `0.8.5-ui-dev` (premium UI development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
 **CI verification:** [GitHub Actions run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) passed with disposable MySQL, but not real cPanel/VPS.
 
 **Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, complete external verification and consent review, Pro streaming, safe updates and production security are unfinished.
+
+## New in 0.8.5-ui-dev — premium frontend and administrator redesign
+
+- Responsive, brandable public landing page with actual site name, a CSS-only illustrated hero, refined navigation and clearer member entry points. Page titles and body text still come exclusively from published escaped plain-text content.
+- Consistent admin sidebar, contextual topbar, truthful dashboard cards, workspace shortcuts, and a redesigned page editor. The existing moderation, package and setup tools use the same design shell.
+- Member and admin sign-in pages use the same accessible auth design. No external fonts, JavaScript framework, image tracking, or CDN required (shared-host friendly).
+- New CLI-independent UI checks: `php tests/ui_tests.php`; see `docs/UI_DESIGN.md` for design and preview information.
+
+**Still not production 1.0:** administrator MFA, real independent verification/consent, payments, streaming, backup restore, and hosting certification remain incomplete. This update changes presentation, not authorization or entitlements.
 
 ## What's new since 0.5.0-dev
 

@@ -1,3 +1,11 @@
+## 0.8.5-ui-dev visual refresh security scope
+
+- UI markup has a shared escaped layout and uses plain HTML/CSS, with no remote scripts, remote fonts or tracking calls.
+- The backend sidebar is **presentation**, not an authorization mechanism. `AdminController` still enforces installed-state, authenticated-account and role checks, and all mutating forms retain CSRF tokens and POST-only actions.
+- Public nav slugs are whitelist-validated and titles/site names are escaped. CMS content continues to be escaped plain text; this is not an HTML theme/template execution engine.
+- The dashboard shows real account count/edition and clearly states what does **not** work. CSS screenshots use illustrative data and do not constitute real host or security verification.
+- Missing MFA, provider-reviewed age/consent and paid-media publishing remain security/release blockers.
+
 ## 0.8.4-dev member password recovery security
 
 - Recovery is member-only, with email confirmation prerequisite, one-use SHA-256-digested tokens, 30-minute expiry, five-minute cooldown and separate per-IP/account throttle. Unknown and known addresses receive the same request response.

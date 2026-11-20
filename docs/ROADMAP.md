@@ -1,3 +1,11 @@
+# Current UI milestone — 0.8.5-ui-dev (2026-11-20)
+
+**Premium interface refresh: implemented and locally tested**. Site homepage and published pages now use a responsive branded layout, membership and admin guest pages share a refined sign-in style, authenticated administration uses a consistent sidebar + header, real metrics, quick links, and an improved page editor. The redesign uses no external JS, fonts or network dependencies and preserves signed CSS theme selection.
+
+**Remaining:** Administrator MFA, production age/identity and consent verification, verified billing, Pro streaming, signed update & complete backup restore, hosting certification and independent security review. This aesthetic release does not move any payment/identity/streaming/production feature to done. Next priority is MFA/security and full verification integrations. See `docs/UI_DESIGN.md` and `docs/RELEASE_GATES.md`.
+
+---
+
 ## Current development increment — 0.8.4-dev
 
 Member password recovery added with a confirmed-email prerequisite, 30-minute single-use token, neutral account-enumeration-resistant responses, CSRF-protected confirmation and session-generation revocation checked by private-media delivery. **No age/identity verification, adult-content approval, processor integration, Pro streaming or production readiness.** See `docs/PASSWORD_RECOVERY.md`. GitHub CI status must be verified after publishing this source.

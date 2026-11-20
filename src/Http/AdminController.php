@@ -11,6 +11,8 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Capability\HostInspector;
 use AdultCore\Package\PackageStore;
+use AdultCore\UI\Layout;
+use AdultCore\UI\Dashboard;
 use PDO;
 use Throwable;
 
@@ -174,21 +176,7 @@ final class AdminController
     /** @param array{id:int,email:string,role:string} $admin */
     private static function dashboardContent(string $siteName, string $edition, int $members, array $admin): string
     {
-        $csrf = AdminSession::csrf();
-        return '<div class="admin-heading"><div><p class="eyebrow">ADMINISTRATION</p><h1>'
-            . self::escape($siteName) . '</h1><p class="muted">Administrator dashboard · Milestone 3</p></div>'
-            . '<form action="/admin/logout" method="post"><input type="hidden" name="csrf" value="' . self::escape($csrf) . '">'
-            . '<button type="submit" class="button-secondary">Sign out</button></form></div>'
-            . '<div class="admin-stats">'
-            . '<section class="panel"><div class="small muted">INSTALLED EDITION</div><h2>' . self::escape(strtoupper($edition)) . '</h2></section>'
-            . '<section class="panel"><div class="small muted">USER ACCOUNTS</div><h2>' . $members . '</h2></section>'
-            . '<section class="panel"><div class="small muted">SIGNED IN AS</div><h2 class="admin-account">' . self::escape($admin['email']) . '</h2>'
-            . '<p class="muted">Role: ' . self::escape($admin['role']) . '</p></section></div>'
-            . '<section class="notice"><h2>Website editor</h2><p><a href="/admin/setup">Install website tables</a> · <a href="/admin/pages">Manage pages</a> · <a href="/admin/members">Registered members</a> · <a href="/admin/moderation">Moderation queue</a></p></section>'
-            . '<section class="notice"><h2>Extension packages</h2><p><a href="/admin/packages">Manage signed add-ons and themes</a></p></section>'
-            . '<section class="notice"><h2>Foundation dashboard</h2><p>Authentication and role checks are active. '
-            . 'Public page editing and pending member accounts are in development. Billing, media publishing, age verification and moderation are not yet implemented. '
-            . 'Do not launch this development build as a live website.</p></section>';
+        return Dashboard::render($siteName, $edition, $members, $admin);
     }
 
     /** @param array{id:int,email:string,role:string} $admin */
@@ -320,12 +308,13 @@ final class AdminController
 
     private function page(string $title, string $content): void
     {
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            . '<meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>Adult Core · ' . self::escape($title) . '</title>'
-            . '<link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head><body><div class="shell">'
-            . '<header class="topbar"><div class="mark">AC</div><span>Adult Core</span><span class="version">Secure administration</span></header>'
-            . '<main>' . $content . '</main><footer>Adult Core · Self-hosted Lite / Pro</footer></div></body></html>';
+        // Guest/error pages must never assume an authenticated administrator.
+        if (AdminSession::authenticatedId() === null) {
+            echo Layout::guest($title, $content);
+            return;
+        }
+        $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/admin'), PHP_URL_PATH);
+        echo Layout::admin($title, $content, is_string($path) ? $path : '/admin', AdminSession::csrf());
     }
 
     private static function escape(string $input): string

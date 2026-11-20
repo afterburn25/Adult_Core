@@ -15,6 +15,7 @@ use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
+use AdultCore\UI\Layout;
 use PDO;
 use Throwable;
 use RuntimeException;
@@ -85,7 +86,8 @@ final class SiteAdminController
     private function pages(PDO $pdo): void
     {
         $repo = new PageRepository($pdo);
-        $html = '<div class="page-actions"><a class="button-secondary" href="/admin/page">Create page</a>'
+        $html = '<p class="admin-section-subtitle">Make thoughtful changes to your published website.</p>'
+            . '<div class="page-actions"><a class="button-secondary" href="/admin/page">Create page</a>'
             . '<a class="button-secondary" href="/admin/setup">Schema setup</a></div>';
         if (($_GET['result'] ?? '') === 'saved') $html .= '<p role="status">Page saved.</p>';
         $html .= '<section class="panel"><h2>Public pages</h2><table class="page-table"><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th></th></tr></thead><tbody>';
@@ -125,7 +127,7 @@ final class SiteAdminController
         }
         $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft'];
         $html = $error ? '<div class="alert-error" role="alert">' . self::e($error) . '</div>' : '';
-        $html .= '<section class="panel"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
+        $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
             . '<label for="page-slug">Slug (home = homepage)</label><input id="page-slug" name="slug" maxlength="80" required value="' . self::e((string) $entry['slug']) . '">'
             . '<label for="page-title">Title</label><input id="page-title" name="title" maxlength="190" required value="' . self::e((string) $entry['title']) . '">'
@@ -133,7 +135,12 @@ final class SiteAdminController
             . '<label for="page-status">Visibility</label><select id="page-status" name="status">'
             . '<option value="draft"' . ($entry['status'] === 'draft' ? ' selected' : '') . '>Draft</option>'
             . '<option value="published"' . ($entry['status'] === 'published' ? ' selected' : '') . '>Published</option></select>'
-            . '<button class="install-button" type="submit">Save page</button></form></section>';
+            . '<button class="install-button" type="submit">Save page</button></form></section>'
+            . '<aside class="panel editor-help"><span class="section-overline">EDITOR NOTES</span><h2>Build something beautiful.</h2>'
+            . '<p>Keep your content clear and welcoming. Pages are stored as plain text and escaped before display.</p>'
+            . '<div class="editor-help-rule"></div><strong>Publishing checklist</strong>'
+            . '<ul><li>Choose a memorable title</li><li>Keep the URL slug simple</li><li>Save a draft before publishing</li><li>Preview your public site</li></ul>'
+            . '<a href="/" class="button-secondary" target="_blank" rel="noopener noreferrer">Preview website ↗</a></aside></div>';
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }
 
@@ -153,10 +160,11 @@ final class SiteAdminController
     private function render(int $code, string $title, string $body): void
     {
         http_response_code($code);
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>' . self::e($title) . ' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head><body><div class="shell">'
-            . '<header class="topbar"><a href="/admin">Admin dashboard</a><nav class="site-nav"><a href="/admin/pages">Pages</a><a href="/admin/members">Members</a><a href="/admin/packages">Packages</a><a href="/admin/moderation">Moderation</a></nav></header>'
-            . '<main><h1>' . self::e($title) . '</h1>' . $body . '</main><footer>Adult Core administration</footer></div></body></html>';
+        $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/admin/pages'), PHP_URL_PATH);
+        echo Layout::admin($title,
+            '<div class="admin-heading page-heading"><div><p class="eyebrow">CONTENT MANAGEMENT</p><h1>'
+            . self::e($title) . '</h1></div><span class="page-heading-tag">Adult Core / Workspace</span></div>' . $body,
+            is_string($path) ? $path : '/admin/pages', AdminSession::csrf());
     }
 
     private static function e(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }

@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/src/Support/Autoload.php';
+
+use AdultCore\UI\Layout;
+use AdultCore\UI\Dashboard;
+
+$checks = 0;
+function uiCheck(bool $truth, string $name): void {
+    global $checks;
+    if (!$truth) throw new RuntimeException('UI check failed: ' . $name);
+    $checks++;
+}
+
+$sample = Layout::site('Welcome <unsafe>', 'Friendly & respectful <script>alert(1)</script>', [
+    ['slug' => 'about', 'title' => 'About & values'],
+    ['slug' => '../admin', 'title' => 'Evil'],
+    ['slug' => 'home', 'title' => 'Home'],
+], 'A & B Studio', true);
+uiCheck(str_contains($sample, '<main id="main-content"'), 'Accessible main region');
+uiCheck(str_contains($sample, 'href="#main-content"'), 'Keyboard skip-link');
+uiCheck(str_contains($sample, 'A &amp; B Studio'), 'Site name escaped');
+uiCheck(str_contains($sample, '&lt;unsafe&gt;'), 'Page title escaped');
+uiCheck(str_contains($sample, '&lt;script&gt;alert(1)&lt;/script&gt;'), 'Body HTML escaped');
+uiCheck(!str_contains($sample, '<script>alert(1)</script>'), 'No content script injection');
+uiCheck(str_contains($sample, '/p/about'), 'Published menu link included');
+uiCheck(!str_contains($sample, '../admin'), 'Invalid slug refused');
+uiCheck(str_contains($sample, 'aria-current="page"'), 'Navigation current page indicated');
+uiCheck(str_contains($sample, 'class="site-highlights"'), 'Homepage editorial feature blocks');
+uiCheck(str_contains($sample, '<span>✧</span>S'), 'Website identity drives the decorative monogram');
+uiCheck(str_contains($sample, 'href="/theme.css"'), 'Signed CSS theme hook preserved');
+
+$secondary = Layout::site('About', 'Information', [], 'Example', false);
+uiCheck(!str_contains($secondary, 'class="site-highlights"'), 'No duplicate homepage features on inner pages');
+uiCheck(str_contains($secondary, 'site-container'), 'Responsive site container');
+
+$admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
+    ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
+uiCheck(str_contains($admin, 'class="admin-sidebar"'), 'Sidebar layout');
+uiCheck(str_contains($admin, 'aria-label="Administrator sections"'), 'Named admin navigation');
+uiCheck(str_contains($admin, 'aria-current="page"'), 'Active admin route');
+uiCheck(str_contains($admin, 'action="/admin/logout"'), 'POST logout preserved');
+uiCheck(str_contains($admin, 'name="csrf"'), 'Logout CSRF remains present');
+uiCheck(str_contains($admin, 'Site &lt;x&gt;'), 'Admin site name escaped');
+uiCheck(!str_contains($admin, 'Site <x>'), 'No admin site injection');
+uiCheck(str_contains($admin, 'admin@example.test'), 'Real admin label');
+uiCheck(str_contains($admin, '>8</h3>'), 'Real account total rendered');
+uiCheck(str_contains($admin, 'payments, independent adult verification'), 'Not production-ready note visible');
+uiCheck(str_contains($admin, 'href="/admin/moderation"'), 'Moderation navigation');
+
+$empty = Layout::admin('Packages', '<p>Content</p>', '/admin/packages', null);
+uiCheck(!str_contains($empty, 'action="/admin/logout"'), 'No logout action without valid CSRF');
+uiCheck(str_contains($empty, 'href="/admin/packages" aria-current="page"'), 'Packages highlighted');
+
+$guest = Layout::guest('Sign in <unsafe>', '<p>Content</p>');
+uiCheck(str_contains($guest, 'Sign in &lt;unsafe&gt;'), 'Guest title escaped');
+uiCheck(!str_contains($guest, 'class="admin-sidebar"'), 'Guest view never shows authenticated nav');
+
+$member = Layout::member('Join', '<p>Existing member form</p>');
+uiCheck(str_contains($member, 'Existing member form'), 'Member form inserted');
+uiCheck(str_contains($member, 'class="auth-panel"'), 'Unified member form styling');
+
+$css = file_get_contents(dirname(__DIR__) . '/public/assets/style.css');
+uiCheck(is_string($css) && str_contains($css, 'prefers-reduced-motion'), 'Reduced-motion preferences respected');
+uiCheck(is_string($css) && str_contains($css, '@media(max-width:480px)'), 'Small-screen responsive grid');
+uiCheck(is_string($css) && !str_contains($css, '@import'), 'No external stylesheet import');
+
+echo "Passed $checks UI design-system checks.\n";

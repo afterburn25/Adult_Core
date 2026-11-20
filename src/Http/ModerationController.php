@@ -9,6 +9,7 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
+use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -128,7 +129,10 @@ final class ModerationController
     private function render(int $code,string $title,string $body): void
     {
         http_response_code($code);
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>'.self::e($title).' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head><body><div class="shell"><header class="topbar"><a href="/admin">Dashboard</a><a href="/admin/setup">Migrations</a><a href="/admin/moderation">Moderation</a></header><main><h1>'.self::e($title).'</h1>'.$body.'</main><footer>Adult Core moderation</footer></div></body></html>';
+        echo Layout::admin($title,
+            '<div class="admin-heading page-heading"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>'
+            . self::e($title) . '</h1></div><span class="page-heading-tag">Restricted workflow</span></div>' . $body,
+            '/admin/moderation', AdminSession::csrf());
     }
 
     private static function e(string $v):string {return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}

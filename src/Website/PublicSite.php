@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Website;
 
 use AdultCore\Database\Connection;
+use AdultCore\UI\Layout;
 use PDO;
 use Throwable;
 
@@ -41,7 +42,8 @@ final class PublicSite
                     $slug === 'home' ? 'The website is being prepared.' : 'This page has not been published.', $menu);
                 return;
             }
-            $this->show((string) $page['title'], (string) $page['body'], $menu);
+            $siteName = (string) ($pdo->query("SELECT setting_value FROM ac_settings WHERE setting_key = 'site_name'")->fetchColumn() ?: 'Adult Core');
+            $this->show((string) $page['title'], (string) $page['body'], $menu, $siteName, $slug === 'home');
         } catch (Throwable) {
             http_response_code(503);
             $this->show('Temporarily unavailable', 'The site is currently undergoing maintenance.', []);
@@ -49,22 +51,8 @@ final class PublicSite
     }
 
     /** @param list<array<string,mixed>> $menu */
-    private function show(string $title, string $body, array $menu): void
+    private function show(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false): void
     {
-        $esc = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-        $site = 'Adult Core';
-        $links = '<a href="/">Home</a>';
-        foreach ($menu as $page) {
-            if ($page['slug'] === 'home') continue;
-            $links .= '<a href="/p/' . $esc((string) $page['slug']) . '">' . $esc((string) $page['title']) . '</a>';
-        }
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-            . '<title>' . $esc($title) . ' · ' . $site . '</title><link rel="stylesheet" href="/assets/style.css">'
-            . '<link rel="stylesheet" href="/theme.css"></head><body><div class="shell"><header class="topbar">'
-            . '<div class="mark">AC</div><a href="/">Adult Core</a><nav class="site-nav">' . $links . '</nav>'
-            . '<a class="site-join" href="/join">Membership</a></header><main><article class="panel site-page">'
-            . '<p class="eyebrow">PRIVATE MEMBERSHIP COMMUNITY</p><h1>' . $esc($title) . '</h1>'
-            . '<div class="site-copy">' . nl2br($esc($body), false) . '</div></article></main>'
-            . '<footer>Powered by Adult Core Lite / Pro</footer></div></body></html>';
+        echo Layout::site($title, $body, $menu, $siteName, $homepage);
     }
 }

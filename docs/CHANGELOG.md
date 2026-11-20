@@ -1,3 +1,14 @@
+# Changelog / implementation record
+
+## 0.8.5-ui-dev — premium UI foundation (2026-11-20)
+
+- Replaced scattered, inconsistent public, member, guest admin, and authenticated admin HTML wrappers with `src/UI/Layout.php` (responsive server-rendered layout, safe escaped branding, contextual navigation, keyboard skip link and explicit authenticated sidebar).
+- Added a premium dark visual design system directly to `public/assets/style.css` with polished gradients, hierarchy, responsive desktop/mobile layouts, reduced-motion controls, form/table styling, and no external fonts/scripts/trackers.
+- Added `src/UI/Dashboard.php` with an editable site-specific workspace banner, truthful installation/account metrics, quick links and prominent development-stage restrictions. No fabricated revenue or approval counts.
+- Improved actual CMS page editor with a two-column guidance panel and consistent admin navigation. Moderation and member-account screens share the same visual language; no permission, CSRF, user-status, billing, identity, or publication code was intentionally changed.
+- Added `tests/ui_tests.php` with escaped output, navigation, CSRF markup and accessibility checks; CI runs it. Browser screenshots are derived from the actual PHP UI layout with **sample-only** content, not from a real MySQL-installed site.
+- **Security/nonfeatures:** This is a UI milestone, **not administrator MFA**. All previous production-release blockers remain. Host-specific Apache/cPanel verification and full accessible usability evaluation are pending.
+
 ## 2026-11-20 — 0.8.4-dev: member password recovery (development)
 
 - Added additive `PasswordRecoverySchema` and `PasswordRecovery` with token digests, 30-minute expiry, 5-minute cooldown and single-use transaction. Only confirmed members can request; administrator accounts excluded.

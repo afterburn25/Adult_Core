@@ -1,3 +1,15 @@
+# Immediate handoff — 0.8.5-ui-dev (premium UI refresh)
+
+**Repository:** afterburn25/Adult_Core; **edition model unchanged:** self-hosted Lite shared hosting and Pro verified VPS, not SaaS. **Status:** Development-only; no real adult media publishing, payment settlement or production Pro video.
+
+**Implemented:** `src/UI/Layout.php` standardizes public, member, guest admin and authenticated admin shells. `src/UI/Dashboard.php` builds admin overview from existing authenticated session and MySQL-sourced metrics. `public/assets/style.css` adds premium dark design tokens, editorial hero/abstract CSS art, sidebar nav, form/editor/table layouts, mobile breakpoints, reduced-motion and focus behavior. `src/Website/PublicSite.php` loads and escapes the configured site name; `src/Http/{AdminController,SiteAdminController,ModerationController,MemberController}.php` delegate rendering to shared layouts. Routes, access gates, CSRF, DB schema and permissions are unchanged.
+
+**Test:** `php tests/ui_tests.php`, all prior PHP/HTTP suites and PHP lint. CI definition includes UI tests; record actual GitHub run after publishing. The screenshots are generated with hard-coded **sample content only**, from production HTML generator methods, outside the web root—not live MySQL or authenticated browser screens.
+
+**Next:** administrator MFA, accessible visual QA with real data on a disposable Apache/cPanel HTTPS deployment, complete publishing/verification and billing/Pro/release blockers. Avoid falsely claiming this UI refresh fulfills production 1.0. Keep manual installer-folder deletion gate and `public/` web root.
+
+---
+
 # Current handoff — 0.8.4-dev
 
 `afterburn25/Adult_Core`: self-hosted Lite/shared + Pro/verified VPS. Not SaaS. This increment builds on 0.8.3-dev email ownership. **MISSING:** certified verification provider, performer consent release, production content uploads, payments, video worker, admin MFA, full restore/updater, cPanel audit.
