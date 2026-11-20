@@ -42,6 +42,8 @@ jobs:
         run: php tests/pro_release_tests.php
       - name: Public page and member-session tests
         run: php tests/site_member_tests.php
+      - name: Moderation input validation
+        run: php tests/moderation_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

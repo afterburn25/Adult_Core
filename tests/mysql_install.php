@@ -22,6 +22,8 @@ use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
+use AdultCore\Moderation\ModerationSchema;
+use AdultCore\Moderation\ModerationRepository;
 
 if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     fwrite(STDERR, "Refusing to run: disposable test database confirmation is missing.\n");
@@ -104,6 +106,8 @@ try {
     }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);
+    ModerationSchema::migrate($pdo);
+    ModerationSchema::migrate($pdo);
     $accounts = new MemberAccounts($pdo);
     $accounts->register('newmember@example.test', 'long-example-passphrase');
     $member = $accounts->verify('newmember@example.test', 'long-example-passphrase');
@@ -126,6 +130,31 @@ try {
     $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    // A report must quarantine even an otherwise approved fixture.
+    $moderation=new ModerationRepository($pdo);
+    $draft=$moderation->createDraft('Private test draft',(int)$valid['id']);
+    $draftRow=$pdo->query('SELECT status,visibility,review_status FROM ac_content WHERE id='.(int)$draft)->fetch(PDO::FETCH_ASSOC);
+    if ($draftRow['status']!=='draft' || $draftRow['visibility']!=='private' || $draftRow['review_status']!=='pending') throw new RuntimeException('New draft was published.');
+    $moderation->submitReport((int)$member['id'],$contentId,'Possible consent concern requiring review.');
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Reported content still authorized.');
+    $q=$pdo->prepare("SELECT status,review_status FROM ac_content WHERE id=?");
+    $q->execute([$contentId]);$state=$q->fetch(PDO::FETCH_ASSOC);
+    if ($state['status']!=='quarantined' || $state['review_status']!=='pending') throw new RuntimeException('Report did not quarantine.');
+    $count=(int)$pdo->query('SELECT COUNT(*) FROM ac_content_reports')->fetchColumn();
+    $moderation->submitReport((int)$member['id'],$contentId,'Duplicate report from member.');
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_content_reports')->fetchColumn()!==$count) throw new RuntimeException('Duplicate report accepted.');
+    $reportId=(int)$pdo->query('SELECT id FROM ac_content_reports LIMIT 1')->fetchColumn();
+    $moderation->resolveReport($reportId,(int)$valid['id'],'resolved','Reviewed and retained quarantine.');
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Closing report unlocked quarantined content.');
+    $moderation->moderateContent($contentId,(int)$valid['id'],'reject','Rejected pending evidence review.');
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Rejected content is visible.');
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_moderation_actions')->fetchColumn()<4) throw new RuntimeException('Audit history missing.');
+    try {
+        $moderation->moderateContent($contentId,(int)$valid['id'],'approve','Unsafe approval attempt.');
+        throw new RuntimeException('Unsupported approve was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unsupported approve was accepted.') throw $e;
+    }
     $pdo->prepare("UPDATE ac_content SET review_status='pending' WHERE id=?")->execute([$contentId]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Pending moderation unlocked media.');
     rmdir($root . '/install');
@@ -135,7 +164,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['storage', 'config'] as $directory) {

@@ -100,6 +100,7 @@ def run():
             assert_http("member join refuses absent database", "/join", 503, "Temporarily unavailable")
             assert_http("members portal refuses absent database", "/members", 503, "Temporarily unavailable")
             assert_http("new admin editor route requires login", "/admin/pages", 302)
+            assert_http("moderation requires admin login", "/admin/moderation", 302)
             assert_http("unauthenticated admin redirects", "/admin", 302)
             assert_http("unauthenticated package manager redirects", "/admin/packages", 302)
             assert_http("administrator login reachable", "/admin/login", 200, "Sign in")
