@@ -118,3 +118,7 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 - Source commit: [`4fec09071fda8ea517fe84b5f44a4bb348986b1c`](https://github.com/afterburn25/Adult_Core/commit/4fec09071fda8ea517fe84b5f44a4bb348986b1c).
 - GitHub Actions: [run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) **passed** on PHP 8.3 + disposable MySQL. Includes unit checks, signed-package tests, Pro/release tests, HTTP smoke tests, MySQL installer and MySQL-backed admin/page/member browser tests.
 - Real Apache/cPanel deployment, actual age/consent/payment integrations, video streaming, and production release gates **remain unverified or unimplemented**.
+
+## Verified CI — 0.8.1-dev moderation (2026-11-20)
+
+GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.

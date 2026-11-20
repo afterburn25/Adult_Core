@@ -41,3 +41,6 @@ Use the source repository as the project history. Update `docs/ROADMAP.md`, `doc
 ## Developer reference
 
 The original foundation and prior milestones are preserved in `docs/CHANGELOG.md`, `docs/DECISIONS.md`, `docs/M3_RELEASE_NOTES.md` and `docs/M4_RELEASE_NOTES.md`. Read `docs/SESSION_HANDOFF.md` for the verified current state and `docs/RELEASE_GATES.md` for remaining production work.
+## Verified CI — 0.8.1-dev moderation (2026-11-20)
+
+GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.
