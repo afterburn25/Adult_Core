@@ -4,6 +4,8 @@
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
+**CI verification:** [GitHub Actions run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) passed with disposable MySQL, but not real cPanel/VPS.
+
 **Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, moderation operations, Pro streaming, safe updates and production security are unfinished.
 
 ## What's new since 0.5.0-dev
