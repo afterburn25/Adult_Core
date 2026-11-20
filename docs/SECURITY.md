@@ -1,8 +1,15 @@
-## 0.8.1-dev — content safety triage (test use only)
+## 0.8.2-dev notes — proof of age, consent and release security
 
-Member reporting is CSRF protected and authenticated. Reports atomically quarantine content and associated media; reviewers can reject/quarantine and resolve reports, but cannot approve or publish. Open reports deny all content entitlements. Reason text is escaped in admin output, actions are privately audited, and no identity-document upload exists. Fraudulent reporting by pending accounts can suppress content and requires rate limits, confirmed email, appeals and human investigation before production. Complete identity/performer consent verification and lawful recordkeeping are outstanding. See docs/MODERATION.md.
+- New `SignedAssertion` requires HMAC with five-minute freshness, limited canonical claims, 24h event recency and replay/out-of-order protection. The generic contract is **not a certified provider integration**; enabling requires a contracted provider and a reviewed, private adapter. No raw ID documents or biometrics are collected.
+- `expected_performers=0` or mismatch denies access; pending roster records are not sufficient to authorize content. Consent receipt changes re-quarantine published assets and reset approval state.
+- Provider callbacks remain behind the universal installation gate. `config/verification.php` is ignored by Git and must never be web exposed. No generic admin self-certification route exists.
+- AES-GCM snapshot tooling is small DB-only and CLI-only; no restore, media backup, offsite rotation or disaster recovery. Signed manifest verification is not an updater. 1.0 remains blocked.
 
-# Current security status — 0.8.0-dev
+## 0.8.1-dev moderation change (test use only)
+
+Content reports can now be submitted by logged-in members with CSRF protection. All reported items are quarantined and associated media approval is reset. Reviewers can quarantine/reject and close a report with a reason, but cannot approve or publish media; append-only database audit log records who acted. The content access policy also denies while an open report exists. Real evidence and age/consent provider integrations remain absent. Pending accounts may abuse reporting to cause quarantine; production requires email verification, report throttling, investigations/appeals and an emergency removal protocol. Sensitive evidence must not be uploaded in free-text reports. Details: `docs/MODERATION.md`.
+
+# Current security status — 0.8.1-dev
 
 **Do not enable adult uploads or paid subscriptions.** All new members remain `pending` and cannot self-verify age. `/media/{id}` requires an active member, an independent age-verification record, approved media and content review, consent evidence when needed, and entitlements. The approval of *every* performer is NOT proven merely by checking one approved consent record; production publishing must establish completeness before any real adult content. Admin preview and moderation UI are unfinished.
 

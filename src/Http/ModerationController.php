@@ -9,24 +9,26 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
+use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Authenticated triage UI. No approve/publish operation exists. */
+/** Admin-only quarantine and report triage. Does not approve or publish media. */
 final class ModerationController
 {
     public function __construct(private readonly string $root) {}
 
-    public function handle(string $method,array $admin): void
+    /** @param array{id:int,email:string,role:string} $admin */
+    public function handle(string $method, array $admin): void
     {
-        if (!RolePolicy::allows($admin['role'],'content.moderate')) {
-            $this->render(403,'Access denied','<p>Moderation permission required.</p>');return;
+        if (!RolePolicy::allows($admin['role'], 'content.moderate')) {
+            $this->render(403,'Access denied','<p>Moderation permission required.</p>'); return;
         }
         if (!in_array($method,['GET','POST'],true)) {
-            header('Allow: GET, POST');$this->render(405,'Method not allowed','<p>Unsupported method.</p>');return;
+            header('Allow: GET, POST'); $this->render(405,'Method not allowed','<p>Unsupported method.</p>'); return;
         }
         if ($method==='POST' && !AdminSession::csrfValid($_POST['csrf']??null)) {
-            $this->render(403,'Invalid token','<p>Reload the page to continue.</p>');return;
+            $this->render(403,'Invalid token','<p>Reload the page to continue.</p>'); return;
         }
         try {
             $pdo=Connection::open($this->root);
@@ -41,73 +43,93 @@ final class ModerationController
                 if (!is_string($action)) throw new RuntimeException('Unknown moderation action.');
                 if ($action==='new_draft') {
                     if (!is_string($_POST['title']??null)) throw new RuntimeException('Title is required.');
-                    $repo->createDraft($_POST['title'],$admin['id']);
+                    $repo->createDraft($_POST['title'], $admin['id']);
+                } elseif ($action==='declare_performers') {
+                    $repo->declarePerformers(self::positiveId($_POST['content_id']??null),$admin['id'],self::positiveId($_POST['performer_count']??null));
                 } elseif (in_array($action,['quarantine','reject'],true)) {
-                    $repo->moderateContent(self::id($_POST['content_id']??null),$admin['id'],$action,self::field($_POST['note']??null));
+                    $repo->moderateContent(self::positiveId($_POST['content_id']??null),$admin['id'],$action,self::safeString($_POST['note']??null));
                 } elseif (in_array($action,['resolved','dismissed'],true)) {
-                    $repo->resolveReport(self::id($_POST['report_id']??null),$admin['id'],$action,self::field($_POST['note']??null));
+                    $repo->resolveReport(self::positiveId($_POST['report_id']??null),$admin['id'],$action,self::safeString($_POST['note']??null));
                 } else {
                     throw new RuntimeException('Unknown moderation action.');
                 }
-                header('Location: /admin/moderation?result=saved',true,303);return;
+                header('Location: /admin/moderation?result=saved',true,303); return;
             }
             $this->render(200,'Content moderation',$this->dashboard($repo));
         } catch (RuntimeException $e) {
-            $known=['Unknown moderation action.','Title is required.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.'];
-            $msg=in_array($e->getMessage(),$known,true)?$e->getMessage():'Could not complete the review action.';
-            $this->render(422,'Moderation error','<p>'.self::e($msg).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
+            $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.'];
+            $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
+            $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
             $this->render(503,'Moderation unavailable','<p>Database unavailable. No review action was confirmed.</p>');
         }
     }
-    private static function id(mixed $v): int
+
+    private static function positiveId(mixed $value): int
     {
-        if (!is_int($v) && !is_string($v)) throw new RuntimeException('Invalid record ID.');
-        $id=filter_var($v,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-        if ($id===false) throw new RuntimeException('Invalid record ID.');
-        return $id;
-    }
-    private static function field(mixed $v): string
-    {
-        if (!is_string($v)) throw new RuntimeException('Invalid review details.');
+        if (!is_string($value) && !is_int($value)) throw new RuntimeException('Invalid record ID.');
+        $v=filter_var($value,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if ($v===false) throw new RuntimeException('Invalid record ID.');
         return $v;
     }
+
+    private static function safeString(mixed $value): string
+    {
+        if (!is_string($value)) throw new RuntimeException('Invalid review details.');
+        return $value;
+    }
+
     private function dashboard(ModerationRepository $repo): string
     {
         $csrf=self::e(AdminSession::csrf());
-        $html='<p class="intro">Private content remains unpublished pending independent age, performer consent, and approval integrations. This panel can only draft, quarantine, reject, and resolve reports. Closing a report does not restore access.</p>';
+        $html='<p class="intro">Private content stays unpublished until independent age, consent, and media review integrations are implemented. This panel supports draft preparation, quarantine, rejection, and report triage only. Closing a report does not restore content.</p>';
         if (($_GET['result']??'')==='saved') $html.='<p role="status">Moderation action recorded.</p>';
         $html.='<section class="panel"><h2>Create private content draft</h2><form method="post" action="/admin/moderation" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="new_draft">'
-            .'<label for="draft-title">Draft title</label><input id="draft-title" name="title" maxlength="190" required>'
+            .'<label for="content-title">Draft title</label><input id="content-title" name="title" maxlength="190" required>'
             .'<button class="install-button">Create unpublished draft</button></form></section>';
-        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
-        foreach ($repo->contentQueue() as $r) {
-            $id=(int)$r['id'];
-            $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$r['title']).'</td><td>'.self::e((string)$r['status']).' / '.self::e((string)$r['review_status']).'</td><td>'.(int)$r['open_reports'].'</td><td>'
-                .'<form method="post" action="/admin/moderation"><input type="hidden" name="csrf" value="'.$csrf.'">'
-                .'<input type="hidden" name="content_id" value="'.$id.'"><label>Decision<select name="action"><option value="quarantine">Quarantine</option><option value="reject">Reject</option></select></label>'
-                .'<label>Reason<input name="note" required minlength="10" maxlength="500"></label><button class="button-secondary">Record decision</button></form></td></tr>';
+        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer roster</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
+        foreach ($repo->contentQueue() as $item) {
+            $id=(int)$item['id'];
+            $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
+                .'<td>'.(int)$item['expected_performers'].'</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
+                .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="content_id" value="'.$id.'">'
+                .'<label>Decision<select name="action"><option value="quarantine">Quarantine</option><option value="reject">Reject</option></select></label>'
+                .'<label>Reason<input name="note" required minlength="10" maxlength="500" placeholder="Reason for review decision"></label>'
+                .'<button class="button-secondary">Record decision</button></form></td></tr>';
+        }
+        $html.='</tbody></table></section>';
+        $html.='<section class="panel"><h2>Declare performer roster (draft only)</h2><p>Enter the number of people depicted in the draft. This does not verify anyone or permit publication. Each record receives a private numeric reference for the contracted verification provider.</p>'
+            .'<form method="post" action="/admin/moderation" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="declare_performers">'
+            .'<label>Draft content ID<input name="content_id" type="number" min="1" required></label>'
+            .'<label>Number of performers<input name="performer_count" type="number" min="1" max="20" required></label>'
+            .'<button class="button-secondary">Create pending records</button></form></section>';
+        $html.='<section class="panel"><h2>Performer verification records</h2><table class="page-table"><thead><tr><th>Record ID</th><th>Content ID</th><th>Identity</th><th>Consent</th><th>Review</th></tr></thead><tbody>';
+        foreach ($repo->performerQueue() as $record) {
+            $html.='<tr><td>'.(int)$record['id'].'</td><td>'.(int)$record['content_id'].'</td><td>'.($record['verified_at']===null?'Pending':'Assertion received').'</td><td>'.($record['consent_at']===null?'Pending':'Assertion received').'</td><td>'.self::e((string)$record['review_status']).'</td></tr>';
         }
         $html.='</tbody></table></section>';
         $html.='<section class="panel"><h2>Reports</h2><table class="page-table"><thead><tr><th>Report</th><th>Content</th><th>Reason</th><th>Status</th><th>Disposition</th></tr></thead><tbody>';
-        foreach ($repo->reportQueue() as $r) {
-            $id=(int)$r['id'];
-            $html.='<tr><td>'.$id.'</td><td>'.(int)$r['content_id'].' — '.self::e((string)$r['title']).'</td><td>'.self::e((string)$r['reason']).'</td><td>'.self::e((string)$r['status']).'</td><td>';
-            if ($r['status']==='open') {
+        foreach ($repo->reportQueue() as $item) {
+            $id=(int)$item['id'];
+            $html.='<tr><td>'.$id.'</td><td>'.(int)$item['content_id'].' — '.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['reason']).'</td><td>'.self::e((string)$item['status']).'</td><td>';
+            if ($item['status']==='open') {
                 $html.='<form method="post" action="/admin/moderation"><input type="hidden" name="csrf" value="'.$csrf.'">'
-                    .'<input type="hidden" name="report_id" value="'.$id.'"><label>Disposition<select name="action"><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select></label>'
+                    .'<input type="hidden" name="report_id" value="'.$id.'"><label>Decision<select name="action"><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select></label>'
                     .'<label>Reason<input name="note" required minlength="10" maxlength="500"></label><button class="button-secondary">Close report</button></form>';
-            } else $html.='Closed';
+            } else { $html.='Closed'; }
             $html.='</td></tr>';
         }
-        return $html.'</tbody></table></section><p class="muted">Review actions are recorded in ac_moderation_actions. Identity/performer document uploads are not supported.</p>';
+        $html.='</tbody></table></section><p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Uploaded media, ID documents and performer evidence are not accepted by this prototype.</p>';
+        return $html;
     }
-    private function render(int $status,string $title,string $body): void
+
+    private function render(int $code,string $title,string $body): void
     {
-        http_response_code($status);
-        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.self::e($title).' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head>'
-            .'<body><div class="shell"><header class="topbar"><a href="/admin">Dashboard</a><a href="/admin/setup">Migrations</a><a href="/admin/moderation">Moderation</a></header><main><h1>'.self::e($title).'</h1>'.$body.'</main><footer>Adult Core moderation</footer></div></body></html>';
+        http_response_code($code);
+        echo '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>'.self::e($title).' · Adult Core</title><link rel="stylesheet" href="/assets/style.css"><link rel="stylesheet" href="/theme.css"></head><body><div class="shell"><header class="topbar"><a href="/admin">Dashboard</a><a href="/admin/setup">Migrations</a><a href="/admin/moderation">Moderation</a></header><main><h1>'.self::e($title).'</h1>'.$body.'</main><footer>Adult Core moderation</footer></div></body></html>';
     }
-    private static function e(string $s): string { return htmlspecialchars($s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8'); }
+
+    private static function e(string $v):string {return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
 }

@@ -1,6 +1,10 @@
-# Continuation rules — 0.8.1-dev
+## Current release status (0.8.2-dev)
 
-Read docs/MODERATION.md, docs/SESSION_HANDOFF.md, docs/ROADMAP.md and docs/SECURITY.md. The new review workflow supports drafts, quarantine, reject and report disposition only. It intentionally has no approve/publish operation. Apply additive /admin/setup migrations on disposable test databases. Run php tests/moderation_tests.php plus all previous suites and GitHub disposable MySQL CI. Keep release documentation truthful and installation-folder deletion mandatory.
+The application is **not production-ready**. Read `docs/SESSION_HANDOFF.md` and `docs/ROADMAP.md` first. Independent verification/provider adapter is not connected; webhooks disabled by default; performer roster and protected media checks are fail-closed. Signed archive verification and encrypted small-DB snapshot are foundations only, NOT a production updater or restoration system. Always run verification and release-security suites, and confirm disposable-MySQL CI before declaring DB compatibility. Never claim this is complete through 1.0.
+
+# Current continuation rules — v0.8.1-dev
+
+Read `docs/SESSION_HANDOFF.md`, `docs/MODERATION.md`, `docs/ROADMAP.md`, `docs/SECURITY.md` first. Moderation now provides private drafts, quarantine/reject, report triage and audit; **no approve or publish functionality**. Apply additive moderation schema via `/admin/setup` on disposable test host; never use real customer data. Run `php tests/moderation_tests.php` and GitHub disposable MySQL CI (both `mysql_install` and `mysql_http_auth`) in addition to the previous suites. Update documentation and verified GitHub commit per release. Do not treat report closure as approval.
 
 # Current developer instructions — v0.8.0-dev
 

@@ -99,6 +99,12 @@ if ($path === '/admin' || str_starts_with($path, '/admin/')) {
     exit;
 }
 
+// Provider assertions never bypass the installation gate and are disabled by default.
+if ($path === '/webhooks/verification') {
+    (new \AdultCore\Http\VerificationWebhookController($root))->handle((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    exit;
+}
+
 // Authorized image delivery only; no direct public storage URLs.
 if (str_starts_with($path, '/media/')) {
     (new \AdultCore\Http\PrivateMediaController($root))->handle($path, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));

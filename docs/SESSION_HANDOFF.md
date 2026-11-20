@@ -1,12 +1,25 @@
-# Current handoff — 0.8.1-dev
+# Latest handoff — 0.8.2-dev (2026-11-20)
 
-Target afterburn25/Adult_Core. Self-hosted Lite on shared hosting and Pro on provisioned VPS, NOT SaaS.
+Worktree target: `afterburn25/Adult_Core`, self-hosted Lite/Pro, NOT SaaS. This build must **NOT** be labeled 1.0 or used with real adult media/payments.
 
-This continuation implements admin moderation (/admin/moderation), member safety reports (/members/report), new ModerationSchema/ModerationRepository, an append-only review log and atomic quarantine of content plus attached media. Re-apply additive /admin/setup after backup; new content drafts stay private and unpublished. No approve/publish route exists, and report closure never reinstates media.
+Read `docs/VERIFICATION.md`, `docs/BACKUPS_AND_UPDATES.md`, `docs/MODERATION.md`, `docs/RELEASE_GATES.md` before extending these features.
 
-tests/mysql_install.php and tests/mysql_http_auth.py now test the workflow with a disposable MySQL database; tests/mysql_http_fixture.php drops ac_moderation_actions first. Check the latest GitHub CI run before claiming these passed. Local PHP CLI does not have pdo_mysql. No independent age or performer consent verifiers, public adult upload UI, real payments, production video or signed update/backup systems exist. Keep installation-folder deletion and Lite/Pro guards intact. Read docs/MODERATION.md and docs/RELEASE_GATES.md.
+- Added verification webhook scaffold disabled by default (`config/verification.example.php`); signatures use 32+ byte secret, five-minute time window, 24h event recency, idempotent provider-event receipt, same-subject monotonic ordering. `VerificationSchema` must be applied at `/admin/setup`. An actual provider-specific signed adapter and provider approval are NOT present.
+- A signed third-party member-age receipt creates/revokes age records but never activates pending members; performer receipts reset status to pending and quarantine formerly published content. No media may be approved/published. `expected_performers=0` denies access when consent is required; pending roster can be declared from admin moderation (1–20 unique records), each still needs independent verification and legal review.
+- Added limited private AES-GCM snapshot codec, CLI-only small-database export and signed release manifest verifier. No media backup, full restore, updater or rollback yet.
+- Tests: `php tests/run.php`, `php tests/package_tests.php`, `php tests/advanced_tests.php`, `php tests/site_member_tests.php`, `php tests/pro_release_tests.php`, `php tests/moderation_tests.php`, `php tests/verification_tests.php`, `php tests/release_security_tests.php`, `python3 tests/http_smoke.py`; `tests/mysql_install.php` and `tests/mysql_http_auth.py` run only with **disposable** MySQL in GitHub CI. Record actual CI status after publication.
+- Non-negotiable: install folder must be manually deleted before any website/admin access; no trusted code autoexec; add-on edition compatibility is fail-closed; do not change `ReleaseReadiness::productionReady()` to bypass unresolved gates.
+- NEXT: independently audited provider adapter, binding performer consent to media, member email confirmation and MFA, legal review, real private uploads with safe moderation, approved billing, Pro worker, complete encrypted restore and versioned updates, actual cPanel and VPS tests.
 
-Next: independent provider verification and consent evidence with secure retention, member confirmation and abuse/rate limits, appeals, additional administrative security and test on real Apache/cPanel.
+---
+
+# Latest handoff — 0.8.1-dev (2026-11-20)
+
+Repository `afterburn25/Adult_Core` is self-hosted Lite/Pro, NOT SaaS. This continuation adds `/admin/moderation`, `/members/report`, `src/Moderation/{ModerationSchema,ModerationRepository}.php`, a reasoned audit trail, content quarantine/rejection, default-deny open-report entitlement check, and tests. The only supported next step for database upgrades is `/admin/setup` **after a backup**. Re-running it installs the new moderation schema.
+
+**Very important:** no publish/approve endpoint, media upload UI, external age verification, complete performer consent review, adult payment processor, real Pro streaming or signed update/backup exists. Do not launch paid/adult content. `ac_moderation_actions` must be dropped before `ac_content` in disposable test cleanup. `tests/mysql_install.php` and `tests/mysql_http_auth.py` now exercise moderation/reporting in GitHub CI; local PHP environment lacks `pdo_mysql`. Check the latest GitHub CI result before saying these pass.
+
+Next priorities: implement external age/identity and performer-consent verification interfaces; introduce safe evidence capture outside ordinary report notes; email verification and rate limiting for abuse, appeal and takedown processes; member and administrator MFA; then consider restricted-media publishing only after verification and security review. Continue to preserve installation folder cleanup gate and Lite/Pro compatibility. See `docs/MODERATION.md`, `docs/ROADMAP.md`, `docs/RELEASE_GATES.md` and `AGENTS.md`.
 
 ---
 
@@ -121,4 +134,4 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
-GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.
+GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.

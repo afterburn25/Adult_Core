@@ -1,22 +1,22 @@
 # Adult_Core roadmap — current iteration
 
-**2026-11-20, version 0.8.1-dev (development only).** The project has not reached production 1.0.
+**2026-11-20, version 0.8.2-dev (development only).** The project has not reached production 1.0.
 
 | Target | Current status | Verified work | Unfinished prerequisites |
 |---|---|---|---|
 | 0.6 Public frontend & themes | **ALPHA** | Publish/draft plain-text pages, browser editor, public navigation and selected signed CSS | Full layout templates, signed theme updates/rollback, cPanel validation |
 | 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, admin member listing | Email confirmation, MFA/recovery, real age/identity verification, profile and tier UX |
-| 0.8 Private content | **FOUNDATION + TRIAGE** | Media authorization guard; private drafts, member reports, auto-quarantine, admin rejection and audit | Adult uploads, independent verification, appeals and lawful publication workflow |
+| 0.8 Private content | **FOUNDATION + VERIFICATION SCAFFOLD** | Private media gate, triage, signed verification protocol tests, revocation and pending performer roster | Real content uploads, contracted independent provider, lawful consent/approval and appeals |
 | 0.9 Payments | **FOUNDATION ONLY** | Existing generic verified event inbox | Approved provider, real processor webhook adapter and checkout, renewals/refunds/disputes |
 | 0.10 Pro streaming | **FOUNDATION ONLY** | Signed job envelope and non-executing replay-safe inbox | Verified VPS, FFmpeg worker, segment authorization, live/realtime streaming |
-| 1.0 Production release | **BLOCKED** | Explicit fail-closed release gates and source ZIP tooling | Signed updates and backup/restore, audits, host certification, all above |
+| 1.0 Production release | **BLOCKED** | Explicit fail-closed release gates and source ZIP tooling | Full verified updates, restores, audits, host certification, all above |
 
 See [`RELEASE_GATES.md`](RELEASE_GATES.md). This iteration does **not** claim versions 0.6–1.0 are all completed.
 
 ## Immediate engineering priorities
 
 1. Run new disposable MySQL CI browser tests for `/admin/setup`, page editor, registration and status; fix defects. Repeat on actual cPanel Apache HTTPS.
-2. Complete safe content publishing/consent review and age-verification adapter before allowing media uploads or paid access.
+2. Complete independent age/identity provider, performer consent completeness and uploader controls before allowing adult media uploads or any publish/approve action. The 0.8.1 safety-triage UI does NOT perform verification.
 3. Finish the signed theme/template runtime and rollback-capable package upgrades.
 4. Obtain payment-provider approval and build provider-specific checkout/webhooks, then finish the Pro worker and production-hardening gates.
 
@@ -66,7 +66,7 @@ No functioning membership website, subscription billing, video streaming, real P
 GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.
 
 
-## Verified GitHub CI for 0.8.1-dev foundation
+## Verified GitHub CI for 0.8.0-dev foundation
 
 - Source commit: [`4fec09071fda8ea517fe84b5f44a4bb348986b1c`](https://github.com/afterburn25/Adult_Core/commit/4fec09071fda8ea517fe84b5f44a4bb348986b1c).
 - GitHub Actions: [run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) **passed** on PHP 8.3 + disposable MySQL. Includes unit checks, signed-package tests, Pro/release tests, HTTP smoke tests, MySQL installer and MySQL-backed admin/page/member browser tests.
@@ -74,4 +74,4 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
-GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.
+GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.

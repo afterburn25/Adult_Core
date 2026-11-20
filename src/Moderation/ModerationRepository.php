@@ -8,57 +8,48 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Quarantine-first review. No approve or publish method exists. */
+/** Quarantine-first moderation. There is deliberately NO approve/publish endpoint. */
 final class ModerationRepository
 {
     public function __construct(private readonly PDO $pdo) {}
 
     public static function validateTitle(string $title): string
     {
-        $title=trim($title);
-        if ($title==='' || strlen($title)>190 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/',$title)) {
+        $title = trim($title);
+        if ($title === '' || strlen($title) > 190 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $title)) {
             throw new RuntimeException('Use a title between 1 and 190 bytes.');
         }
         return $title;
     }
+
     public static function validateNote(string $note): string
     {
-        $note=trim($note);
-        if (strlen($note)<10 || strlen($note)>500 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/',$note)) {
+        $note = trim($note);
+        if (strlen($note) < 10 || strlen($note) > 500 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $note)) {
             throw new RuntimeException('Enter a review explanation between 10 and 500 bytes.');
         }
         return $note;
     }
+
     public static function validateReportReason(string $reason): string
     {
-        $reason=trim($reason);
-        if (strlen($reason)<10 || strlen($reason)>1000 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/',$reason)) {
+        $reason = trim($reason);
+        if (strlen($reason) < 10 || strlen($reason) > 1000 || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/', $reason)) {
             throw new RuntimeException('Enter a report reason between 10 and 1000 bytes.');
         }
         return $reason;
     }
-    private function requireModerator(int $id): void
-    {
-        if ($id<1) throw new RuntimeException('Administrator privileges required.');
-        $q=$this->pdo->prepare("SELECT role FROM ac_users WHERE id=? AND status='active' LIMIT 1");
-        $q->execute([$id]);
-        if (!in_array($q->fetchColumn(),['admin','owner'],true)) throw new RuntimeException('Administrator privileges required.');
-    }
-    private function audit(int $contentId, ?int $reportId, int $actorId, string $action, string $note): void
-    {
-        $q=$this->pdo->prepare('INSERT INTO ac_moderation_actions (content_id,report_id,actor_id,action,note,created_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
-        $q->execute([$contentId,$reportId,$actorId,$action,$note]);
-    }
+
     public function createDraft(string $title, int $actorId): int
     {
-        $title=self::validateTitle($title);
+        $title = self::validateTitle($title);
         $this->requireModerator($actorId);
         $this->pdo->beginTransaction();
         try {
-            $q=$this->pdo->prepare("INSERT INTO ac_content (title,status,visibility,review_status,requires_consent,created_at) VALUES (?,'draft','private','pending',1,UTC_TIMESTAMP())");
+            $q = $this->pdo->prepare("INSERT INTO ac_content (title,status,visibility,review_status,requires_consent,created_at) VALUES (?,'draft','private','pending',1,UTC_TIMESTAMP())");
             $q->execute([$title]);
-            $id=(int)$this->pdo->lastInsertId();
-            $this->audit($id,null,$actorId,'draft_created','New private draft created; publishing is not enabled.');
+            $id = (int) $this->pdo->lastInsertId();
+            $this->audit($id, null, $actorId, 'draft_created', 'New private draft created; publishing is not enabled.');
             $this->pdo->commit();
             return $id;
         } catch (Throwable $e) {
@@ -66,40 +57,96 @@ final class ModerationRepository
             throw $e;
         }
     }
+
+    /**
+     * Declare the number of depicted performers before requesting independent
+     * evidence. Does not mark any evidence as verified or permit publication.
+     * A roster can only be created once; subsequent changes need a formal review.
+     */
+    public function declarePerformers(int $contentId, int $adminId, int $count): array
+    {
+        if ($contentId < 1 || $count < 1 || $count > 20) throw new RuntimeException('Declare between 1 and 20 performers.');
+        $this->requireModerator($adminId);
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT status,expected_performers FROM ac_content WHERE id=? FOR UPDATE');
+            $q->execute([$contentId]);
+            $content=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($content) || !in_array($content['status'], ['draft','quarantined'], true)
+                || (int)$content['expected_performers'] !== 0) {
+                throw new RuntimeException('Content is not an eligible unreviewed draft.');
+            }
+            $q=$this->pdo->prepare('SELECT COUNT(*) FROM ac_performer_records WHERE content_id=?');
+            $q->execute([$contentId]);
+            if ((int)$q->fetchColumn() !== 0) throw new RuntimeException('Performer roster already exists.');
+            $this->pdo->prepare("UPDATE ac_content SET expected_performers=?,review_status='pending' WHERE id=?")
+                ->execute([$count,$contentId]);
+            $created=[];
+            for ($i=0;$i<$count;$i++) {
+                $key=bin2hex(random_bytes(20));
+                $q=$this->pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,review_status) VALUES (?,?,'pending')");
+                $q->execute([$contentId,$key]);
+                $created[]=(int)$this->pdo->lastInsertId();
+            }
+            $this->audit($contentId,null,$adminId,'roster_declared',sprintf('Declared %d performer records; evidence is pending.', $count));
+            $this->pdo->commit();
+            return $created;
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function performerQueue(): array
+    {
+        return $this->pdo->query('SELECT p.id,p.content_id,p.review_status,p.verified_at,p.consent_at,c.title
+            FROM ac_performer_records p JOIN ac_content c ON c.id=p.content_id ORDER BY p.id DESC LIMIT 100')
+            ->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /** @return list<array<string,mixed>> */
     public function contentQueue(): array
     {
-        return $this->pdo->query("SELECT c.id,c.title,c.status,c.review_status,c.visibility,
+        return $this->pdo->query("SELECT c.id,c.title,c.status,c.review_status,c.visibility,c.expected_performers,
             (SELECT COUNT(*) FROM ac_content_reports r WHERE r.content_id=c.id AND r.status='open') AS open_reports
             FROM ac_content c ORDER BY c.id DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /** @return list<array<string,mixed>> */
     public function reportQueue(): array
     {
         return $this->pdo->query("SELECT r.id,r.content_id,r.reporter_id,r.reason,r.status,r.created_at,c.title
             FROM ac_content_reports r JOIN ac_content c ON c.id=r.content_id
             ORDER BY (r.status='open') DESC,r.id DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /** @return list<array<string,mixed>> */
     public function auditTrail(int $contentId): array
     {
-        if ($contentId<1) return [];
+        if ($contentId < 1) return [];
         $q=$this->pdo->prepare('SELECT action,actor_id,note,created_at FROM ac_moderation_actions WHERE content_id=? ORDER BY id DESC LIMIT 50');
         $q->execute([$contentId]);
         return $q->fetchAll(PDO::FETCH_ASSOC);
     }
-    public function submitReport(int $memberId,int $contentId,string $reason): void
+
+    /** Called by authenticated member. An unknown ID produces the same external result. */
+    public function submitReport(int $memberId, int $contentId, string $reason): void
     {
-        $reason=self::validateReportReason($reason);
-        if ($memberId<1 || $contentId<1) throw new RuntimeException('Invalid report.');
-        $q=$this->pdo->prepare("SELECT id FROM ac_users WHERE id=? AND role='member' AND status IN ('pending','active') LIMIT 1");
+        $reason = self::validateReportReason($reason);
+        if ($memberId < 1 || $contentId < 1) throw new RuntimeException('Invalid report.');
+        $q = $this->pdo->prepare("SELECT id FROM ac_users WHERE id=? AND role='member' AND status IN ('pending','active') LIMIT 1");
         $q->execute([$memberId]);
         if (!$q->fetchColumn()) throw new RuntimeException('Member account is not eligible to report.');
         $this->pdo->beginTransaction();
         try {
             $q=$this->pdo->prepare('SELECT id FROM ac_content WHERE id=? FOR UPDATE');
             $q->execute([$contentId]);
-            if (!$q->fetchColumn()) { $this->pdo->commit();return; }
+            if (!$q->fetchColumn()) { $this->pdo->commit(); return; }
+            // Serialize reports for this content row; allow at most one per member in 24h.
             $q=$this->pdo->prepare('SELECT COUNT(*) FROM ac_content_reports WHERE content_id=? AND reporter_id=? AND created_at >= (UTC_TIMESTAMP() - INTERVAL 1 DAY)');
             $q->execute([$contentId,$memberId]);
-            if ((int)$q->fetchColumn()>0) { $this->pdo->commit();return; }
+            if ((int)$q->fetchColumn() > 0) { $this->pdo->commit(); return; }
             $q=$this->pdo->prepare("INSERT INTO ac_content_reports (content_id,reporter_id,reason,status,created_at) VALUES (?,?,?,'open',UTC_TIMESTAMP())");
             $q->execute([$contentId,$memberId,$reason]);
             $reportId=(int)$this->pdo->lastInsertId();
@@ -112,9 +159,10 @@ final class ModerationRepository
             throw $e;
         }
     }
-    public function moderateContent(int $contentId,int $adminId,string $decision,string $note): void
+
+    public function moderateContent(int $contentId, int $adminId, string $decision, string $note): void
     {
-        if ($contentId<1 || !in_array($decision,['quarantine','reject'],true)) throw new RuntimeException('Unsupported review action.');
+        if (!in_array($decision, ['quarantine','reject'], true) || $contentId < 1) throw new RuntimeException('Unsupported review action.');
         $note=self::validateNote($note);
         $this->requireModerator($adminId);
         $this->pdo->beginTransaction();
@@ -133,9 +181,10 @@ final class ModerationRepository
             throw $e;
         }
     }
-    public function resolveReport(int $reportId,int $adminId,string $decision,string $note): void
+
+    public function resolveReport(int $reportId, int $adminId, string $decision, string $note): void
     {
-        if ($reportId<1 || !in_array($decision,['resolved','dismissed'],true)) throw new RuntimeException('Unsupported report resolution.');
+        if (!in_array($decision, ['resolved','dismissed'], true) || $reportId < 1) throw new RuntimeException('Unsupported report resolution.');
         $note=self::validateNote($note);
         $this->requireModerator($adminId);
         $this->pdo->beginTransaction();
@@ -146,11 +195,25 @@ final class ModerationRepository
             if (!is_array($record) || $record['status']!=='open') throw new RuntimeException('Report not open.');
             $this->pdo->prepare('UPDATE ac_content_reports SET status=? WHERE id=?')->execute([$decision,$reportId]);
             $this->audit((int)$record['content_id'],$reportId,$adminId,'report_'.$decision,$note);
-            // Closing a report does not reinstate quarantined content.
+            // Crucially, closing a report NEVER restores quarantined media.
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw $e;
         }
+    }
+
+    private function requireModerator(int $id): void
+    {
+        if ($id < 1) throw new RuntimeException('Administrator privileges required.');
+        $q=$this->pdo->prepare("SELECT role FROM ac_users WHERE id=? AND status='active' LIMIT 1");
+        $q->execute([$id]);
+        if (!in_array($q->fetchColumn(), ['admin','owner'], true)) throw new RuntimeException('Administrator privileges required.');
+    }
+
+    private function audit(int $contentId, ?int $reportId, int $actorId, string $action, string $note): void
+    {
+        $q=$this->pdo->prepare('INSERT INTO ac_moderation_actions (content_id,report_id,actor_id,action,note,created_at) VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
+        $q->execute([$contentId,$reportId,$actorId,$action,$note]);
     }
 }

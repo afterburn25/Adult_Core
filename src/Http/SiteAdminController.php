@@ -12,6 +12,7 @@ use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
+use AdultCore\Verification\VerificationSchema;
 use PDO;
 use Throwable;
 use RuntimeException;
@@ -64,6 +65,7 @@ final class SiteAdminController
             MemberSchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
             ModerationSchema::migrate($pdo);
+            VerificationSchema::migrate($pdo);
             header('Location: /admin/pages?result=setup', true, 303);
             return;
         }

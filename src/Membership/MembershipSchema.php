@@ -32,6 +32,7 @@ final class MembershipSchema
           tier_id BIGINT UNSIGNED NULL,
           review_status VARCHAR(20) NOT NULL DEFAULT 'pending',
           requires_consent TINYINT NOT NULL DEFAULT 1,
+          expected_performers SMALLINT UNSIGNED NOT NULL DEFAULT 0,
           created_at DATETIME NOT NULL,
           INDEX(status, visibility, review_status),
           FOREIGN KEY (tier_id) REFERENCES ac_membership_tiers(id)
@@ -63,6 +64,7 @@ final class MembershipSchema
         // Repair a previous partially-run M5 draft without dropping any data.
         self::ensureColumn($pdo, 'ac_content', 'review_status', "VARCHAR(20) NOT NULL DEFAULT 'pending'");
         self::ensureColumn($pdo, 'ac_content', 'requires_consent', 'TINYINT NOT NULL DEFAULT 1');
+        self::ensureColumn($pdo, 'ac_content', 'expected_performers', 'SMALLINT UNSIGNED NOT NULL DEFAULT 0');
         $s=$pdo->prepare('INSERT IGNORE INTO ac_schema_migrations (version, applied_at) VALUES (?,UTC_TIMESTAMP())');
         $s->execute([self::VERSION]);
     }

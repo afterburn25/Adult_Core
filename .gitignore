@@ -14,3 +14,6 @@
 /config/trusted-publishers/*.pem
 **/*-private.pem
 **/private-key.pem
+
+# External verification service secrets (configure privately)
+/config/verification.php

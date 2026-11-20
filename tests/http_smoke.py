@@ -71,6 +71,7 @@ def run():
 
             assert_http("new site redirected", "/", 302)
             assert_http("new admin redirected", "/admin", 302)
+            assert_http("provider endpoint cannot bypass installer", "/webhooks/verification", 302)
             assert_http("installer wizard accessible", "/install/", 200, "Install Adult Core")
             code, content = request("/install/", {"csrf": "incorrect"})
             if code != 200 or "security token invalid" not in content:
@@ -107,6 +108,7 @@ def run():
             assert_http("unknown admin route requires login", "/admin/private", 302)
             assert_http("GET logout forbidden", "/admin/logout", 405, "Method not allowed")
             assert_http("removed installer inaccessible", "/install/", 404, "Installer removed")
+            assert_http("disabled verification callback GET unavailable", "/webhooks/verification", 405)
             code, body = request("/admin/login", {"email": "owner@example.test", "password": "anything", "csrf": "invalid"})
             if code != 403 or "Invalid security token" not in body:
                 raise AssertionError("Admin login POST accepted bad CSRF token")

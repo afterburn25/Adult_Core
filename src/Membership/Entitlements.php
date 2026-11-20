@@ -18,26 +18,28 @@ final class Entitlements
         if ($userId < 1 || $contentId < 1) return false;
         $now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $when = $now->format('Y-m-d H:i:s');
-        $stmt = $this->pdo->prepare('SELECT c.status,c.visibility,c.tier_id,c.review_status,c.requires_consent,u.role,u.status AS user_status '
+        $stmt = $this->pdo->prepare('SELECT c.status,c.visibility,c.tier_id,c.review_status,c.requires_consent,c.expected_performers,u.role,u.status AS user_status '
             . 'FROM ac_content c JOIN ac_users u ON u.id = :user_id WHERE c.id = :content_id LIMIT 1');
         $stmt->execute(['user_id'=>$userId, 'content_id'=>$contentId]);
         $record = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!is_array($record) || $record['status'] !== 'published' || $record['review_status'] !== 'approved'
             || $record['user_status'] !== 'active') return false;
 
-        // Open reports deny even otherwise valid media entitlements.
+        // An open complaint blocks all private delivery, including administrators.
         $open=$this->pdo->prepare("SELECT 1 FROM ac_content_reports WHERE content_id=? AND status='open' LIMIT 1");
         $open->execute([$contentId]);
         if ($open->fetchColumn()) return false;
+
         if ((int)$record['requires_consent'] === 1) {
-            // A content item requiring performer consent must have approved verification evidence.
-            // Production publishing must also ensure EVERY depicted performer is represented.
-            $q=$this->pdo->prepare("SELECT COUNT(*) FROM ac_performer_records WHERE content_id=? AND review_status='approved' AND verified_at IS NOT NULL AND consent_at IS NOT NULL");
+            // Unspecified expected performer count cannot prove all performers are covered.
+            $expected = (int) $record['expected_performers'];
+            if ($expected < 1 || $expected > 100) return false;
+            $q=$this->pdo->prepare("SELECT COUNT(*) AS total,
+                SUM(CASE WHEN review_status='approved' AND verified_at IS NOT NULL AND consent_at IS NOT NULL THEN 1 ELSE 0 END) AS approved
+                FROM ac_performer_records WHERE content_id=?");
             $q->execute([$contentId]);
-            if ((int)$q->fetchColumn() < 1) return false;
-            $q=$this->pdo->prepare("SELECT COUNT(*) FROM ac_performer_records WHERE content_id=? AND (review_status<>'approved' OR verified_at IS NULL OR consent_at IS NULL)");
-            $q->execute([$contentId]);
-            if ((int)$q->fetchColumn() !== 0) return false;
+            $coverage=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($coverage) || (int)$coverage['total'] !== $expected || (int)$coverage['approved'] !== $expected) return false;
         }
         if (in_array($record['role'], ['owner', 'admin'], true)) return true;
         if ($record['role'] !== 'member') return false;

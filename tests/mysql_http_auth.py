@@ -117,6 +117,20 @@ def main():
             draft_match = re.search(r'<tr><td>(\d+)</td><td>Hidden safety demo</td><td>draft / pending', moderation)
             ensure('Moderation draft is private pending', code == 200 and draft_match is not None)
             draft_id = draft_match.group(1)
+            csrf_roster = re.search(r'name="csrf" value="([a-f0-9]{64})"', moderation)
+            ensure('Performer roster form has CSRF', csrf_roster is not None)
+            code, _ = req('/admin/moderation', {
+                'csrf': csrf_roster.group(1), 'action': 'declare_performers',
+                'content_id': draft_id, 'performer_count': '2'
+            })
+            ensure('Declaring performer roster redirects', code == 303)
+            code, moderation = req('/admin/moderation')
+            ensure('Performer records stay pending', code == 200 and 'Performer verification records' in moderation and 'Assertion received' not in moderation)
+            code, _ = req('/admin/moderation', {
+                'csrf': csrf_roster.group(1), 'action': 'declare_performers',
+                'content_id': draft_id, 'performer_count': '1'
+            })
+            ensure('Duplicate roster refused', code >= 400)
             # Registration creates a pending member, not a verified adult.
             code, registration = req('/join')
             join_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', registration)

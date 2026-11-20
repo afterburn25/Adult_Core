@@ -1,12 +1,12 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Version: `0.8.1-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Version: `0.8.2-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
 **CI verification:** [GitHub Actions run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) passed with disposable MySQL, but not real cPanel/VPS.
 
-**Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, moderation operations, Pro streaming, safe updates and production security are unfinished.
+**Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, complete external verification and consent review, Pro streaming, safe updates and production security are unfinished.
 
 ## What's new since 0.5.0-dev
 
@@ -16,11 +16,18 @@
 - Additive `MembershipSchema` and `MemberSchema`, test coverage for Lite+Pro job contracts and a production-readiness gate; authenticated administrators can initiate migrations on a test installation. They are not automatically enabled for existing installations.
 - HMAC Pro job **receipt** supports deduplication but performs no processing or streaming. Generic billing-event receipt remains a scaffold with no actual processor connection.
 
-## New in 0.8.1-dev — safety triage (development-only)
+## New in 0.8.2-dev — safety triage (development-only)
 
-- /admin/moderation supports private content draft creation, quarantining/rejection, an escaped member-report queue, and reasoned administrator review. Re-apply /admin/setup migrations after backup.
-- /members/report accepts authenticated CSRF-protected member safety reports. Reports quarantine the referenced item and its media; closing a report does not restore access.
-- No media upload, identity verification, performer consent approval or publication button exists. Do not launch paid or adult content on this build. See docs/MODERATION.md.
+- `/admin/moderation` now provides private content draft creation, an HTML-escaped report queue, quarantine/reject actions and administrator review notes. All decisions are audited in `ac_moderation_actions` after applying `/admin/setup` again.
+- `/members/report` accepts CSRF-protected member safety reports. Reporting automatically quarantines content and prevents serving associated images; closing a report does not restore access.
+- **No media upload, production verification, performer approval, or publish button exists.** No customer adult content or payments should be launched. See [`docs/MODERATION.md`](docs/MODERATION.md).
+
+## New in 0.8.2-dev — verification and release safety foundations
+
+- An **opt-in, disabled-by-default** signed verification callback scaffold with replay/timestamp checks and durable receipts; no independent provider is connected yet. Revocations invalidate evidence. It never activates accounts or publishes content. See [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+- The moderator can declare the number of performers and create individual **pending** verification records. The private-media guard denies unknown or incomplete performer counts. Real identity/consent documents must not be uploaded to this prototype.
+- `EncryptedSnapshot` (AES-256-GCM), a **limited CLI encrypted database export**, and an offline signed release-manifest verifier are implemented and tested. Neither a complete backup/restore system nor a production updater exists. See [`docs/BACKUPS_AND_UPDATES.md`](docs/BACKUPS_AND_UPDATES.md).
+- **0.9 billing, 0.10 video and 1.0 production release remain unfinished**, pending approved external providers and external deployment/security testing.
 
 ## Development installation (test database only)
 
@@ -41,6 +48,7 @@ Use the source repository as the project history. Update `docs/ROADMAP.md`, `doc
 ## Developer reference
 
 The original foundation and prior milestones are preserved in `docs/CHANGELOG.md`, `docs/DECISIONS.md`, `docs/M3_RELEASE_NOTES.md` and `docs/M4_RELEASE_NOTES.md`. Read `docs/SESSION_HANDOFF.md` for the verified current state and `docs/RELEASE_GATES.md` for remaining production work.
-## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
-GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.
+## Verified CI — 0.8.2-dev moderation (2026-11-20)
+
+GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.

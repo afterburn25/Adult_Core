@@ -1,10 +1,18 @@
-# 2026-11-20 — 0.8.1-dev moderation foundation
+## 2026-11-20 — 0.8.2-dev: verification and release security foundations
 
-- Add additive ModerationSchema and append-only ac_moderation_actions; re-running /admin/setup installs the table.
-- Add authenticated /admin/moderation private draft, queue and review/disposition UI. No approval/publishing route.
-- Add member /members/report with CSRF and per-member/content 24-hour duplicate suppression; atomically quarantine reported content and associated media.
-- Entitlements additionally deny any item with an open report. Closing reports does not unlock content.
-- Add unit, browser and disposable MySQL integration tests, security guide and future-session notes.
+- Added `VerificationSchema`, `SignedAssertion`, `VerificationRegistry`, and disabled-by-default `/webhooks/verification` adapter entry point. Signature/time/metadata checking, per-provider replay deduplication and out-of-order refusal, member-age revocation and performer-evidence invalidation. No real vendor is installed and no approval/publishing route exists.
+- Added `expected_performers` to content. Unknown/mismatched consent roster now denies even previously approved private media. Added admin-only pending roster declaration and review visibility, never evidence approval.
+- Added `EncryptedSnapshot` (authenticated AES-256-GCM), bounded CLI-only development DB export and signed manifest verifier for future release updates. They are not complete production backup or updater services.
+- Extended local validation, MySQL fixture, authenticated browser and CI suites; new `docs/VERIFICATION.md` and `docs/BACKUPS_AND_UPDATES.md`.
+- **No claim of 1.0 completion:** payment processor, independent provider verification, real media upload and approval, Pro streaming, restore/rollback, administrator MFA and shared hosting certification remain blocked.
+
+# 2026-11-20 — 0.8.1-dev: moderation and abuse reports (not production-ready)
+
+- Add idempotent `ModerationSchema` and append-only `ac_moderation_actions` review log. Re-applying `/admin/setup` installs the new table.
+- Add `/admin/moderation` with private draft creation, content quarantine/reject and reasoned report resolution, authenticated and CSRF-gated. It cannot approve or publish.
+- Add `/members/report` with authenticated, CSRF-protected safety reporting; content and all related media are quarantined atomically, with duplicate submissions suppressed per member/content/24 hours.
+- Deny media entitlement while any report remains open; resolution never automatically restores content.
+- Add unit, HTTP smoke and disposable-MySQL tests; document moderation security limitations and future integration needs.
 
 ---
 
@@ -70,4 +78,4 @@ GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actio
 
 ## Verified CI — 0.8.1-dev moderation (2026-11-20)
 
-GitHub Actions [run 44733014757](https://github.com/afterburn25/Adult_Core/actions/runs/44733014757) completed **successfully** on PHP 8.3 and disposable MySQL. PHP lint, moderation input validation, real database installation and the authenticated HTTP/MySQL member-report/admin-triage tests passed. This does NOT certify cPanel hosting, identity/performer verification, live adult media, actual payment processing, Pro video, or a production release.
+GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.

@@ -1,6 +1,13 @@
-## Decision: quarantine on report; no approval shortcut (2026-11-20)
+## 2026-11-20 — Verification and release safety decisions
 
-A member report serializes on the content row, records a complaint, quarantines the item and resets associated media approval states in one transaction. The entitlement check also rejects items with an open report. Reviewer actions require a rationale and are append-only audited. Closing a report never re-publishes content. Neither a report disposition nor an administrator checkbox proves complete performer consent, independent adult verification or legal recordkeeping; no approval/publish functionality is exposed. Pending members can still submit reports, creating potential for fraudulent quarantines; production requires email verification, abuse controls, appeals, incident response and jurisdiction-aware compliance.
+1. External verification evidence is transported through a disabled-by-default signed adapter. No real provider is included, and administrators cannot self-certify age or consent. Revocations deny access; event ordering prevents delayed verification from undoing revocation.
+2. The content access predicate requires an explicit number of performers and exactly that many complete approved records. When the number is unknown, deny access rather than guess.
+3. Backups may contain personal/sensitive records. Ship only authenticated encrypted snapshot foundations and never put secret keys, ID documents or plaintext DB exports under the public root. Do not call these a complete production restore solution.
+4. A detached signed release manifest by itself cannot guarantee a safe automatic update. Require tested staged extraction, payload digest checking, migration rollback and full restoration before enabling 1.0 update workflows.
+
+## ADR — Report-first quarantining and audit without publication (2026-11-20, 0.8.1-dev)
+
+A report is treated as a high-severity safety signal. `ModerationRepository::submitReport()` locks the content row, inserts a report, marks its content quarantined and resets media review states within one database transaction. The entitlement check additionally denies access when any report is open. Unknown IDs receive the same member-facing confirmation; duplicate submissions by one member are suppressed for 24 hours. Administrator actions require a reason and append to a private review log. **There is no approve/publish action:** a human flag alone cannot establish complete performer identification/consent, verified adult status, or lawful content. Closing a report never automatically reinstates quarantined content. This prioritizes safety but creates denial-of-service potential from fraudulent reporter accounts; email verification, abuse controls, appeals and incident response are required before production.
 
 ## 2026-11-20 / New development decisions
 

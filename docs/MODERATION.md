@@ -1,19 +1,25 @@
-# Moderation and member safety reports — 0.8.1-dev
+## 0.8.2-dev addition: pending performer roster
 
-Development-only. This is not an adult publishing or identity verification system.
+The admin moderation form may declare the number of depicted performers on an unreviewed draft and creates one pending record per performer. It does not authorize any content or collect identifying documents. Declaring a roster is one-time; corrections require a new review workflow. The private content entitlement engine now rejects `expected_performers=0` or any mismatch between expected count and complete approved records. Performer identity/consent callbacks do not mark records approved. See `docs/VERIFICATION.md`.
 
-## Administrator setup and triage
+# Content safety / report triage — 0.8.1-dev (not a live publishing workflow)
 
-After database backup, visit /admin/setup and re-apply additive migrations. /admin/moderation lets authorized administrators create unpublished private content drafts, inspect reports, quarantine or reject items, and resolve or dismiss reports with reasons. Routes require the existing installation cleanup gate, HTTPS, authenticated administrator role and POST CSRF. Each decision is appended to private ac_moderation_actions.
+## Current capabilities
 
-## Member reporting
+- An authenticated administrator opens `/admin/setup` to apply the idempotent `ModerationSchema` migration **after** member and private-content tables. Back up databases before applying DDL; shared-host MySQL DDL does not roll back.
+- Administrators open `/admin/moderation` to create **private, unpublished** content metadata drafts, review the current queue and incoming reports, quarantine/reject content, and close/dismiss reports. Every mutation requires POST + admin CSRF + current `admin`/`owner` role. Actions are appended to `ac_moderation_actions` with actor, reason and time.
+- Logged-in members (including pending users) open `/members/report` or `/members/report?id=N` to report a content ID. Requires a valid CSRF token and a 10–1000-byte reason. At most one report per member per content per 24 hours, serialized by row locking. A report atomically quarantines the content AND resets all associated media review states to `pending`.
+- The entitlement policy additionally denies all access whenever a report is open. Closing a report does **not** automatically restore quarantined or rejected content; a fresh external verification and fully designed publication workflow will be required in a later release.
+- User-provided report reasons appear only in the authenticated admin queue, HTML escaped. Never put real ID documents or unredacted identity/performer evidence in report reasons; no upload endpoint for those materials exists.
 
-Logged-in members visit /members/report or /members/report?id=N. Reasons require 10–1000 bytes and a CSRF token. A report locks the content row, suppresses duplicates by the same member for 24 hours, and atomically quarantines the content and resets associated media review states. A still-open complaint also denies media access through Entitlements. Closing the report does not reapprove or publish content.
+## Deliberate limitations / security review
 
-## Critical limitations
-
-No approval/publish button, media upload UI, independent age/identity check, performer verification, completeness proof, payment gateway, or Pro video runtime exists. Pending members can report, so spam/quarantine abuse is a serious unresolved issue. Production needs email verification, abuse controls, appeals, investigation, record retention, urgent takedown and legal review. Never enter ID documents or private evidence in the free-text report field. Use fictional accounts and placeholder content only.
+- No `approve` or `publish` handler is provided in this iteration. A moderation decision is not a substitute for age/identity verification, performer consent, or legal recordkeeping. There is no content upload or gallery-publishing UI yet.
+- Any pending account can report a content ID; this makes it easier to surface urgent safety issues but can be abused to quarantine content. Production needs email confirmation, signup/report abuse detection, trusted moderation escalation, appeal workflows, record retention and incident response.
+- `report_id`/`content_id` values are not sensitive, but repeated missing IDs receive a generic success response to minimize enumeration. Secure uploaded evidence should eventually be stored with strong access and retention controls, never exposed in the admin HTML or logs.
+- A closed report remains in the database; admin decisions are append-only. No deletion, automated moderation, account reinstatement, independent verification provider, or provenance completeness proof is available.
+- This is an engineering prototype for use with disposable test accounts/content only. **Do not deploy for public adult-content use.**
 
 ## Tests
 
-php tests/moderation_tests.php checks input validation locally. Disposable MySQL installer/browser suites validate the migration, private drafts, CSRF, quarantine, duplicate suppression, audit and lack of approval. GitHub CI is required because the local CLI lacks pdo_mysql.
+`php tests/moderation_tests.php` performs local validation checks. Disposable MySQL integration in `tests/mysql_install.php` checks migration idempotency, private drafts, automatic quarantine, duplicate suppression, audit, report closure, and denial of unsafe approval. Browser integration in `tests/mysql_http_auth.py` covers CSRF, admin draft/rejection, member safety reporting, and the queue. Local CLI lacks `pdo_mysql`, so these must be verified in GitHub CI before declaring database integration passed.
