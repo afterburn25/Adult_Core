@@ -52,3 +52,5 @@ The original foundation and prior milestones are preserved in `docs/CHANGELOG.md
 ## Verified CI — 0.8.2-dev moderation (2026-11-20)
 
 GitHub Actions run 44733014757 passed PHP lint, moderation input validation, disposable MySQL installation and authenticated browser tests. Real Apache/cPanel hosting, identity/performer consent verification, payments and production streaming remain unverified.
+
+Verified PHP/MySQL CI: [run 44738983959](https://github.com/afterburn25/Adult_Core/actions/runs/44738983959) (0.8.2-dev, not production certification).
