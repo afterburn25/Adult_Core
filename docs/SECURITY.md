@@ -1,3 +1,13 @@
+# Current security status — 0.8.0-dev
+
+**Do not enable adult uploads or paid subscriptions.** All new members remain `pending` and cannot self-verify age. `/media/{id}` requires an active member, an independent age-verification record, approved media and content review, consent evidence when needed, and entitlements. The approval of *every* performer is NOT proven merely by checking one approved consent record; production publishing must establish completeness before any real adult content. Admin preview and moderation UI are unfinished.
+
+Current CSS themes are signed assets, not executable templates. Private image keys are random opaque identifiers and stored outside the web root, with allowlisted media types. No multipart upload route is enabled for adult media.
+
+Remaining critical gaps: email verification, external age/identity verification integration, performer identification/consent auditing, payment approval/refunds/reconciliation, moderation/takedowns, MFA and account recovery, real cPanel/Pro testing, update rollback and encrypted backup restore. See `docs/RELEASE_GATES.md`.
+
+---
+
 # Security notes (M4 development build)
 
 **Not production-ready.** Do not permit real adult-content uploads, membership access or payments yet. The PHP/MySQL auth feature has only local no-database unit/smoke coverage; a disposable MySQL/HTTP CI integration suite is configured but not verified from this environment.

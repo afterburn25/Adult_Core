@@ -1,3 +1,15 @@
+# Current developer instructions — v0.8.0-dev
+
+**Read `docs/RELEASE_GATES.md`, `docs/ROADMAP.md`, `docs/SESSION_HANDOFF.md`, and `docs/SECURITY.md` before editing.**
+
+Lite/shared hosting and Pro/VPS install into independent site owners' hosting. NEVER redesign as SaaS. Top-level `install/` MUST be physically deleted after signed install completion; all public/admin routes remain blocked until then. `public/` MUST be the sole document root. Never expose `storage/` secrets or media.
+
+New development code supports only plain-text public pages and **pending** member accounts. There is no production age/identity provider, content consent approval workflow, processor or streaming. `src/Pro/JobInbox.php` stores signed jobs but cannot execute them. `scripts/release-check.php` intentionally prevents declaring 1.0 ready.
+
+**After every development session:** update `README.md`, `docs/ROADMAP.md`, `docs/SESSION_HANDOFF.md`, `docs/CHANGELOG.md`, `docs/DECISIONS.md`, and tests. Run all tests listed in `docs/RELEASE_GATES.md`. Publish changes to GitHub and record a verified commit hash; do not invent test results or claims of pushed code.
+
+---
+
 # Adult_Core — Agent / new-session handoff
 
 This file is the **first document to read** for any new developer or AI session.
@@ -56,7 +68,3 @@ These are **repository conventions** for continuity across sessions, not an auto
 ## Latest developer snapshot 0.5.0-dev
 
 Read `docs/ROADMAP.md` and `docs/SESSION_HANDOFF.md` first. New theme CSS, membership draft schema/authorization, generic event inbox, Pro job envelope and source ZIP builder are incomplete scaffolds. Verify real MySQL before enabling migration and do not infer that payments, consent workflow, streaming or automatic updates are production-ready. Run `php tests/advanced_tests.php` in addition to existing suites, and record any GitHub commit/hash that was actually verified.
-
-## GitHub CI verification — 2026-11-20
-
-GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.

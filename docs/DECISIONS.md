@@ -1,3 +1,10 @@
+## 2026-11-20 / New development decisions
+
+- Plain-text public page renderer is deliberately trusted code; uploaded themes are signed CSS only and cannot include server-side executable templates.
+- New member registration is pending by default and not an age verification or member entitlement.
+- Private content serving defaults to denied until independent age-verification records, moderator approval, consent evidence and membership entitlement exist. No media upload/publishing UI is enabled yet.
+- Pro HMAC jobs are received and deduplicated without executing shell commands or FFmpeg; 1.0 production release stays blocked pending independent validation.
+
 # Architecture decision record
 
 ## ADR-001 — Self-hosted editions, no SaaS (2026-11-20)

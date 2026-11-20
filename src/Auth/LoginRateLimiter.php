@@ -9,7 +9,7 @@ use RuntimeException;
 /** File-lock counter, keyed by hashed IP and email; bounds brute-force attempts. */
 final class LoginRateLimiter
 {
-    public function __construct(private readonly string $storage)
+    public function __construct(private readonly string $storage, private readonly string $scope = 'admin')
     {
     }
 
@@ -22,7 +22,8 @@ final class LoginRateLimiter
 
     private function consumeKey(string $kind, string $value, int $limit, int $now): void
     {
-        $file = $this->storage . '/.admin-login-' . $kind . '-' . hash('sha256', $value);
+        $scope = $this->scope === 'member' ? 'member' : 'admin';
+        $file = $this->storage . '/.' . $scope . '-login-' . $kind . '-' . hash('sha256', $value);
         $handle = @fopen($file, 'c+');
         if ($handle === false) {
             throw new RuntimeException('Login protection unavailable.');

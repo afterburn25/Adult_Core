@@ -38,6 +38,10 @@ jobs:
         run: php tests/package_tests.php
       - name: Advanced foundations (themes, billing inbox, Pro jobs)
         run: php tests/advanced_tests.php
+      - name: Pro envelope and release-gate tests
+        run: php tests/pro_release_tests.php
+      - name: Public page and member-session tests
+        run: php tests/site_member_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

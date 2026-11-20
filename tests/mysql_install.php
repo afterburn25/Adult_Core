@@ -16,6 +16,12 @@ use AdultCore\Database\Connection;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Installer\InstallService;
 use AdultCore\Installer\InstallationGate;
+use AdultCore\Website\SiteSchema;
+use AdultCore\Website\PageRepository;
+use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberAccounts;
+use AdultCore\Membership\MembershipSchema;
+use AdultCore\Membership\Entitlements;
 
 if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     fwrite(STDERR, "Refusing to run: disposable test database confirmation is missing.\n");
@@ -83,6 +89,45 @@ try {
     if ($auth->authorizedById($valid['id']) === null) {
         throw new RuntimeException('Restored administrator role not recognized.');
     }
+    // M6/M7 additive migrations and site/member access against actual MySQL.
+    SiteSchema::migrate($pdo);
+    SiteSchema::migrate($pdo);  // Repeat-safe.
+    MemberSchema::migrate($pdo);
+    MemberSchema::migrate($pdo);
+    $repo = new PageRepository($pdo);
+    if ($repo->published('home') !== null) {
+        throw new RuntimeException('Default homepage unexpectedly public before review.');
+    }
+    $repo->save(0, 'about', 'About the club', "A safe welcome\nNo HTML", 'published');
+    if (($repo->published('about')['title'] ?? '') !== 'About the club') {
+        throw new RuntimeException('Public-page publishing failed.');
+    }
+    MembershipSchema::migrate($pdo);
+    MembershipSchema::migrate($pdo);
+    $accounts = new MemberAccounts($pdo);
+    $accounts->register('newmember@example.test', 'long-example-passphrase');
+    $member = $accounts->verify('newmember@example.test', 'long-example-passphrase');
+    if (($member['status'] ?? '') !== 'pending'
+        || $accounts->verify('newmember@example.test', 'wrong') !== null) {
+        throw new RuntimeException('Member registration must remain pending and use password hashes.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn() !== 0) {
+        throw new RuntimeException('Registration must never self-verify age.');
+    }
+    $pdo->exec("INSERT INTO ac_content (title,status,visibility,review_status,requires_consent,created_at) VALUES ('Fixture gallery','published','members','approved',1,UTC_TIMESTAMP())");
+    $contentId=(int)$pdo->lastInsertId();
+    $policy=new Entitlements($pdo);
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Pending account got private content.');
+    $pdo->prepare("UPDATE ac_users SET status='active' WHERE id=?")->execute([$member['id']]);
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Unverified adult got private content.');
+    $pdo->prepare("INSERT INTO ac_age_verifications (user_id,provider,verification_ref_hash,verified_at) VALUES (?,'test-provider',?,UTC_TIMESTAMP())")
+        ->execute([$member['id'],str_repeat('a',64)]);
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Missing consent unlocked private content.');
+    $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
+        ->execute([$contentId]);
+    if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    $pdo->prepare("UPDATE ac_content SET review_status='pending' WHERE id=?")->execute([$contentId]);
+    if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Pending moderation unlocked media.');
     rmdir($root . '/install');
     if ($gate->status() !== InstallationGate::READY) {
         throw new RuntimeException('Gate did not unlock after installer deletion.');
@@ -90,7 +135,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['storage', 'config'] as $directory) {

@@ -1,3 +1,28 @@
+# CURRENT HANDOFF — v0.8.0-dev / 2026-11-20
+
+**Repository:** `afterburn25/Adult_Core`. **Target:** independently installed Lite (shared hosting) and Pro (verified VPS). **NEVER SaaS.**
+
+The latest changes are from the 0.6–1.0 development request, but **0.9, Pro runtime and production 1.0 are NOT complete**.
+
+## Current additions
+
+- `src/Website/{SiteSchema,PageRepository,PublicSite}.php`, `src/Http/SiteAdminController.php` and admin routes: additive schema, safe published plain-text pages, homepage, signed CSS styling, edit/publish tools.
+- `src/Member/{MemberSchema,MemberAccounts,MemberSession}.php` and `src/Http/MemberController.php`: registration/login with rate limiting, separate member sessions and **pending** user status. `/join` is not adult age verification. No activation or paid content routes.
+- Repaired `src/Membership/{MembershipSchema,Entitlements}.php` to support additive content/tier tables and default-deny age/moderation/consent checks; `src/Media/PrivateMedia.php`, `/media/{id}` authorization. No public adult media uploads or complete performer verification. Physical assets must stay outside public root.
+- `src/Pro/JobInbox.php` safely verifies/stores deduplicated signed job messages, NO FFmpeg execution; `src/Support/ReleaseReadiness.php`, `scripts/release-check.php` intentionally block 1.0 claim.
+- Tests: `tests/site_member_tests.php`, `tests/pro_release_tests.php`, expanded `tests/mysql_install.php`, `tests/mysql_http_auth.py`, and `tests/http_smoke.py` plus GitHub CI workflow.
+- **Install gate remains mandatory**: valid signed completion state AND physical deletion of top-level `install/` before any site/admin route. All production services remain unverified.
+
+## Tests and limitations
+
+Run `php tests/run.php`, `php tests/package_tests.php`, `php tests/advanced_tests.php`, `php tests/site_member_tests.php`, `php tests/pro_release_tests.php`, `python3 tests/http_smoke.py`, and syntax lint. For real DB tests, use CI or an explicitly disposable MySQL instance; local PHP environment does not have pdo_mysql. CI verification of this snapshot must be recorded **after** run results are checked.
+
+**Next:** Verify new MySQL/browser tests and cPanel, develop full protected upload/moderation/consent workflow, provider-specific age verification and payments, then Pro worker, backup/update/restore and security certification. Never imply the release is ready for customer deployment.
+
+---
+
+## Historical session notes
+
 # Current session handoff — read before editing
 
 **Date:** 2026-11-20  

@@ -1,3 +1,29 @@
+# Adult_Core roadmap — current iteration
+
+**2026-11-20, version 0.8.0-dev (development only).** The project has not reached production 1.0.
+
+| Target | Current status | Verified work | Unfinished prerequisites |
+|---|---|---|---|
+| 0.6 Public frontend & themes | **ALPHA** | Publish/draft plain-text pages, browser editor, public navigation and selected signed CSS | Full layout templates, signed theme updates/rollback, cPanel validation |
+| 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, admin member listing | Email confirmation, MFA/recovery, real age/identity verification, profile and tier UX |
+| 0.8 Private content | **FOUNDATION** | Private image path guards; moderation/consent/age-aware entitlement checks, protected media endpoint | Real uploads, verifier integrations, moderation UI, performer evidence and takedowns |
+| 0.9 Payments | **FOUNDATION ONLY** | Existing generic verified event inbox | Approved provider, real processor webhook adapter and checkout, renewals/refunds/disputes |
+| 0.10 Pro streaming | **FOUNDATION ONLY** | Signed job envelope and non-executing replay-safe inbox | Verified VPS, FFmpeg worker, segment authorization, live/realtime streaming |
+| 1.0 Production release | **BLOCKED** | Explicit fail-closed release gates and source ZIP tooling | Signed updates and backup/restore, audits, host certification, all above |
+
+See [`RELEASE_GATES.md`](RELEASE_GATES.md). This iteration does **not** claim versions 0.6–1.0 are all completed.
+
+## Immediate engineering priorities
+
+1. Run new disposable MySQL CI browser tests for `/admin/setup`, page editor, registration and status; fix defects. Repeat on actual cPanel Apache HTTPS.
+2. Complete safe content publishing/consent review and age-verification adapter before allowing media uploads or paid access.
+3. Finish the signed theme/template runtime and rollback-capable package upgrades.
+4. Obtain payment-provider approval and build provider-specific checkout/webhooks, then finish the Pro worker and production-hardening gates.
+
+---
+
+## Previous milestone tracking (historical)
+
 # Adult_Core roadmap (maintained)
 
 Status as of **2026-11-20**, developer snapshot **0.5.0-dev**. Update statuses and acceptance criteria after every milestone. Do not mark code production-ready merely because the unit tests pass.

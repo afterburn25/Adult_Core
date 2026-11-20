@@ -1,6 +1,40 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Current development status: 0.5.0-dev — M4–M8 foundations in progress, not production-ready; MySQL integration passed in GitHub CI; Apache/cPanel remains unverified.**  
+**Version: `0.8.0-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+
+[GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
+
+**Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, moderation operations, Pro streaming, safe updates and production security are unfinished.
+
+## What's new since 0.5.0-dev
+
+- `GET /` and `/p/{slug}` serve only published, escaped **plain-text** pages. Site owners can apply additive schema updates at `/admin/setup` and create/edit drafts at `/admin/pages` and `/admin/page`. Existing signed CSS themes can style these pages; arbitrary executable templates are never loaded.
+- `/join`, `/members/login`, `/members` and POST-only `/members/logout` offer **pending** member accounts with separate sessions, password hashing, CSRF and throttling. Pending signups do not unlock content. Email verification and independent age verification are NOT integrated.
+- A guarded image endpoint `/media/{id}` is present but strictly denies access without age evidence, media/content moderation approval, consent evidence (when required), and authorization. Private image storage stays outside `public/`. There is not yet an administrator upload/consent review workflow.
+- Additive `MembershipSchema` and `MemberSchema`, test coverage for Lite+Pro job contracts and a production-readiness gate; authenticated administrators can initiate migrations on a test installation. They are not automatically enabled for existing installations.
+- HMAC Pro job **receipt** supports deduplication but performs no processing or streaming. Generic billing-event receipt remains a scaffold with no actual processor connection.
+
+## Development installation (test database only)
+
+1. Put the project **above** your host's web directory. Point the document root exclusively at `public/`. `src/`, `install/`, `storage/` and `config/` must never be directly web-accessible.
+2. Install with the browser wizard at `/install/`, which chooses Lite or verified Pro capabilities. Use a new disposable MySQL database and HTTPS.
+3. Delete the entire `install/` directory **manually** after successful installation, otherwise all site and admin routes remain locked.
+4. Sign in at `/admin/login`, and choose `/admin/setup` to apply additive website, member and private-content migrations. Back up the database first.
+5. Use `/admin/pages` to edit the `home` draft and publish it only for safe, non-explicit holding-page content. Registration is a pending-account prototype, not a verified adult membership platform.
+
+See `docs/TESTING.md`, `docs/SECURITY.md`, `docs/RELEASE_GATES.md`, and `AGENTS.md` before attempting deployment.
+
+## Contributing / continuation
+
+Use the source repository as the project history. Update `docs/ROADMAP.md`, `docs/SESSION_HANDOFF.md`, `docs/CHANGELOG.md`, `docs/DECISIONS.md` and tests with each meaningful change. Review `docs/RELEASE_GATES.md` before claiming a release is production-ready.
+
+---
+
+## Original foundation reference (historical)
+
+# Adult Core — Self-Hosted Lite & Pro Membership Platform
+
+**Current development status: 0.5.0-dev — M4–M8 foundations in progress, not production-ready; MySQL/cPanel integration remains unverified.**  
 **GitHub repository target:** [afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
 Adult Core is a planned **self-hosted** adult membership platform, **not SaaS**. One core and universal browser installer support two installation profiles:
@@ -89,7 +123,3 @@ Next: verify M2/M3/M4 MySQL and cPanel HTTPS/install/upload routing, then implem
 This development update adds a signed theme CSS route, draft member/content/consent schema and private entitlement predicate, billing webhook-inbox primitives, a signed Pro job-envelope protocol, and a source-release ZIP builder. **No payment processing, public adult media publishing, live streaming, verified age/consent records, or production-ready theme runtime is available yet.** Do not enable public content or billing on this build.
 
 Run the new tests with `php tests/advanced_tests.php`. See `docs/ROADMAP.md` and `docs/SESSION_HANDOFF.md`.
-
-## GitHub CI verification — 2026-11-20
-
-GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.

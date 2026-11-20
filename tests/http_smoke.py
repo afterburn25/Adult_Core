@@ -95,7 +95,11 @@ def run():
             shutil.rmtree(root / "install")
             # The public membership runtime remains deliberately disabled,
             # while the newly implemented administrator login is accessible.
-            assert_http("public runtime stays unavailable", "/", 503, "Site runtime not implemented yet")
+            assert_http("public runtime stays unavailable", "/", 503, "Temporarily unavailable")
+            assert_http("public page holding route", "/p/about", 503, "Temporarily unavailable")
+            assert_http("member join refuses absent database", "/join", 503, "Temporarily unavailable")
+            assert_http("members portal refuses absent database", "/members", 503, "Temporarily unavailable")
+            assert_http("new admin editor route requires login", "/admin/pages", 302)
             assert_http("unauthenticated admin redirects", "/admin", 302)
             assert_http("unauthenticated package manager redirects", "/admin/packages", 302)
             assert_http("administrator login reachable", "/admin/login", 200, "Sign in")

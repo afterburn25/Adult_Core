@@ -1,3 +1,13 @@
+# Latest changelog — 2026-11-20 / 0.8.0-dev
+
+- Created safe page schema and public renderer with plain-text escaping, draft/published management, `/admin/setup`, `/admin/pages`, `/admin/page` and an admin members list.
+- Created pending member signup, login, independent member sessions and CSRF/rate limits. Accounts cannot self-activate or self-verify age.
+- Added idempotent private-content schema and verified-age/consent/moderation entitlement policy, private file key checking and guarded image delivery without public uploads.
+- Added signed, deduplicated Pro job inbox **without executing code** and explicit production release blockers.
+- Expanded pure PHP, HTTP and disposable MySQL tests; updated CI and handoff docs. Production release remains blocked.
+
+---
+
 ## 2026-11-20 — 0.5.0-dev foundation expansion (not completed M4–M8)
 
 - Serve selected signed theme CSS through installation-gated `/theme.css` while still refusing executable upload code.

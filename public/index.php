@@ -99,13 +99,21 @@ if ($path === '/admin' || str_starts_with($path, '/admin/')) {
     exit;
 }
 
-// Public site/membership features are NOT ready yet.
-if ($path === '/') {
-    http_response_code(503);
-    header('Retry-After: 3600');
-    $heading = 'Site runtime not implemented yet';
-    $message = 'The administration dashboard now supports login, but member registration, private content, payment and compliance features are not available. Do not launch this as a public website.';
-    require $root . '/src/Installer/LockedScreen.php';
+// Authorized image delivery only; no direct public storage URLs.
+if (str_starts_with($path, '/media/')) {
+    (new \AdultCore\Http\PrivateMediaController($root))->handle($path, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    exit;
+}
+
+// Public member entry points are session-isolated from administrator login.
+if (in_array($path, ['/join', '/members', '/members/login', '/members/logout'], true)) {
+    (new \AdultCore\Http\MemberController($root))->handle($path, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    exit;
+}
+
+// Only published plain-text pages are public. No private media routes exist yet.
+if ($path === '/' || str_starts_with($path, '/p/')) {
+    (new \AdultCore\Website\PublicSite($root))->handle($path, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     exit;
 }
 

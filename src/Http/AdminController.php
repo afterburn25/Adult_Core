@@ -64,6 +64,10 @@ final class AdminController
             $this->redirect('/admin/login', 302);
             return;
         }
+        if (in_array($path, ['/admin/setup', '/admin/pages', '/admin/page', '/admin/members'], true)) {
+            (new SiteAdminController($this->root))->handle($path, $method, $admin);
+            return;
+        }
         if ($path === '/admin/packages') {
             $this->packages($method, $admin);
             return;
@@ -176,9 +180,10 @@ final class AdminController
             . '<section class="panel"><div class="small muted">USER ACCOUNTS</div><h2>' . $members . '</h2></section>'
             . '<section class="panel"><div class="small muted">SIGNED IN AS</div><h2 class="admin-account">' . self::escape($admin['email']) . '</h2>'
             . '<p class="muted">Role: ' . self::escape($admin['role']) . '</p></section></div>'
+            . '<section class="notice"><h2>Website editor</h2><p><a href="/admin/setup">Install website tables</a> · <a href="/admin/pages">Manage pages</a> · <a href="/admin/members">Registered members</a></p></section>'
             . '<section class="notice"><h2>Extension packages</h2><p><a href="/admin/packages">Manage signed add-ons and themes</a></p></section>'
             . '<section class="notice"><h2>Foundation dashboard</h2><p>Authentication and role checks are active. '
-            . 'Memberships, billing, media publishing, age verification and moderation are not yet implemented. '
+            . 'Public page editing and pending member accounts are in development. Billing, media publishing, age verification and moderation are not yet implemented. '
             . 'Do not launch this development build as a live website.</p></section>';
     }
 
