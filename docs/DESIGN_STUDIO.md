@@ -31,6 +31,8 @@ The administrator can choose any hexadecimal six-digit accent color; all dynamic
 - The current inline preview edits the **homepage headline and body**; inner pages remain editable via `/admin/page` (not yet visual inline editing). Drag-to-position, section/block reordering, background-removal service, layered image editor, per-page theme overrides, theme history and signed rollback are **not implemented**.
 - Existing selected signed CSS themes can override base look; combining custom CSS with presets requires testing. Changes are not a substitute for the remaining production age/consent, payment, MFA, and hosting-certification gates.
 
+**Local PHP dev server:** run `php -S 127.0.0.1:8080 -t public public/router.php` instead of launching with only `-t public`; the router is necessary for dynamic `.css` and image endpoints on the PHP development server. Apache uses `public/.htaccess` rewriting.
+
 ## Test commands
 
 ```sh

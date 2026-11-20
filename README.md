@@ -45,6 +45,8 @@
 - `EncryptedSnapshot` (AES-256-GCM), a **limited CLI encrypted database export**, and an offline signed release-manifest verifier are implemented and tested. Neither a complete backup/restore system nor a production updater exists. See [`docs/BACKUPS_AND_UPDATES.md`](docs/BACKUPS_AND_UPDATES.md).
 - **0.9 billing, 0.10 video and 1.0 production release remain unfinished**, pending approved external providers and external deployment/security testing.
 
+For PHP's built-in development server, use `php -S 127.0.0.1:8080 -t public public/router.php`. The custom router forwards dynamic CSS and image URLs through the same install/authentication gate that Apache handles using `public/.htaccess`.
+
 ## Development installation (test database only)
 
 1. Put the project **above** your host's web directory. Point the document root exclusively at `public/`. `src/`, `install/`, `storage/` and `config/` must never be directly web-accessible.

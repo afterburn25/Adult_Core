@@ -40,7 +40,7 @@ def main():
             with socket.socket() as sock:
                 sock.bind(('127.0.0.1', 0))
                 port = sock.getsockname()[1]
-            server = subprocess.Popen(['php', '-S', f'127.0.0.1:{port}', '-t', 'public'],
+            server = subprocess.Popen(['php', '-S', f'127.0.0.1:{port}', '-t', 'public', 'public/router.php'],
                                       cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             opener = urllib.request.build_opener(NoRedirect, urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
             checks = 0

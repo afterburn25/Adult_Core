@@ -35,7 +35,7 @@ def run():
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
         server = subprocess.Popen(
-            ["php", "-S", f"127.0.0.1:{port}", "-t", "public"],
+            ["php", "-S", f"127.0.0.1:{port}", "-t", "public", "public/router.php"],
             cwd=root,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,

@@ -1,3 +1,7 @@
+# Development server routing note
+
+Run `php -S 127.0.0.1:8080 -t public public/router.php` for local tests. PHP's default static handling may return 404 for `/design.css`, so `tests/mysql_http_auth.py` and HTTP smoke tests now use this explicit router. Apache uses `public/.htaccess`; dynamic asset URLs must never bypass `public/index.php`.
+
 # Current handoff — 0.8.6-design-dev Visual Design Studio
 
 Target `afterburn25/Adult_Core`, **self-hosted** Lite (shared hosting) / Pro (verified VPS); **NOT** SaaS. Complete and manually remove top-level `install/` before any route unlocks. Only `public/` is web-exposed.

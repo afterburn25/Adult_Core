@@ -1,3 +1,7 @@
+## 2026-11-20 — 0.8.6 dev-server route correction
+
+- Added `public/router.php` for PHP's built-in development server to correctly route dynamic `/design.css` and `/design/asset/*`; Apache continues using `public/.htaccess`. Updated HTTP integration tests to use the dev router. This keeps the installation/auth/image gates in effect, rather than inventing a static file.
+
 ## 2026-11-20 — 0.8.6-design-dev (development)
 
 - Added authenticated Visual Design Studio with 4 layout/palette presets, validated custom accent CSS, live homepage plaintext editing, private decorative image library and responsive preview.
