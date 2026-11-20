@@ -20,13 +20,14 @@ final class MemberAccounts
         }
     }
 
-    public function register(string $email, string $password): void
+    public function register(string $email, string $password): int
     {
         $email = strtolower(trim($email));
         self::validate($email, $password);
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $s = $this->pdo->prepare("INSERT INTO ac_users (email,password_hash,role,status,created_at) VALUES (?,?,'member','pending',UTC_TIMESTAMP())");
         $s->execute([$email, $hash]);
+        return (int)$this->pdo->lastInsertId();
     }
 
     /** @return array{id:int,email:string,status:string}|null */

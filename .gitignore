@@ -17,3 +17,6 @@
 
 # External verification service secrets (configure privately)
 /config/verification.php
+
+# Private shared-host email transport settings
+/config/email.php

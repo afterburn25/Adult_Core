@@ -10,6 +10,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
@@ -63,6 +64,7 @@ final class SiteAdminController
             // Additive DDL only. A partly-applied migration can be safely re-run.
             SiteSchema::migrate($pdo);
             MemberSchema::migrate($pdo);
+            MemberEmailSchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
             ModerationSchema::migrate($pdo);
             VerificationSchema::migrate($pdo);

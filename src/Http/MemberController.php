@@ -8,6 +8,9 @@ use AdultCore\Auth\LoginRateLimiter;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\EmailConfirmations;
+use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSession;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
@@ -32,7 +35,40 @@ final class MemberController
             if ((int)$migration->fetchColumn() !== 1) {
                 $this->view(503,'Not ready','<p>Membership registration is not enabled yet.</p>'); return;
             }
+            $emailMigration = $pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $emailMigration->execute([MemberEmailSchema::VERSION]);
+            if ((int)$emailMigration->fetchColumn() !== 1) {
+                $this->view(503,'Setup required','<p>Apply the latest additive database migrations from the admin dashboard.</p>'); return;
+            }
             $accounts = new MemberAccounts($pdo);
+            if ($path === '/members/email/confirm') {
+                if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+                $token = $method==='GET' ? ($_GET['token']??null) : ($_POST['token']??null);
+                if (!is_string($token) || preg_match('/^[a-f0-9]{64}$/D',$token)!==1) {
+                    $this->view(400,'Email confirmation','<p>Invalid or expired confirmation link.</p>'); return;
+                }
+                if ($method==='GET') {
+                    // Email scanners and browser link previews must NEVER consume the token.
+                    $this->view(200,'Confirm email address','<p>To confirm ownership of this email address, press Confirm. This does not verify your age or unlock content.</p>'
+                        .'<form method="post" action="/members/email/confirm" class="install-form">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                        .'<input type="hidden" name="token" value="'.self::e($token).'">'
+                        .'<button class="install-button" type="submit">Confirm email address</button></form>');
+                    return;
+                }
+                if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                    $this->view(403,'Invalid token','<p>Reload the confirmation link and retry.</p>'); return;
+                }
+                $ok=(new EmailConfirmations($pdo))->confirm($token);
+                $this->view($ok?200:400,'Email confirmation', $ok
+                    ? '<p>Your email address is confirmed. This does not verify age or grant membership access.</p><p><a href="/members/login">Sign in</a></p>'
+                    : '<p>Invalid or expired confirmation link. Sign in to request another link.</p>');
+                return;
+            }
+            if ($path === '/members/email') {
+                $this->emailConfirmation($pdo,$method,$accounts);
+                return;
+            }
             if ($path === '/members/logout') {
                 if ($method !== 'POST') { $this->denyMethod('POST'); return; }
                 if (!MemberSession::csrfValid($_POST['csrf'] ?? null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
@@ -43,8 +79,10 @@ final class MemberController
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 $member = $this->member($accounts);
                 if ($member === null) { $this->redirect('/members/login'); return; }
+                $confirmed = (new EmailConfirmations($pdo))->verified((int)$member['id']);
                 $this->view(200,'Member account','<p>Signed in as <strong>' . self::e($member['email']) . '</strong>.</p>'
                     . '<p>Account status: <strong>' . self::e($member['status']) . '</strong>.</p>'
+                    . '<p>Email address: <strong>' . ($confirmed ? 'confirmed' : 'unconfirmed') . '</strong>. <a href="/members/email">Email settings</a></p>'
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
                     . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
@@ -97,6 +135,47 @@ final class MemberController
         $this->view(200,'Report content',$html);
     }
 
+    private function emailConfirmation(PDO $pdo, string $method, MemberAccounts $accounts): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        $service=new EmailConfirmations($pdo);
+        $confirmed=$service->verified((int)$member['id']);
+        $message='';
+        $configured=false;
+        try { $cfg=EmailDelivery::loadConfig($this->root); $configured=$cfg!==null; }
+        catch (Throwable) { $cfg=null; }
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return;
+            }
+            if ($confirmed) { $message='This address has already been confirmed.'; }
+            elseif (!$configured) { $message='Email delivery is not configured by the website administrator.'; }
+            else {
+                try {
+                    $token=$service->issue((int)$member['id']);
+                    $sent=EmailDelivery::send((string)$member['email'],$token,$cfg);
+                    $message=$sent?'Confirmation email requested. Check your inbox.':'Delivery failed. Contact the website administrator.';
+                } catch (\RuntimeException $e) {
+                    $message=$e->getMessage()==='Please wait before requesting another confirmation.'
+                        ? $e->getMessage() : 'Could not request a confirmation link.';
+                } catch (Throwable) { $message='Email confirmation is temporarily unavailable.'; }
+            }
+        }
+        $html='<p class="intro">Email confirmation proves inbox ownership only. It does not verify age, identity, performer consent, or payment eligibility.</p>'
+            .'<p>Address: '.self::e((string)$member['email']).'</p>'
+            .'<p>Status: <strong>'.($confirmed?'Confirmed':'Not confirmed').'</strong></p>';
+        if ($message!=='') $html.='<p role="status">'.self::e($message).'</p>';
+        if (!$confirmed && $configured) {
+            $html.='<form method="post" action="/members/email" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                .'<button class="install-button" type="submit">Send confirmation email</button></form>';
+        } elseif (!$confirmed) $html.='<p>Email delivery is not yet configured for this website.</p>';
+        $html.='<p><a href="/members">Return to member account</a></p>';
+        $this->view(200,'Email confirmation',$html);
+    }
+
     private function form(string $path, string $method, MemberAccounts $accounts): void
     {
         $register = $path === '/join'; $error = null;
@@ -109,7 +188,16 @@ final class MemberController
                     // File-based throttling is intentionally shared with auth; rate-limited signups.
                     (new LoginRateLimiter($this->root . '/storage', 'member'))->consume((string)($_SERVER['REMOTE_ADDR']??'unknown'), $email);
                     if ($register) {
-                        $accounts->register($email,$password);
+                        $newMemberId=$accounts->register($email,$password);
+                        try {
+                            $mailCfg=EmailDelivery::loadConfig($this->root);
+                            if ($mailCfg!==null) {
+                                $token=(new EmailConfirmations(Connection::open($this->root)))->issue($newMemberId);
+                                EmailDelivery::send(strtolower(trim($email)),$token,$mailCfg);
+                            }
+                        } catch (Throwable) {
+                            // Registration stays pending; do not disclose delivery or token details.
+                        }
                         $this->view(200,'Registration received','<p>Your account is pending review. Registration alone never grants access to adult content. <a href="/members/login">Sign in</a>.</p>');
                         return;
                     }
