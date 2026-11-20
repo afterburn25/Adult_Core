@@ -1,12 +1,19 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Version: `0.8.5-ui-dev` (premium UI development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Version: `0.8.6-design-dev` (visual theme builder development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
 **CI verification:** GitHub Actions [run 44777593038](https://github.com/afterburn25/Adult_Core/actions/runs/44777593038) passed PHP lint, all local-style UI tests and disposable-MySQL installer/admin/member browser integration checks for source commit [`f886e8684fa8be5c39ea953ff2c1373ea09bd937`](https://github.com/afterburn25/Adult_Core/commit/f886e8684fa8be5c39ea953ff2c1373ea09bd937). Production cPanel/VPS and security/compliance verification remain outstanding.
 
 **Never deploy this release as a real adult content, membership billing or streaming website.** Payment integration, independent age verification, consent evidence review, complete external verification and consent review, Pro streaming, safe updates and production security are unfinished.
+
+## New in 0.8.6-design-dev — Visual Design Studio
+
+- Authenticated `/admin/design` provides four distinct built-in theme layouts, their own palettes, a customizable accent color, responsive live preview and click-to-edit **homepage headline and paragraph**. A plain-text fallback form remains accessible without JS.
+- Administrators can upload their own **already-transparent PNG/WebP cutout photos**, or JPEG decorative photos; select image placement and scale. Uploads are restricted to 5 MiB / 4096 pixels and privately stored outside `public/`. Public delivery requires explicitly non-explicit, rights-cleared asset status, saved selection, and a published home page. No automatic background removal or adult identity/performer verification is implied.
+- Run `/admin/setup` to apply additive migration `m11_visual_design_v1`, then open `/admin/design`. Built-in layouts are not PHP plugins or part of the signed CSS package runtime. Read [Design Studio guide](docs/DESIGN_STUDIO.md).
+- The rest of the website remains a development preview: no live adult-media publishing, provider-approved payments, Pro streaming, or production 1.0 certification.
 
 ## New in 0.8.5-ui-dev — premium frontend and administrator redesign
 

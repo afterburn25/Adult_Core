@@ -22,7 +22,9 @@ final class Layout
             . '<meta name="theme-color" content="#0b1020">'
             . '<title>' . self::escape($title) . ' · ' . self::escape($brand) . '</title>'
             . '<link rel="stylesheet" href="/assets/style.css">'
-            . '<link rel="stylesheet" href="/theme.css"></head><body class="' . $class . '">'
+            . '<link rel="stylesheet" href="/theme.css">'
+            . ($class === 'public-site' || str_starts_with($class, 'public-site ') ? '<link rel="stylesheet" href="/design.css">' : '')
+            . '</head><body class="' . $class . '">'
             . '<a class="skip-link" href="#main-content">Skip to content</a>';
     }
 
@@ -44,7 +46,7 @@ final class Layout
     /**
      * @param list<array<string,mixed>> $menu Published, DB-backed navigation only.
      */
-    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false): string
+    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = []): string
     {
         $siteName = trim($siteName) ?: 'Adult Core';
         $nav = '<a class="' . ($homepage ? 'is-active' : '') . '" href="/"' . ($homepage ? ' aria-current="page"' : '') . '>Home</a>';
@@ -60,6 +62,16 @@ final class Layout
         $siteWords = preg_split('/\s+/u', $siteName) ?: ['Adult','Core'];
         $siteFirst = strtoupper(substr((string) ($siteWords[0] ?? 'A'), 0, 1));
         $siteLast = strtoupper(substr((string) ($siteWords[count($siteWords)-1] ?? 'C'), 0, 1));
+        $theme = (string)($design['theme_key'] ?? 'noir-gold');
+        if (!array_key_exists($theme, \AdultCore\Design\ThemeCatalog::THEMES)) $theme = 'noir-gold';
+        $side = ($design['image_side'] ?? 'right') === 'left' ? 'left' : 'right';
+        $size = in_array(($design['image_size'] ?? 'large'), ['small','medium','large'], true) ? (string)($design['image_size'] ?? 'large') : 'large';
+        $assetId = (int)($design['public_asset_id'] ?? 0);
+        $art = $homepage && $assetId > 0
+            ? '<div class="hero-image-frame"><img class="design-portrait" loading="eager" src="/design/asset/' . $assetId . '" alt="Decorative homepage image"></div>'
+            : '<div class="art-orbit art-orbit-one"></div><div class="art-orbit art-orbit-two"></div>'
+                . '<div class="art-glass"><div class="art-symbol">' . self::escape($siteFirst) . '<span>✧</span>' . self::escape($siteLast) . '</div><div class="art-caption">CURATED BY YOU <span>YOUR SPACE</span></div></div>'
+                . '<div class="art-spark art-spark-one">✦</div><div class="art-spark art-spark-two">✧</div>';
         $content = '<div class="site-hero-grid"><div class="site-hero-content">'
             . '<div class="hero-kicker"><span class="kicker-line"></span> ' . self::escape($siteName) . ' <span class="kicker-diamond">✦</span> YOUR PRIVATE SPACE</div>'
             . '<h1>' . self::escape($title) . '</h1>'
@@ -68,14 +80,12 @@ final class Layout
             . '<a class="btn btn-outline" href="/members/login">Member sign in</a></div>'
             . '<p class="hero-footnote"><span class="status-light" aria-hidden="true"></span> ' . self::escape($intro) . ' · Private by design</p>'
             . '</div><div class="hero-art" aria-hidden="true">'
-            . '<div class="art-orbit art-orbit-one"></div><div class="art-orbit art-orbit-two"></div>'
-            . '<div class="art-glass"><div class="art-symbol">' . self::escape($siteFirst) . '<span>✧</span>' . self::escape($siteLast) . '</div><div class="art-caption">CURATED BY YOU <span>YOUR SPACE</span></div></div>'
-            . '<div class="art-spark art-spark-one">✦</div><div class="art-spark art-spark-two">✧</div></div></div>';
+            . $art . '</div></div>';
         $secondary = '<section class="site-highlights" aria-label="Site information">'
             . '<div><span class="highlight-number">01</span><strong>Your space</strong><p>A thoughtfully designed home for your community.</p></div>'
             . '<div><span class="highlight-number">02</span><strong>Member accounts</strong><p>Dedicated account access with privacy-first safeguards.</p></div>'
             . '<div><span class="highlight-number">03</span><strong>Made personal</strong><p>Pages and styling curated by your site administrator.</p></div></section>';
-        return self::head($title, 'public-site', $siteName)
+        return self::head($title, 'public-site theme-' . $theme . ' image-' . $side . ' image-size-' . $size, $siteName)
             . '<div class="site-frame"><header class="site-header"><div class="site-container site-header-inner">'
             . self::brand(false, $siteName) . '<nav class="site-nav" aria-label="Main navigation">' . $nav . '</nav>'
             . '<div class="header-actions"><a class="header-login" href="/members/login">Sign in</a>'
@@ -117,6 +127,7 @@ final class Layout
         $links = [
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
+            ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
             ['url' => '/admin/members', 'label' => 'Members', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],

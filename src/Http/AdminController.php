@@ -66,6 +66,10 @@ final class AdminController
             $this->redirect('/admin/login', 302);
             return;
         }
+        if ($path === '/admin/design' || $path === '/admin/design/upload' || str_starts_with($path, '/admin/design/asset/')) {
+            (new DesignController($this->root))->handle($path, $method, $admin);
+            return;
+        }
         if ($path === '/admin/moderation') {
             (new ModerationController($this->root))->handle($method, $admin);
             return;

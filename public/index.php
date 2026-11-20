@@ -13,7 +13,7 @@ header('Pragma: no-cache');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 
 $root = dirname(__DIR__);
 $gate = new InstallationGate($root);
@@ -61,6 +61,32 @@ if ($path === '/install') {
     $heading = 'Installer removed';
     $message = 'The installer is no longer available.';
     require $root . '/src/Installer/LockedScreen.php';
+    exit;
+}
+
+// Built-in layout palette and explicitly public-safe decorative assets only.
+if ($path === '/design.css' || preg_match('#^/design/asset/([1-9][0-9]{0,18})$#D', $path, $designMatch) === 1) {
+    if (!in_array(($_SERVER['REQUEST_METHOD'] ?? 'GET'), ['GET','HEAD'], true)) {
+        header('Allow: GET, HEAD'); http_response_code(405); exit;
+    }
+    try {
+        $pdo = \AdultCore\Database\Connection::open($root);
+        $q = $pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([\AdultCore\Design\DesignSchema::VERSION]);
+        if ((int)$q->fetchColumn() === 0) { http_response_code(404); exit; }
+        $repo = new \AdultCore\Design\DesignRepository($pdo);
+        if ($path === '/design.css') {
+            $current = $repo->current();
+            $accent = (string)($current['accent_color'] ?? '#d9ae75');
+            if (preg_match('/^#[0-9a-fA-F]{6}$/D', $accent) !== 1) { http_response_code(404); exit; }
+            header('Content-Type: text/css; charset=UTF-8');
+            echo '.public-site{--design-accent:' . $accent . '}';
+        } else {
+            $asset = $repo->publicAsset((int)$designMatch[1]);
+            if ($asset === null) { http_response_code(404); exit; }
+            (new \AdultCore\Design\DesignImages($root,$pdo))->serve($asset);
+        }
+    } catch (Throwable) { http_response_code(503); }
     exit;
 }
 

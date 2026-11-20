@@ -1,3 +1,15 @@
+# Current handoff — 0.8.6-design-dev Visual Design Studio
+
+Target `afterburn25/Adult_Core`, **self-hosted** Lite (shared hosting) / Pro (verified VPS); **NOT** SaaS. Complete and manually remove top-level `install/` before any route unlocks. Only `public/` is web-exposed.
+
+- Added `src/Design/{ThemeCatalog,DesignSchema,DesignRepository,DesignImages}.php`, `src/Http/DesignController.php`, `public/assets/design-editor.js`, new `public/assets/style.css` layout variants and `/design.css` / `/design/asset/{id}` routes. `/admin/setup` applies the additive `m11_visual_design_v1` migration. Admin `/admin/design` is gated by existing authentication, `site.settings.manage`, HTTPS and CSRF; uploads land in private `storage/design-assets/`.
+- Four audited layouts and their palettes, custom validated accent, live homepage title/body plaintext edits, image choice and left/right/size placement. For now only homepage gets inline preview; additional pages use `/admin/page`. Automatic image background removal and drag-and-drop blocks remain future work.
+- Public design assets only appear when explicitly public-safe, selected in settings, and home page is published. No real adult content or identity documents may be stored here. This declaration does not replace independent age/consent review. Signed third-party packages still CSS/data-only.
+- Run PHP tests, `tests/design_tests.php`, HTTP smoke, disposable-MySQL integration (CI), browser visual review and the entire security suite. Record a **verified** GitHub commit / CI run, never assume a local artifact was pushed.
+- Remaining blockers: administrator MFA, independent age/consent provider, adult media approval, approved payments, Pro video, signed updates/complete restore, host and security audit. **Not a production release.** See `docs/DESIGN_STUDIO.md`, `docs/SECURITY.md` and `docs/RELEASE_GATES.md`.
+
+---
+
 **0.8.5-ui-dev CI verification:** GitHub Actions [run 44777593038](https://github.com/afterburn25/Adult_Core/actions/runs/44777593038) passed PHP lint, all local-style UI tests and disposable-MySQL installer/admin/member browser integration checks for source commit [`f886e8684fa8be5c39ea953ff2c1373ea09bd937`](https://github.com/afterburn25/Adult_Core/commit/f886e8684fa8be5c39ea953ff2c1373ea09bd937). Production cPanel/VPS and security/compliance verification remain outstanding.
 
 # Immediate handoff — 0.8.5-ui-dev (premium UI refresh)

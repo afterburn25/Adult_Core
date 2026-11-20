@@ -1,3 +1,7 @@
+## Current 0.8.6-design-dev: Visual Design Studio
+
+Built-in audited themes plus inline homepage plaintext editing and private decorative cutout uploads now exist. Read `docs/DESIGN_STUDIO.md` before changing `src/Design/*`, `/admin/design`, `/design.css`, and `/design/asset/{id}`. Never expose uploaded images directly from public files, never assume public-safe checkbox equals independent age/consent verification, and never enable executing uploaded theme code. Apply `m11_visual_design_v1` via `/admin/setup` on a disposable database. Run `php tests/design_tests.php` and all suites, including GitHub disposable MySQL. Version remains a development preview; MFA/payments/streaming/production not done.
+
 ## 0.8.5-ui-dev interface handoff
 
 The UI is now shared: `src/UI/Layout.php`, `src/UI/Dashboard.php`, and the design tokens in `public/assets/style.css`. Keep public/member/guest/admin templates consistent; do not inline new unrelated headers in controllers. Run `php tests/ui_tests.php` and all previous tests, and verify desktop/mobile layouts before changing navigation. Public site brand uses installed site name; admin brand is Adult Core. No external JS/fonts/trackers were introduced. The existing auth/install gates, CSRF, private media restrictions and future administrator MFA requirement are unchanged. Read `docs/UI_DESIGN.md`.

@@ -104,6 +104,101 @@ def main():
             ensure('Page editor persists and redirects', code == 303)
             code, public = req('/p/safe-page')
             ensure('Published page escaped in frontend', code == 200 and '&lt;script&gt;' in public and '<script>unsafe()</script>' not in public)
+            # Authenticated Visual Design Studio: correct theme and escaped homepage content.
+            code, studio = req('/admin/design')
+            ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)
+            studio_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', studio)
+            ensure('Studio has anti-CSRF token', studio_csrf is not None)
+            code, bad = req('/admin/design', {
+                'csrf':'invalid', 'theme':'noir-gold', 'accent':'#d9ae75',
+                'image_side':'right', 'image_size':'large', 'hero_asset':'none',
+                'title':'Unsafe', 'body':'should not save'
+            })
+            ensure('Design Studio POST requires CSRF', code == 403)
+            code, _ = req('/admin/design', {
+                'csrf':studio_csrf.group(1), 'theme':'rose-ivory', 'accent':'#ae758b',
+                'image_side':'left', 'image_size':'medium', 'hero_asset':'none',
+                'title':'Hello <studio>', 'body':'A safe and elegant welcome'
+            })
+            ensure('Valid design saves with redirect', code == 303)
+            code, private_home = req('/')
+            ensure('Homepage remains draft until published', code == 503)
+            code, designcss = req('/design.css')
+            ensure('Validated custom palette delivered', code == 200 and '#ae758b' in designcss)
+            code, noasset = req('/design/asset/12')
+            ensure('Unknown or unselected image refused', code == 404)
+            # Regular page editor exclusively controls the homepage publishing status.
+            code, pages = req('/admin/pages')
+            home_match = re.search(r'(?s)<tr><td>Hello &lt;studio&gt;</td><td>home</td><td>draft</td><td><a href="/admin/page\?id=(\d+)"', pages)
+            ensure('Design saves escaped homepage but keeps draft', code == 200 and home_match is not None)
+            home_id=home_match.group(1)
+            code, _ = req('/admin/page?id='+home_id, {
+                'csrf':studio_csrf.group(1),'id':home_id,'slug':'home',
+                'title':'Hello <studio>', 'body':'A safe and elegant welcome', 'status':'published'
+            })
+            ensure('Homepage publishing is separate explicit action', code == 303)
+            code, public_home = req('/')
+            ensure('Published homepage uses selected layout and escapes text',
+                   code == 200 and 'theme-rose-ivory' in public_home and 'Hello &lt;studio&gt;' in public_home and 'Hello <studio>' not in public_home)
+            code, unsigned_asset = req('/admin/design/asset/999')
+            ensure('Authorized but missing uploaded image is 404', code == 404)
+            # Real multipart uploads: a transparent PNG defaults private, even on a published homepage.
+            import struct, zlib
+            def sample_png():
+                def chunk(name, data):
+                    return struct.pack('>I',len(data))+name+data+struct.pack('>I',zlib.crc32(name+data)&0xffffffff)
+                return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR',struct.pack('>IIBBBBB',2,2,8,6,0,0,0))
+                        + chunk(b'IDAT',zlib.compress(b'\x00'+b'\xff\xaa\x99\x00'*2 + b'\x00'+b'\xff\xaa\x99\x00'*2)) + chunk(b'IEND',b''))
+            def upload_design(public_ok):
+                boundary='ACMultipartTestBoundary'
+                items=[('csrf',studio_csrf.group(1))]
+                if public_ok: items.append(('public_use_confirm','1'))
+                parts=[]
+                for key,value in items:
+                    parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n').encode())
+                parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="design_image"; filename="cutout.png"\r\nContent-Type: image/png\r\n\r\n').encode()+sample_png()+b'\r\n')
+                parts.append(f'--{boundary}--\r\n'.encode())
+                request=urllib.request.Request(f'http://127.0.0.1:{port}/admin/design/upload',
+                    data=b''.join(parts),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'})
+                try: resp=opener.open(request,timeout=4)
+                except urllib.error.HTTPError as err: resp=err
+                with resp: return resp.status,resp.read().decode('utf-8', errors='replace')
+            code, _ = upload_design(False)
+            ensure('Private transparent PNG upload accepted', code == 303)
+            code, studio = req('/admin/design')
+            ids = re.findall(r'name="hero_asset" value="(\d+)"', studio)
+            ensure('Private image appears in authenticated library', code == 200 and len(ids)>=1 and 'Private preview only' in studio)
+            private_id=ids[0]
+            code, private_image=req('/admin/design/asset/'+private_id)
+            ensure('Administrator can preview private image', code == 200 and 'PNG' in private_image)
+            code, _ = req('/admin/design', {
+                'csrf':studio_csrf.group(1),'theme':'velvet-plum','accent':'#f19ad0',
+                'image_side':'right','image_size':'large','hero_asset':private_id,
+                'title':'Member studio','body':'Private image stays hidden'
+            })
+            ensure('Private image selected in visual editor', code == 303)
+            code, public_home = req('/')
+            ensure('Public page does not expose unapproved cutout', code == 200 and f'/design/asset/{private_id}' not in public_home)
+            code, hidden_image = req('/design/asset/'+private_id)
+            ensure('Unapproved selected cutout refused publicly', code == 404)
+            code, _ = upload_design(True)
+            ensure('Explicit safe decorative upload accepted', code == 303)
+            code, studio = req('/admin/design')
+            ids=re.findall(r'name="hero_asset" value="(\d+)"',studio)
+            public_id=ids[0]
+            ensure('Public-safe image is new and listed', code == 200 and public_id != private_id and 'Public-safe asset' in studio)
+            code, _=req('/admin/design', {
+                'csrf':studio_csrf.group(1),'theme':'noir-gold','accent':'#d9ae75',
+                'image_side':'left','image_size':'medium','hero_asset':public_id,
+                'title':'Private boutique','body':'Design publishing is explicit'
+            })
+            ensure('Explicit approved image selection saved', code == 303)
+            code, public_home = req('/')
+            ensure('Public homepage points only to approved selected image',code==200 and f'/design/asset/{public_id}' in public_home and f'/design/asset/{private_id}' not in public_home)
+            code, public_image = req('/design/asset/'+public_id)
+            ensure('Approved selected image served', code == 200 and 'PNG' in public_image)
+            code, old_image = req('/design/asset/'+private_id)
+            ensure('Old private image stays inaccessible', code == 404)
             # Authenticated moderation: new content remains draft/private.
             code, moderation = req('/admin/moderation')
             ensure('Admin moderation queue available', code == 200 and 'Create unpublished draft' in moderation)

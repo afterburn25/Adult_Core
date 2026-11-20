@@ -1,3 +1,11 @@
+## 0.8.6-design-dev — editable themes and decorative cutouts
+
+**Implemented for development testing:** `/admin/design` with four trusted presets (`noir-gold`, `velvet-plum`, `midnight-teal`, `rose-ivory`), distinct layouts, palette editor, inline homepage text, private uploaded decorative images, transparent cutout placement, and fail-closed public image delivery. Existing signed CSS add-on rules remain. New schema `m11_visual_design_v1` is additive. **Not implemented:** automatic background removal, arbitrary page inline editing, component dragging, section reordering, executable extension themes, theme version upgrade/rollback or adult-media approval. Real MySQL CI requires verification after commit. See [Design Studio guide](DESIGN_STUDIO.md).
+
+**Still open for 1.0:** administrator MFA, contracted identity/performer consent verification, authorized adult uploads, paid subscriptions, production video services, updates/backups and hosting/security certification. Do not mark M4/M5/M6/M7/M8 done.
+
+---
+
 # Current UI milestone — 0.8.5-ui-dev (2026-11-20)
 
 **Premium interface refresh: implemented and locally tested**. Site homepage and published pages now use a responsive branded layout, membership and admin guest pages share a refined sign-in style, authenticated administration uses a consistent sidebar + header, real metrics, quick links, and an improved page editor. The redesign uses no external JS, fonts or network dependencies and preserves signed CSS theme selection.

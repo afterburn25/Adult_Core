@@ -18,6 +18,8 @@ use AdultCore\Installer\InstallService;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
+use AdultCore\Design\DesignSchema;
+use AdultCore\Design\DesignRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
@@ -100,6 +102,25 @@ try {
     // M6/M7 additive migrations and site/member access against actual MySQL.
     SiteSchema::migrate($pdo);
     SiteSchema::migrate($pdo);  // Repeat-safe.
+    DesignSchema::migrate($pdo);
+    DesignSchema::migrate($pdo);
+    $design=new DesignRepository($pdo);
+    if ($design->current()['theme_key']!=='noir-gold') throw new RuntimeException('Default theme not created.');
+    $design->save('velvet-plum','#f19ad0','left','medium',null);
+    if ($design->current()['theme_key']!=='velvet-plum' || $design->current()['image_side']!=='left')
+        throw new RuntimeException('Theme selection was not persisted.');
+    // Public image access requires BOTH an admin's explicit public-safe flag and a published homepage.
+    $pdo->exec("INSERT INTO ac_design_assets (filename,mime,byte_size,public_ok,created_at)
+      VALUES ('" . str_repeat('f',40) . ".png','image/png',120,0,UTC_TIMESTAMP())");
+    $assetId=(int)$pdo->lastInsertId();
+    $design->save('velvet-plum','#f19ad0','left','medium',$assetId);
+    if ($design->publicAsset($assetId)!==null) throw new RuntimeException('Unapproved image became public.');
+    $pdo->prepare('UPDATE ac_design_assets SET public_ok=1 WHERE id=?')->execute([$assetId]);
+    if ($design->publicAsset($assetId)!==null) throw new RuntimeException('Draft homepage exposed public design image.');
+    $pdo->exec("UPDATE ac_pages SET status='published' WHERE slug='home'");
+    if ($design->publicAsset($assetId)===null) throw new RuntimeException('Approved selected image inaccessible after publication.');
+    $pdo->exec("UPDATE ac_pages SET status='draft' WHERE slug='home'");
+    if ($design->publicAsset($assetId)!==null) throw new RuntimeException('Draft unpublishing failed to revoke image.');
     MemberSchema::migrate($pdo);
     MemberSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
@@ -263,7 +284,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['storage', 'config'] as $directory) {

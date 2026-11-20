@@ -6,6 +6,8 @@ namespace AdultCore\Website;
 
 use AdultCore\Database\Connection;
 use AdultCore\UI\Layout;
+use AdultCore\Design\DesignRepository;
+use AdultCore\Design\DesignSchema;
 use PDO;
 use Throwable;
 
@@ -43,7 +45,19 @@ final class PublicSite
                 return;
             }
             $siteName = (string) ($pdo->query("SELECT setting_value FROM ac_settings WHERE setting_key = 'site_name'")->fetchColumn() ?: 'Adult Core');
-            $this->show((string) $page['title'], (string) $page['body'], $menu, $siteName, $slug === 'home');
+            $design = [];
+            // Design schema is optional until /admin/setup has been applied. Never expose private images.
+            $d = $pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $d->execute([DesignSchema::VERSION]);
+            if ((int)$d->fetchColumn() > 0) {
+                $designRepo = new DesignRepository($pdo);
+                $design = $designRepo->current();
+                $assetId = (int)($design['hero_asset_id'] ?? 0);
+                if ($slug === 'home' && $assetId > 0 && $designRepo->publicAsset($assetId) !== null) {
+                    $design['public_asset_id'] = $assetId;
+                }
+            }
+            $this->show((string) $page['title'], (string) $page['body'], $menu, $siteName, $slug === 'home', $design);
         } catch (Throwable) {
             http_response_code(503);
             $this->show('Temporarily unavailable', 'The site is currently undergoing maintenance.', []);
@@ -51,8 +65,8 @@ final class PublicSite
     }
 
     /** @param list<array<string,mixed>> $menu */
-    private function show(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false): void
+    private function show(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = []): void
     {
-        echo Layout::site($title, $body, $menu, $siteName, $homepage);
+        echo Layout::site($title, $body, $menu, $siteName, $homepage, $design);
     }
 }

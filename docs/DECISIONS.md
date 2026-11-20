@@ -1,3 +1,10 @@
+## Visual design and decorative media separation (0.8.6-design-dev)
+
+- Core-shipped audited theme layouts differ structurally and are CSS/escaped-PHP only. Signed external packages remain data-only: accepting a package never runs uploaded PHP/JS/HTML.
+- The editor stores escaped **plain text** with existing `PageRepository`; preview `contenteditable` is only an admin UI convenience. All mutations require authenticated admin, CSRF and HTTPS.
+- Decorative homepage photographs live separately in `storage/design-assets` (not `ac_media`), default private, and are public only after explicit non-explicit/rights-cleared acknowledgment, selected asset, and published homepage. This is NOT an age/performer consent approval mechanism and must not replace protected adult-media authorization.
+- Custom accent CSS is server-generated from a strict `#RRGGBB` value through `/design.css`, rather than injecting inline HTML styles or scripts from stored content.
+
 ## 2026-11-20 — Unified, script-free premium UI
 
 All web-facing layouts live in `src/UI/Layout.php`, with truthful dashboard components in `src/UI/Dashboard.php`. Controllers continue performing authorization, validation and escaping before calling layout helpers. Layout methods escape titles, nav names and site branding and only accept trusted HTML assembled by server controllers. The UI does **not** introduce client-side executable scripts, remote web fonts or external analytics. Admin sidebars are rendered only after the existing gate and authenticated role revalidation; login and errors use a guest shell. Selected verified theme CSS can still override presentation, but signed assets never execute PHP or JavaScript. The design has no capability to publish unverified content or grant entitlements.
