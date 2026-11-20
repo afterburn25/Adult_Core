@@ -17,6 +17,7 @@ function designCheck(bool $truth, string $reason): void {
 }
 
 designCheck(count(ThemeCatalog::THEMES) === 4,'Four distinct layout presets');
+designCheck(array_keys(ThemeCatalog::THEMES) === ['noir-gold','velvet-plum','midnight-teal','rose-ivory'],'Original four keys unchanged, without duplicates');
 designCheck(DesignSchema::VERSION==='m11_visual_design_v1','Separate additive migration');
 foreach (ThemeCatalog::THEMES as $key=>$theme) {
     ThemeCatalog::validate($key,$theme['accent'],'right','large');
@@ -51,4 +52,7 @@ $css=file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(is_string($css)&&str_contains($css,'.theme-rose-ivory')&&str_contains($css,'.theme-velvet-plum'),'Built-in layout CSS exists');
 $js=file_get_contents(dirname(__DIR__).'/public/assets/design-editor.js');
 designCheck(is_string($js)&&str_contains($js,'contenteditable')&&str_contains($js,'field.value'),'Live text input sync uses plain text');
+designCheck(str_contains($js, 'Add your cutout photo') && str_contains($css, 'studio-preview-placeholder'), 'Empty hero prompts for user cutout without adding stock photos');
+$source = file_get_contents(dirname(__DIR__) . '/src/Http/DesignController.php');
+designCheck(str_contains((string)$source, 'No cutout — keep theme background'), 'No-cutout option preserves preset styling');
 echo "Passed $checks visual-design safety checks.\n";

@@ -45,3 +45,11 @@ python3 tests/mysql_http_auth.py
 ```
 
 The production image source still lives exclusively under the operator's install; documentation/examples never include customer photos or private signing secrets.
+
+## 0.8.6.1-design-dev — Four existing themes, optional hero cutouts (2026-11-20)
+
+- Kept the **original four theme IDs** unchanged with no duplicate entries: `noir-gold`, `velvet-plum`, `midnight-teal`, `rose-ivory`.
+- The Design Studio now explicitly offers **No cutout — keep theme background**, with a visible **Add your cutout photo** preview slot. Background palettes and audited layouts remain available when no image is selected.
+- Gallery and backdrop photos in the separate edited **concept previews** are illustrative design references. They are not silently copied into publicly served runtime galleries; the actual application keeps theme-native CSS backgrounds.
+- Transparent PNG/WebP files remain private unless explicitly declared public-safe, selected and used on a published homepage; independent verification is still required before any adult member media can be published.
+- No schema migration, production release or paid content functionality is introduced.

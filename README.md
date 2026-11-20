@@ -89,3 +89,7 @@ Members with an independently confirmed email address can request a one-use pass
 - [GitHub Actions run 44765614968](https://github.com/afterburn25/Adult_Core/actions/runs/44765614968) passed: PHP lint and unit tests, HTTP smoke, disposable MySQL installation/recovery tests and browser session revocation tests.
 - The first run caught a browser test-order issue: reset rotates CSRF, so the replay test now uses a newly acquired CSRF token to independently assert that the reset token cannot be reused. This is tested, not a production security audit.
 - Real cPanel, email deliverability, identity/age verification, payment processing, Pro streaming, signed restore/update workflow, independent review and production 1.0 remain incomplete.
+
+### 0.8.6.1-design-dev — Theme preservation
+
+Four built-in theme choices remain unchanged. The admin Design Studio offers an explicit **No cutout — keep theme background** choice and an empty hero image slot for transparent user photos. Concept previews are provided separately; demonstration gallery models and private photos are not automatically published.

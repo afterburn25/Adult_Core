@@ -400,7 +400,8 @@ body:not(.public-site):not(.admin-site):not(.member-site):not(.admin-guest) main
 .studio-canvas .btn {margin-top:17px;background:var(--design-accent);color:#12101a!important;font-size:12px;}
 .studio-canvas-visual {position:relative;display:grid;place-items:end center;min-height:420px;align-self:stretch;border-radius:18px;background:radial-gradient(ellipse 70% 55% at 50% 60%,rgba(190,132,111,.20),transparent 83%);overflow:hidden;}
 .studio-canvas-visual:before {content:' ';position:absolute;inset:12%;border:1px solid rgba(255,255,255,.15);border-radius:49% 51% 35% 62%;transform:rotate(-18deg);}
-.studio-preview-placeholder {margin:auto;font-size:190px;font-family:Georgia,serif;color:var(--design-accent);opacity:.37;}
+.studio-preview-placeholder {position:relative;z-index:1;margin:auto;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:11px;width:min(92%,330px);min-height:245px;padding:25px;text-align:center;border:2px dashed var(--design-accent);border-radius:22px;background:rgba(8,12,21,.28);color:var(--design-accent);font-size:clamp(18px,2vw,26px);font-family:Georgia,serif;line-height:1.25;}
+.studio-preview-placeholder small {font:500 12px/1.45 system-ui,sans-serif;color:#d1c6d8;}
 .studio-canvas .design-portrait {position:relative;z-index:1;display:block;height:100%;max-height:510px;max-width:100%;width:100%;object-fit:contain;object-position:bottom center;filter:drop-shadow(0 16px 23px rgba(0,0,0,.45));}
 .studio-canvas.image-size-small .design-portrait {max-height:225px;}
 .studio-canvas.image-size-medium .design-portrait {max-height:345px;}
@@ -472,3 +473,7 @@ body:not(.public-site):not(.admin-site):not(.member-site):not(.admin-guest) main
 }
 
 .studio-change-image {margin:13px 0 6px;}
+
+/* Unfilled hero preserves each theme background and never substitutes a demonstration model. */
+.studio-canvas.theme-rose-ivory .studio-preview-placeholder {background:rgba(255,255,255,.30);}
+.studio-canvas.theme-rose-ivory .studio-preview-placeholder small {color:#724754;}

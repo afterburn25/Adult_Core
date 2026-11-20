@@ -59,7 +59,10 @@
     } else {
       const placeholder = document.createElement('span');
       placeholder.className = 'studio-preview-placeholder';
-      placeholder.textContent = '✦';
+      placeholder.textContent = '+ Add your cutout photo';
+      const note = document.createElement('small');
+      note.textContent = 'Theme background stays in place';
+      placeholder.appendChild(note);
       visual.appendChild(placeholder);
     }
   }));

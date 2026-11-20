@@ -1,3 +1,7 @@
+# 0.8.6.1-design-dev — Theme design maintenance
+
+Four original `ThemeCatalog::THEMES` IDs remain intact, without duplicates. `/admin/design` supports a clear empty model/cutout slot and a “No cutout — keep theme background” option. Existing CSS theme backdrops are unchanged; edited concept mockup PNGs are distributed separately, not as public gallery assets. No schema migration. Local PHP and HTTP tests pass; verify CI after commit. Production blockers unchanged.
+
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
 
 # Development server routing note

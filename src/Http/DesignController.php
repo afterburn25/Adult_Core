@@ -123,7 +123,7 @@ final class DesignController
         };
         $csrf = self::e(AdminSession::csrf());
         $html = '<p class="intro">Choose a layout, change its colors, click the headline or paragraph to edit directly, and layer your own transparent cutout image over the theme background.</p>' . $notice;
-        $html .= '<div class="design-studio"><section class="panel studio-controls"><h2>Theme & palette</h2>'
+        $html .= '<div class="design-studio"><section class="panel studio-controls"><h2>Theme & palette</h2><p class="muted">Four original themes—one selection each. Switching themes keeps their distinct layout and background styling; the model cutout is optional.</p>'
             . '<form id="design-form" method="post" action="/admin/design" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . $csrf . '">'
             . '<fieldset class="theme-picker"><legend>Choose a layout</legend>';
@@ -148,7 +148,7 @@ final class DesignController
             $html .= '<option value="' . $v . '"' . ($current['image_size']===$v?' selected':'') . '>' . $caption . '</option>';
         }
         $html .= '</select><fieldset class="asset-picker"><legend>Hero image</legend>'
-            . '<label class="asset-choice"><input type="radio" name="hero_asset" value="none"' . ($selected === null?' checked':'') . '> Use theme illustration</label>';
+            . '<label class="asset-choice"><input type="radio" name="hero_asset" value="none"' . ($selected === null?' checked':'') . '> No cutout — keep theme background</label>';
         foreach ($repo->assets() as $asset) {
             $id=(int)$asset['id'];
             $html .= '<label class="asset-choice"><input type="radio" name="hero_asset" value="' . $id . '"' . ($id===$selected?' checked':'') . '>'
@@ -167,7 +167,7 @@ final class DesignController
             . '</section><section class="studio-preview-col"><div class="studio-preview-header"><div><p class="eyebrow">LIVE VISUAL EDITOR</p><h2>Click the words to edit</h2></div><a href="/" target="_blank" rel="noopener noreferrer" class="button-secondary">Open published site ↗</a></div>';
         $assetHtml = $selected !== null
             ? '<img class="design-portrait" alt="Selected decorative image preview" src="/admin/design/asset/' . (int)$selected . '">'
-            : '<span class="studio-preview-placeholder" aria-hidden="true">✦</span>';
+            : '<span class="studio-preview-placeholder" role="status">+ Add your cutout photo<small>Theme background stays in place</small></span>';
         $html .= '<div class="studio-canvas theme-' . self::e((string)$current['theme_key']) . ' image-' . self::e((string)$current['image_side']) . ' image-size-' . self::e((string)$current['image_size']) . '" id="studio-canvas">'
             . '<div class="studio-canvas-copy"><p class="hero-kicker">PRIVATE · PERSONAL · YOURS</p>'
             . '<h2 id="visual-title" contenteditable="plaintext-only" role="textbox" aria-label="Edit homepage headline" aria-multiline="false" spellcheck="true">' . self::e($title) . '</h2>'

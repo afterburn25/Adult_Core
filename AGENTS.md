@@ -92,3 +92,5 @@ These are **repository conventions** for continuity across sessions, not an auto
 ## Latest developer snapshot 0.5.0-dev
 
 Read `docs/ROADMAP.md` and `docs/SESSION_HANDOFF.md` first. New theme CSS, membership draft schema/authorization, generic event inbox, Pro job envelope and source ZIP builder are incomplete scaffolds. Verify real MySQL before enabling migration and do not infer that payments, consent workflow, streaming or automatic updates are production-ready. Run `php tests/advanced_tests.php` in addition to existing suites, and record any GitHub commit/hash that was actually verified.
+
+**0.8.6.1-design-dev:** Never duplicate the four original theme IDs to show concept mockups. No hero image is valid; preserve theme backgrounds. The concept gallery models are illustrative only, not runtime assets. Preserve installation gates and private image checks.
