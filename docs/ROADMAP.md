@@ -1,3 +1,7 @@
+## Current development increment — 0.8.4-dev
+
+Member password recovery added with a confirmed-email prerequisite, 30-minute single-use token, neutral account-enumeration-resistant responses, CSRF-protected confirmation and session-generation revocation checked by private-media delivery. **No age/identity verification, adult-content approval, processor integration, Pro streaming or production readiness.** See `docs/PASSWORD_RECOVERY.md`. GitHub CI status must be verified after publishing this source.
+
 ## 0.8.3-dev — Member email ownership (2026-11-20)
 
 - **Implemented:** additive email-confirmation migration, hashed one-time 30-minute tokens, 5-minute resend cooldown, neutral opt-in PHP mail transport, public confirmation preview (GET) plus CSRF-protected consuming POST, member email settings, and private-access refusal until email ownership is confirmed. Does not activate members or self-certify age.
@@ -6,12 +10,12 @@
 
 # Adult_Core roadmap — current iteration
 
-**2026-11-20, version 0.8.3-dev (development only).** The project has not reached production 1.0.
+**2026-11-20, version 0.8.4-dev (development only).** The project has not reached production 1.0.
 
 | Target | Current status | Verified work | Unfinished prerequisites |
 |---|---|---|---|
 | 0.6 Public frontend & themes | **ALPHA** | Publish/draft plain-text pages, browser editor, public navigation and selected signed CSS | Full layout templates, signed theme updates/rollback, cPanel validation |
-| 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, email confirmation tokens & browser flow, admin member listing | Admin MFA/recovery, real age/identity verification, profile and tier UX, verified email delivery on shared hosting |
+| 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, confirmed inbox workflow, member password-reset tokens & browser flow, revocable member sessions, admin member listing | Admin MFA/recovery, production SMTP, real age/identity verification, profile and tier UX, verified email delivery on shared hosting |
 | 0.8 Private content | **FOUNDATION + VERIFICATION SCAFFOLD** | Private media gate, triage, signed verification protocol tests, revocation and pending performer roster | Real content uploads, contracted independent provider, lawful consent/approval and appeals |
 | 0.9 Payments | **FOUNDATION ONLY** | Existing generic verified event inbox | Approved provider, real processor webhook adapter and checkout, renewals/refunds/disputes |
 | 0.10 Pro streaming | **FOUNDATION ONLY** | Signed job envelope and non-executing replay-safe inbox | Verified VPS, FFmpeg worker, segment authorization, live/realtime streaming |

@@ -1,3 +1,10 @@
+## 2026-11-20 — 0.8.4-dev: member password recovery (development)
+
+- Added additive `PasswordRecoverySchema` and `PasswordRecovery` with token digests, 30-minute expiry, 5-minute cooldown and single-use transaction. Only confirmed members can request; administrator accounts excluded.
+- New `/members/recover` and `/members/recover/reset` routes; neutral account-disclosure-safe request response, HTTPS/CSRF protections, GET preview without consuming tokens, fixed-origin mail adapter and retry throttling.
+- Successful reset updates the password hash and increments the member's session generation. Every member and private-media request now checks the generation; stale sessions are revoked. Reset cannot change account status or unlock media.
+- Added unit and disposable MySQL/browser integration tests, deployment guidance `docs/PASSWORD_RECOVERY.md`; production mail delivery, administrative MFA and age/consent compliance remain unverified.
+
 ## 2026-11-20 — 0.8.3-dev: member email confirmation (development)
 
 - Added `MemberEmailSchema`, `EmailConfirmations`, `EmailDelivery`, and opt-in private `config/email.php` sample.

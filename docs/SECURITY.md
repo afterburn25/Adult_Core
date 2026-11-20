@@ -1,3 +1,9 @@
+## 0.8.4-dev member password recovery security
+
+- Recovery is member-only, with email confirmation prerequisite, one-use SHA-256-digested tokens, 30-minute expiry, five-minute cooldown and separate per-IP/account throttle. Unknown and known addresses receive the same request response.
+- Token consumption requires CSRF-protected POST; GET is a non-consuming preview. Password changes invalidate all active member sessions on their next request via a database `session_generation`, checked even on `/media/` binary delivery.
+- Reset never modifies membership status or grants adult-age/identity, media moderation, consent or paid privileges. Administrator password recovery is **not implemented**. Production SMTP delivery and administrative MFA are outstanding.
+
 
 ## Member email ownership (0.8.3-dev)
 

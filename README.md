@@ -1,6 +1,6 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Version: `0.8.3-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Version: `0.8.4-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
@@ -56,3 +56,7 @@ GitHub Actions run 44733014757 passed PHP lint, moderation input validation, dis
 ## 0.8.3-dev: email confirmation
 
 Member inbox confirmation is implemented using time-limited hashed one-use tokens and an optional private `config/email.php` shared-host `mail()` adapter. Apply `/admin/setup` after backup. Email confirmation **does not** activate members or verify adult age. GET confirmation links never consume tokens; CSRF-protected POST completes ownership confirmation. See [docs/EMAIL_CONFIRMATION.md](docs/EMAIL_CONFIRMATION.md). Admin MFA, provider approval, compliant adult publishing, real billing, production video, and release 1.0 remain blocked.
+
+## 0.8.4-dev: member password recovery
+
+Members with an independently confirmed email address can request a one-use password reset from `/members/recover`; fixed-origin email delivery uses optional private `config/email.php`. Recovery requests do not disclose account existence, and reset links expire after 30 minutes. Completing a reset changes only the password and invalidates existing member sessions—including sessions requesting `/media/{id}`. Back up the DB and re-run `/admin/setup` to add `m10_member_recovery_v1`. Read [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md). Admin MFA/recovery and real delivery certification are **not complete**. The application remains a development preview, not a verified production membership website.

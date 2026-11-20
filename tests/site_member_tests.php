@@ -7,6 +7,8 @@ use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSession;
 use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\PasswordRecoverySchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
 PageRepository::validate('home','Hello','Safe plain text','published');claim(true,'Valid home page');
@@ -21,6 +23,12 @@ foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@e
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Bad registration accepted', 'Invalid registration rejected'); }
 }
 claim(MemberEmailSchema::VERSION==='m9_member_email_v1','Email schema has a distinct migration version');
+claim(PasswordRecoverySchema::VERSION==='m10_member_recovery_v1','Recovery schema migration version');
+PasswordRecovery::validatePassword('new-strong-password');claim(true,'Recovery password valid');
+foreach (['short',str_repeat('x',73)] as $bad) {
+    try { PasswordRecovery::validatePassword($bad); throw new RuntimeException('Invalid recovery password accepted'); }
+    catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid recovery password accepted','Weak recovery passwords refused'); }
+}
 EmailDelivery::validateConfig(['enabled'=>true,'base_url'=>'https://example.com','from'=>'accounts@example.com']);
 claim(true,'Valid HTTPS email origin');
 foreach (['http://example.com','https://example.com/path','https://example.com?param=1','https://user@example.com','https://example.com:8080','https://example.com/'] as $invalid) {
@@ -33,7 +41,10 @@ mkdir($root);mkdir($root.'/storage');
 MemberSession::start($root,false);claim(MemberSession::id()===null,'Anonymous by default');
 $csrf=MemberSession::csrf();claim(MemberSession::csrfValid($csrf),'CSRF accepted');
 claim(!MemberSession::csrfValid(str_repeat('f',64)),'CSRF rejected');
-MemberSession::login(27);claim(MemberSession::id()===27,'Member login established');
+MemberSession::login(27,3);claim(MemberSession::id()===27,'Member login established');
+claim(MemberSession::generation()===3,'Member session generation recorded');
+MemberSession::revoke();claim(MemberSession::id()===null,'Member session manually revoked');
+MemberSession::login(27,4);claim(MemberSession::generation()===4,'Member re-login advances generation');
 MemberSession::logout();claim(session_status()===PHP_SESSION_NONE,'Session destroyed');
 foreach (glob($root.'/storage/member-sessions/*') ?: [] as $f) unlink($f);
 rmdir($root.'/storage/member-sessions');rmdir($root.'/storage');rmdir($root);

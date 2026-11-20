@@ -11,6 +11,7 @@ use AdultCore\Website\PageRepository;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
@@ -65,6 +66,7 @@ final class SiteAdminController
             SiteSchema::migrate($pdo);
             MemberSchema::migrate($pdo);
             MemberEmailSchema::migrate($pdo);
+            PasswordRecoverySchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
             ModerationSchema::migrate($pdo);
             VerificationSchema::migrate($pdo);

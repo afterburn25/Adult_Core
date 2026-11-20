@@ -38,6 +38,20 @@ final class EmailDelivery
         }
     }
 
+    /** Neutral account recovery message; no passwords or adult-site branding. */
+    public static function sendPasswordReset(string $recipient, string $token, array $config): bool
+    {
+        self::validateConfig($config);
+        if (filter_var($recipient,FILTER_VALIDATE_EMAIL) === false || preg_match('/[\r\n]/',$recipient)
+            || !preg_match('/^[a-f0-9]{64}$/D',$token)) throw new RuntimeException('Invalid email delivery request.');
+        $url=$config['base_url'].'/members/recover/reset?token='.$token;
+        $headers=['From: '.$config['from'],'Content-Type: text/plain; charset=UTF-8','Auto-Submitted: auto-generated'];
+        return mail($recipient, 'Account password reset',
+            "You requested a password reset. Open the following one-time link:\n\n".$url
+            ."\n\nThe link expires after 30 minutes. If you did not request it, ignore this message.\n",
+            implode("\r\n",$headers));
+    }
+
     public static function send(string $recipient, string $token, array $config): bool
     {
         self::validateConfig($config);

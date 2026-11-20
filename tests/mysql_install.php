@@ -21,6 +21,8 @@ use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
+use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
@@ -102,6 +104,8 @@ try {
     MemberSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
+    PasswordRecoverySchema::migrate($pdo);
+    PasswordRecoverySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
     if ($repo->published('home') !== null) {
         throw new RuntimeException('Default homepage unexpectedly public before review.');
@@ -139,6 +143,28 @@ try {
         throw new RuntimeException('Email token single-use confirmation failed.');
     }
     if ($accounts->byId((int)$member['id'])['status']!=='pending') throw new RuntimeException('Email confirmation activated pending member.');
+    $recovery = new PasswordRecovery($pdo);
+    if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
+    if ($recovery->issueForEmail('owner@example.test') !== null) throw new RuntimeException('Admin recovery exposed through member route.');
+    $firstReset=$recovery->issueForEmail('NEWMEMBER@EXAMPLE.TEST');
+    if (!is_array($firstReset) || !preg_match('/^[a-f0-9]{64}$/D',$firstReset['token'])) throw new RuntimeException('Confirmed member could not request reset.');
+    if ($recovery->issueForEmail('newmember@example.test') !== null) throw new RuntimeException('Reset cooldown bypassed.');
+    $pdo->prepare('UPDATE ac_member_password_resets SET issued_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 10 MINUTE),expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND) WHERE user_id=?')->execute([$member['id']]);
+    if ($recovery->reset($firstReset['token'],'new-valid-test-password')) throw new RuntimeException('Expired password reset token accepted.');
+    $newReset=$recovery->issueForEmail('newmember@example.test');
+    if (!is_array($newReset) || $recovery->reset($firstReset['token'],'new-valid-test-password')) throw new RuntimeException('Old reset token unexpectedly reusable.');
+    try { $recovery->reset($newReset['token'],'short'); throw new RuntimeException('Weak recovery password accepted.'); }
+    catch (RuntimeException $e) { if ($e->getMessage()==='Weak recovery password accepted.') throw $e; }
+    $beforeGeneration=$recovery->generation((int)$member['id']);
+    if (!$recovery->reset($newReset['token'],'new-valid-test-password') || $recovery->reset($newReset['token'],'another-valid-passphrase')) {
+        throw new RuntimeException('Reset replay or valid reset failed.');
+    }
+    if ($recovery->generation((int)$member['id'])!==$beforeGeneration+1) throw new RuntimeException('Existing session generation not invalidated.');
+    if ($accounts->verify('newmember@example.test','long-example-passphrase')!==null
+        || $accounts->verify('newmember@example.test','new-valid-test-password')===null
+        || $accounts->byId((int)$member['id'])['status']!=='pending') {
+        throw new RuntimeException('Password reset changed account eligibility or did not rotate password.');
+    }
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn() !== 0) {
         throw new RuntimeException('Registration must never self-verify age.');
     }
@@ -237,7 +263,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker and cleanup tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['storage', 'config'] as $directory) {

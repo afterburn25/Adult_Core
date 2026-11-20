@@ -1,3 +1,15 @@
+# Current handoff — 0.8.4-dev
+
+`afterburn25/Adult_Core`: self-hosted Lite/shared + Pro/verified VPS. Not SaaS. This increment builds on 0.8.3-dev email ownership. **MISSING:** certified verification provider, performer consent release, production content uploads, payments, video worker, admin MFA, full restore/updater, cPanel audit.
+
+**New:** `src/Member/{PasswordRecovery,PasswordRecoverySchema}.php`, `/members/recover`, `/members/recover/reset`, `EmailDelivery::sendPasswordReset`, per-user `session_generation` in `ac_member_password_resets`, enforced by `MemberController::member()` AND `PrivateMediaController`. Session generation invalidated on password reset; all pending accounts remain pending. `SiteAdminController::setup` migrates schema. Fixture and disposable MySQL/HTTP tests cover expiry, rate limits, replay, neutral responses, password hash changes, stale sessions. Read `docs/PASSWORD_RECOVERY.md`.
+
+**Deployment:** back up DB; apply `/admin/setup` additive migration on a disposable test site before member routes work. Keep private `config/email.php` outside Git; mail() delivery remains unverified. Required root `install/` folder deletion gate unchanged. No direct public storage. All public adult uploads remain disabled.
+
+**Next:** verify exact GitHub commit CI; test real Apache/cPanel and mail service on approved shared host; implement independent identity-provider integration, administrative MFA and trustworthy consent record review, then checkout and Pro services. Do not label 1.0 ready.
+
+---
+
 # Latest handoff — 0.8.3-dev (2026-11-20)
 
 **Codebase:** `afterburn25/Adult_Core` (independently installed Lite shared hosting / Pro provisioned VPS, not SaaS). **Development only: NOT 1.0.**

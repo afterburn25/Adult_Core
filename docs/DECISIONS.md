@@ -1,3 +1,10 @@
+## 2026-11-20 — Member password resets and session revocation
+
+- Member password recovery requires a previously **confirmed** email address, not self-reported age. Only `member` roles can reset through public routes; admin MFA and admin recovery stay separate.
+- Store only random reset token SHA-256 digests in MySQL, with 30-minute expiry and 5-minute issuance cooldown. GET previews do not consume tokens; CSRF POST does.
+- Store per-member `session_generation` in an additive recovery table. Password-reset transactions increment the value, and member plus private-media endpoints compare it on each request to revoke older sessions. Missing table/migration fails closed.
+- Use a neutral response for known/unknown recovery emails, fixed HTTPS site origin and minimal PHP `mail()` adapter until a professional mail provider is selected. No real email-delivery certification.
+
 
 ## 2026-11-20 — Explicit separation of email ownership and adult verification
 

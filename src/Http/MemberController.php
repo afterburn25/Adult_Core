@@ -9,12 +9,15 @@ use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSession;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
 use PDO;
+use RuntimeException;
 use Throwable;
 
 /** Registration and private account shell. Content is NEVER unlocked based on signup alone. */
@@ -40,7 +43,16 @@ final class MemberController
             if ((int)$emailMigration->fetchColumn() !== 1) {
                 $this->view(503,'Setup required','<p>Apply the latest additive database migrations from the admin dashboard.</p>'); return;
             }
+            $recoveryMigration = $pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $recoveryMigration->execute([PasswordRecoverySchema::VERSION]);
+            if ((int)$recoveryMigration->fetchColumn() !== 1) {
+                $this->view(503,'Setup required','<p>Apply the latest member security migration from /admin/setup.</p>'); return;
+            }
             $accounts = new MemberAccounts($pdo);
+            if ($path === '/members/recover' || $path === '/members/recover/reset') {
+                $this->recovery($pdo, $path, $method);
+                return;
+            }
             if ($path === '/members/email/confirm') {
                 if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
                 $token = $method==='GET' ? ($_GET['token']??null) : ($_POST['token']??null);
@@ -97,6 +109,79 @@ final class MemberController
             $this->form($path, $method, $accounts);
         } catch (Throwable) {
             $this->view(503,'Temporarily unavailable','<p>The member service is not available.</p>');
+        }
+    }
+
+    /** Password recovery is available without a login and never activates memberships. */
+    private function recovery(PDO $pdo, string $path, string $method): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $service = new PasswordRecovery($pdo);
+        $formToken = MemberSession::csrf();
+        if ($path === '/members/recover') {
+            if ($method==='POST') {
+                if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                    $this->view(403,'Invalid token','<p>Reload the form and try again.</p>'); return;
+                }
+                $candidate=$_POST['email']??null;
+                if (!is_string($candidate) || strlen($candidate)>190 || filter_var($candidate,FILTER_VALIDATE_EMAIL)===false) {
+                    $this->view(422,'Invalid email','<p>Enter a valid email address.</p>'); return;
+                }
+                try {
+                    (new LoginRateLimiter($this->root.'/storage','member-recovery'))->consume(
+                        (string)($_SERVER['REMOTE_ADDR']??'unknown'),$candidate);
+                    $cfg=EmailDelivery::loadConfig($this->root);
+                    if ($cfg!==null) {
+                        $message=$service->issueForEmail($candidate);
+                        if ($message!==null) EmailDelivery::sendPasswordReset($message['email'],$message['token'],$cfg);
+                    }
+                } catch (Throwable) {
+                    // Deliberately neutral: no account-disclosure, mail provider, or cooldown information.
+                }
+                $this->view(200,'Recovery requested','<p>If the address belongs to an eligible, confirmed account and email delivery is available, a reset link will be sent.</p>');
+                return;
+            }
+            $this->view(200,'Reset your password','<p>Enter the email address on your account. Only confirmed addresses can receive recovery links.</p>'
+                .'<section class="panel"><form method="post" action="/members/recover" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e($formToken).'">'
+                .'<label for="recovery-email">Email</label><input id="recovery-email" name="email" type="email" autocomplete="email" maxlength="190" required>'
+                .'<button class="install-button">Request reset link</button></form></section>');
+            return;
+        }
+        $token=$method==='GET'?($_GET['token']??null):($_POST['token']??null);
+        if (!is_string($token) || !preg_match('/^[a-f0-9]{64}$/D',$token)) {
+            $this->view(400,'Invalid reset link','<p>This reset link is invalid or expired.</p>'); return;
+        }
+        if ($method==='GET') {
+            // Email link scanners may fetch GET requests; NEVER consume a reset token on GET.
+            $this->view(200,'Choose a new password','<p>Choose a new password for this account. Resetting a password will not verify your age or enable access.</p>'
+                .'<section class="panel"><form method="post" action="/members/recover/reset" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e($formToken).'">'
+                .'<input type="hidden" name="token" value="'.self::e($token).'">'
+                .'<label for="new-password">New password</label><input id="new-password" type="password" name="password" minlength="12" maxlength="72" autocomplete="new-password" required>'
+                .'<label for="repeat-password">Repeat new password</label><input id="repeat-password" type="password" name="confirm_password" minlength="12" maxlength="72" autocomplete="new-password" required>'
+                .'<button class="install-button">Change password</button></form></section>');
+            return;
+        }
+        if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+            $this->view(403,'Invalid token','<p>Reload the reset link and try again.</p>'); return;
+        }
+        $password=$_POST['password']??null;
+        $repeat=$_POST['confirm_password']??null;
+        if (!is_string($password) || !is_string($repeat) || !hash_equals($password,$repeat)) {
+            $this->view(422,'Password mismatch','<p>Passwords must match.</p>'); return;
+        }
+        try {
+            if (!$service->reset($token,$password)) {
+                $this->view(400,'Reset link expired','<p>Invalid or expired reset link. Request another if needed.</p>'); return;
+            }
+            // Immediately discard any already authenticated session in this browser.
+            MemberSession::revoke();
+            $this->view(200,'Password changed','<p>Your password has been changed. Existing member sessions have been invalidated. <a href="/members/login">Sign in again</a>.</p>');
+        } catch (RuntimeException) {
+            $this->view(422,'Password reset unavailable','<p>Choose a password of 12–72 bytes and retry.</p>');
+        } catch (Throwable) {
+            $this->view(503,'Password reset unavailable','<p>The reset could not be completed. Please try again later.</p>');
         }
     }
 
@@ -201,7 +286,7 @@ final class MemberController
                         return;
                     }
                     $member = $accounts->verify($email, $password);
-                    if ($member !== null) { MemberSession::login($member['id']); $this->redirect('/members'); return; }
+                    if ($member !== null) { MemberSession::login($member['id'],(new PasswordRecovery(Connection::open($this->root)))->generation($member['id'])); $this->redirect('/members'); return; }
                     $error='Invalid email or password.';
                 } catch (Throwable) { $error=$register ? 'Registration unavailable or email already in use.' : 'Invalid credentials or temporarily unavailable.'; }
             }
@@ -217,14 +302,22 @@ final class MemberController
             . '<label for="email">Email</label><input id="email" type="email" name="email" required maxlength="190" autocomplete="email">'
             . '<label for="password">Password</label><input id="password" type="password" name="password" required minlength="'.($register?'12':'1').'" maxlength="72" autocomplete="'.($register?'new-password':'current-password').'">'
             . '<button class="install-button">'.($register?'Register':'Sign in').'</button></form></section>'
-            . '<p><a href="'.($register?'/members/login':'/join').'">'.($register?'Already registered? Sign in':'Create an account').'</a></p>';
+            . '<p><a href="'.($register?'/members/login':'/join').'">'.($register?'Already registered? Sign in':'Create an account').'</a></p>'
+            . ($register?'':'<p><a href="/members/recover">Forgot your password?</a></p>');
         $this->view(http_response_code()===400?400:200,$title,$html);
     }
 
     /** @return array{id:int,email:string,status:string}|null */
     private function member(MemberAccounts $accounts): ?array
     {
-        $id=MemberSession::id();return $id===null?null:$accounts->byId($id);
+        $id=MemberSession::id();
+        if ($id === null) return null;
+        $member=$accounts->byId($id);
+        if ($member===null || MemberSession::generation() !== (new PasswordRecovery(Connection::open($this->root)))->generation($id)) {
+            MemberSession::revoke();
+            return null;
+        }
+        return $member;
     }
 
     private function view(int $status, string $title, string $content): void

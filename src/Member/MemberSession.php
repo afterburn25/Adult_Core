@@ -36,10 +36,10 @@ final class MemberSession
         return is_string($candidate) && strlen($candidate) === 64 && hash_equals(self::csrf(), $candidate);
     }
 
-    public static function login(int $id): void
+    public static function login(int $id, int $generation = 0): void
     {
-        if ($id < 1 || !session_regenerate_id(true)) throw new RuntimeException('Member login failed.');
-        $_SESSION = ['member_auth'=>['id'=>$id,'issued'=>time(),'last'=>time()], 'member_csrf'=>bin2hex(random_bytes(32))];
+        if ($id < 1 || $generation < 0 || !session_regenerate_id(true)) throw new RuntimeException('Member login failed.');
+        $_SESSION = ['member_auth'=>['id'=>$id,'issued'=>time(),'last'=>time(),'generation'=>$generation], 'member_csrf'=>bin2hex(random_bytes(32))];
     }
 
     public static function id(): ?int
@@ -47,12 +47,25 @@ final class MemberSession
         $auth = $_SESSION['member_auth'] ?? null; $now = time();
         if (!is_array($auth) || !is_int($auth['id'] ?? null) || ($auth['id']??0)<1
             || !is_int($auth['issued'] ?? null) || !is_int($auth['last'] ?? null)
+            || !is_int($auth['generation'] ?? null) || $auth['generation'] < 0
             || $auth['issued']>$now || $auth['last']>$now
             || $now-$auth['issued']>=43200 || $now-$auth['last']>=1800) {
             unset($_SESSION['member_auth']); return null;
         }
         $_SESSION['member_auth']['last'] = $now;
         return $auth['id'];
+    }
+
+    public static function generation(): ?int
+    {
+        return self::id() === null ? null : $_SESSION['member_auth']['generation'];
+    }
+
+    public static function revoke(): void
+    {
+        unset($_SESSION['member_auth']);
+        if (!session_regenerate_id(true)) throw new RuntimeException('Could not revoke session.');
+        $_SESSION['member_csrf'] = bin2hex(random_bytes(32));
     }
 
     public static function logout(): void

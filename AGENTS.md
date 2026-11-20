@@ -1,3 +1,7 @@
+## 0.8.4-dev member recovery — read first
+
+Read `docs/PASSWORD_RECOVERY.md` before modifying login, member sessions, email delivery or private media. Password resets require a confirmed member email, issue hashed one-time tokens, enforce cooldown and invalidate member sessions by database generation. Administrator accounts are **not** recovered through this route. Missing recovery migration must fail closed; `/admin/setup` adds `m10_member_recovery_v1`. Never treat reset as adult age verification or membership activation. Run disposable MySQL CI and update this handoff after publication.
+
 
 ## 0.8.3-dev continuation note
 

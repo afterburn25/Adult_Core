@@ -99,6 +99,7 @@ def run():
             assert_http("public runtime stays unavailable", "/", 503, "Temporarily unavailable")
             assert_http("public page holding route", "/p/about", 503, "Temporarily unavailable")
             assert_http("member join refuses absent database", "/join", 503, "Temporarily unavailable")
+            assert_http("member recovery refuses absent database", "/members/recover", 503, "Temporarily unavailable")
             assert_http("members portal refuses absent database", "/members", 503, "Temporarily unavailable")
             assert_http("new admin editor route requires login", "/admin/pages", 302)
             assert_http("moderation requires admin login", "/admin/moderation", 302)

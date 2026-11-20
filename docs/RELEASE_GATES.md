@@ -1,3 +1,7 @@
+## 0.8.4-dev status
+
+The member password-recovery security increment is implemented, but does NOT close the production email-deliverability, administrative MFA, compliance, payment, Pro-worker, backup/restore or hosting-certification gates. The release check must continue to refuse production 1.0.
+
 # Release gates — proposed versions 0.6 through 1.0
 
 **This is a development snapshot, NOT Adult_Core 1.0.** No user account, adult content or card processing should be launched from this code. `php scripts/release-check.php` intentionally exits nonzero until all production gates are closed.
@@ -6,7 +10,7 @@
 
 - `0.6` **alpha**: additive `ac_pages` schema, safe plain-text editor, draft/published page lifecycle, published public pages with HTML escaping, header/navigation; selected signed theme CSS applied. Only the application core's trusted template code renders content. No arbitrary uploaded PHP/JavaScript.
 - `0.7` **alpha**: separate member sessions, CSRF, password hashing and rate limiting, registration and login. All new accounts are `pending`. No age verification is inferred from registration; there is no self-approval route.
-- `0.8` **foundation + triage**: additive private content tables, default-deny `Entitlements`, moderation and consent evidence predicates, private image key and storage logic, guarded `/media/{id}` endpoint. Quarantine and report review exist, but no adult content upload, verification or publication approval workflow or end-to-end consent verification; do not use for public adult media.
+- `0.8` **foundation + safety-triage prototype**: additive private content tables, default-deny `Entitlements`, moderation and consent evidence predicates, private image key and storage logic, guarded `/media/{id}` endpoint. Quarantine/report/admin rejection are now present; no content upload or moderation approval workflow or end-to-end consent verification; do not use for public adult media.
 - `0.9` **foundation inherited from 0.5**: verified-event inbox and HMAC utility. No approved processor, checkout, recurring billing, refunds, settlement reconciliation or payment webhook endpoint.
 - `0.10` **foundation**: signed HMAC job envelopes, replay-safe private Pro job receipt with narrow payloads. No FFmpeg worker, VPS provisioning, streaming or WebSocket runtime.
 - `1.0` **release gate**: `ReleaseReadiness` and `scripts/release-check.php` intentionally block claims of a certified production release.

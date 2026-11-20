@@ -7,6 +7,7 @@ namespace AdultCore\Http;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberSession;
 use AdultCore\Member\MemberAccounts;
+use AdultCore\Member\PasswordRecovery;
 use AdultCore\Membership\Entitlements;
 use AdultCore\Media\PrivateMedia;
 use Throwable;
@@ -32,7 +33,12 @@ final class PrivateMediaController
             $pdo=Connection::open($this->root);
             $accounts=new MemberAccounts($pdo);
             $member=$accounts->byId($id);
-            if ($member===null || $member['status']!=='active') {http_response_code(403);return;}
+            // A password change revokes all existing member sessions, including media URLs.
+            if ($member===null || $member['status']!=='active'
+                || MemberSession::generation() !== (new PasswordRecovery($pdo))->generation($id)) {
+                MemberSession::revoke();
+                http_response_code(403); return;
+            }
             $mediaId=(int)$m[1];
             $q=$pdo->prepare('SELECT id,content_id,private_storage_key,mime_type,review_status FROM ac_media WHERE id=? LIMIT 1');
             $q->execute([$mediaId]); $media=$q->fetch(\PDO::FETCH_ASSOC);
