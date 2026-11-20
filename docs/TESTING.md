@@ -33,3 +33,7 @@ GitHub Actions configures a disposable MySQL service and runs both checks when c
 ## Data-only extension lifecycle tests
 
 `php tests/package_tests.php` uses a disposable private key and PHP Phar-created ZIPs to cover signature and file-hash validation, malicious archive fields, mismatched editions, dependency activation/disable, corrupted installed files, theme selection and publisher key removal. No MySQL is needed. `docs/PACKAGES.md` explains the offline signing workflow. Authenticated HTTP upload on real MySQL and cPanel is not verified yet.
+
+## Moderation workflow — 0.8.1-dev
+
+Run php tests/moderation_tests.php locally. GitHub CI exercises the new workflow against disposable MySQL in tests/mysql_install.php and tests/mysql_http_auth.py. Do not run tests against customer databases or call production readiness based on CI alone.

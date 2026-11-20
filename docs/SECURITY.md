@@ -1,3 +1,7 @@
+## 0.8.1-dev — content safety triage (test use only)
+
+Member reporting is CSRF protected and authenticated. Reports atomically quarantine content and associated media; reviewers can reject/quarantine and resolve reports, but cannot approve or publish. Open reports deny all content entitlements. Reason text is escaped in admin output, actions are privately audited, and no identity-document upload exists. Fraudulent reporting by pending accounts can suppress content and requires rate limits, confirmed email, appeals and human investigation before production. Complete identity/performer consent verification and lawful recordkeeping are outstanding. See docs/MODERATION.md.
+
 # Current security status — 0.8.0-dev
 
 **Do not enable adult uploads or paid subscriptions.** All new members remain `pending` and cannot self-verify age. `/media/{id}` requires an active member, an independent age-verification record, approved media and content review, consent evidence when needed, and entitlements. The approval of *every* performer is NOT proven merely by checking one approved consent record; production publishing must establish completeness before any real adult content. Admin preview and moderation UI are unfinished.

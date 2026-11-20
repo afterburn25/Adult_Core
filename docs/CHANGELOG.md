@@ -1,3 +1,13 @@
+# 2026-11-20 — 0.8.1-dev moderation foundation
+
+- Add additive ModerationSchema and append-only ac_moderation_actions; re-running /admin/setup installs the table.
+- Add authenticated /admin/moderation private draft, queue and review/disposition UI. No approval/publishing route.
+- Add member /members/report with CSRF and per-member/content 24-hour duplicate suppression; atomically quarantine reported content and associated media.
+- Entitlements additionally deny any item with an open report. Closing reports does not unlock content.
+- Add unit, browser and disposable MySQL integration tests, security guide and future-session notes.
+
+---
+
 # Latest changelog — 2026-11-20 / 0.8.0-dev
 
 - Created safe page schema and public renderer with plain-text escaping, draft/published management, `/admin/setup`, `/admin/pages`, `/admin/page` and an admin members list.

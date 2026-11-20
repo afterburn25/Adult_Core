@@ -1,12 +1,12 @@
 # Adult_Core roadmap — current iteration
 
-**2026-11-20, version 0.8.0-dev (development only).** The project has not reached production 1.0.
+**2026-11-20, version 0.8.1-dev (development only).** The project has not reached production 1.0.
 
 | Target | Current status | Verified work | Unfinished prerequisites |
 |---|---|---|---|
 | 0.6 Public frontend & themes | **ALPHA** | Publish/draft plain-text pages, browser editor, public navigation and selected signed CSS | Full layout templates, signed theme updates/rollback, cPanel validation |
 | 0.7 Membership accounts | **ALPHA** | Separate sessions and login, CSRF/rate limits, pending registration, admin member listing | Email confirmation, MFA/recovery, real age/identity verification, profile and tier UX |
-| 0.8 Private content | **FOUNDATION** | Private image path guards; moderation/consent/age-aware entitlement checks, protected media endpoint | Real uploads, verifier integrations, moderation UI, performer evidence and takedowns |
+| 0.8 Private content | **FOUNDATION + TRIAGE** | Media authorization guard; private drafts, member reports, auto-quarantine, admin rejection and audit | Adult uploads, independent verification, appeals and lawful publication workflow |
 | 0.9 Payments | **FOUNDATION ONLY** | Existing generic verified event inbox | Approved provider, real processor webhook adapter and checkout, renewals/refunds/disputes |
 | 0.10 Pro streaming | **FOUNDATION ONLY** | Signed job envelope and non-executing replay-safe inbox | Verified VPS, FFmpeg worker, segment authorization, live/realtime streaming |
 | 1.0 Production release | **BLOCKED** | Explicit fail-closed release gates and source ZIP tooling | Signed updates and backup/restore, audits, host certification, all above |
@@ -66,7 +66,7 @@ No functioning membership website, subscription billing, video streaming, real P
 GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.
 
 
-## Verified GitHub CI for 0.8.0-dev foundation
+## Verified GitHub CI for 0.8.1-dev foundation
 
 - Source commit: [`4fec09071fda8ea517fe84b5f44a4bb348986b1c`](https://github.com/afterburn25/Adult_Core/commit/4fec09071fda8ea517fe84b5f44a4bb348986b1c).
 - GitHub Actions: [run 44714670111](https://github.com/afterburn25/Adult_Core/actions/runs/44714670111) **passed** on PHP 8.3 + disposable MySQL. Includes unit checks, signed-package tests, Pro/release tests, HTTP smoke tests, MySQL installer and MySQL-backed admin/page/member browser tests.

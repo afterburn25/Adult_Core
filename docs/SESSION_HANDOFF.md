@@ -1,3 +1,15 @@
+# Current handoff — 0.8.1-dev
+
+Target afterburn25/Adult_Core. Self-hosted Lite on shared hosting and Pro on provisioned VPS, NOT SaaS.
+
+This continuation implements admin moderation (/admin/moderation), member safety reports (/members/report), new ModerationSchema/ModerationRepository, an append-only review log and atomic quarantine of content plus attached media. Re-apply additive /admin/setup after backup; new content drafts stay private and unpublished. No approve/publish route exists, and report closure never reinstates media.
+
+tests/mysql_install.php and tests/mysql_http_auth.py now test the workflow with a disposable MySQL database; tests/mysql_http_fixture.php drops ac_moderation_actions first. Check the latest GitHub CI run before claiming these passed. Local PHP CLI does not have pdo_mysql. No independent age or performer consent verifiers, public adult upload UI, real payments, production video or signed update/backup systems exist. Keep installation-folder deletion and Lite/Pro guards intact. Read docs/MODERATION.md and docs/RELEASE_GATES.md.
+
+Next: independent provider verification and consent evidence with secure retention, member confirmation and abuse/rate limits, appeals, additional administrative security and test on real Apache/cPanel.
+
+---
+
 # CURRENT HANDOFF — v0.8.0-dev / 2026-11-20
 
 **Repository:** `afterburn25/Adult_Core`. **Target:** independently installed Lite (shared hosting) and Pro (verified VPS). **NEVER SaaS.**

@@ -1,6 +1,6 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Version: `0.8.0-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Version: `0.8.1-dev` (development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
@@ -15,6 +15,12 @@
 - A guarded image endpoint `/media/{id}` is present but strictly denies access without age evidence, media/content moderation approval, consent evidence (when required), and authorization. Private image storage stays outside `public/`. There is not yet an administrator upload/consent review workflow.
 - Additive `MembershipSchema` and `MemberSchema`, test coverage for Lite+Pro job contracts and a production-readiness gate; authenticated administrators can initiate migrations on a test installation. They are not automatically enabled for existing installations.
 - HMAC Pro job **receipt** supports deduplication but performs no processing or streaming. Generic billing-event receipt remains a scaffold with no actual processor connection.
+
+## New in 0.8.1-dev — safety triage (development-only)
+
+- /admin/moderation supports private content draft creation, quarantining/rejection, an escaped member-report queue, and reasoned administrator review. Re-apply /admin/setup migrations after backup.
+- /members/report accepts authenticated CSRF-protected member safety reports. Reports quarantine the referenced item and its media; closing a report does not restore access.
+- No media upload, identity verification, performer consent approval or publication button exists. Do not launch paid or adult content on this build. See docs/MODERATION.md.
 
 ## Development installation (test database only)
 

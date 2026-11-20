@@ -1,3 +1,7 @@
+## Decision: quarantine on report; no approval shortcut (2026-11-20)
+
+A member report serializes on the content row, records a complaint, quarantines the item and resets associated media approval states in one transaction. The entitlement check also rejects items with an open report. Reviewer actions require a rationale and are append-only audited. Closing a report never re-publishes content. Neither a report disposition nor an administrator checkbox proves complete performer consent, independent adult verification or legal recordkeeping; no approval/publish functionality is exposed. Pending members can still submit reports, creating potential for fraudulent quarantines; production requires email verification, abuse controls, appeals, incident response and jurisdiction-aware compliance.
+
 ## 2026-11-20 / New development decisions
 
 - Plain-text public page renderer is deliberately trusted code; uploaded themes are signed CSS only and cannot include server-side executable templates.

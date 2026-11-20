@@ -1,3 +1,7 @@
+# Continuation rules — 0.8.1-dev
+
+Read docs/MODERATION.md, docs/SESSION_HANDOFF.md, docs/ROADMAP.md and docs/SECURITY.md. The new review workflow supports drafts, quarantine, reject and report disposition only. It intentionally has no approve/publish operation. Apply additive /admin/setup migrations on disposable test databases. Run php tests/moderation_tests.php plus all previous suites and GitHub disposable MySQL CI. Keep release documentation truthful and installation-folder deletion mandatory.
+
 # Current developer instructions — v0.8.0-dev
 
 **Read `docs/RELEASE_GATES.md`, `docs/ROADMAP.md`, `docs/SESSION_HANDOFF.md`, and `docs/SECURITY.md` before editing.**
