@@ -19,5 +19,5 @@ foreach($dirs as $dir){
   $zip->addFile($file->getPathname(),$name);
  }
 }
-foreach(['README.md','AGENTS.md','composer.json','.gitignore'] as $name){if(is_file($root.'/'.$name))$zip->addFile($root.'/'.$name,$name);}
+foreach(['README.md','AGENTS.md','composer.json','.gitignore','VERSION'] as $name){if(is_file($root.'/'.$name))$zip->addFile($root.'/'.$name,$name);}
 $zip->close();echo "Source release built: $dest\n";

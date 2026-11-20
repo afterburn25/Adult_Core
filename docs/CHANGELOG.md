@@ -36,3 +36,7 @@
 - Added filesystem-redacted installation auditing and explicit refusal to overwrite an existing Adult Core database schema.
 - Extended PHP and HTTP test coverage, created opt-in real-MySQL integration test and configured GitHub Actions MySQL service.
 - **Not verified locally:** real database installation; PHP environment lacks `pdo_mysql` and MySQL. **Not implemented:** production app/admin login and membership runtime.
+
+## GitHub CI verification — 2026-11-20
+
+GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.

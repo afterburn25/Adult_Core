@@ -1,6 +1,6 @@
 # Adult Core — Self-Hosted Lite & Pro Membership Platform
 
-**Current development status: 0.5.0-dev — M4–M8 foundations in progress, not production-ready; MySQL/cPanel integration remains unverified.**  
+**Current development status: 0.5.0-dev — M4–M8 foundations in progress, not production-ready; MySQL integration passed in GitHub CI; Apache/cPanel remains unverified.**  
 **GitHub repository target:** [afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 
 Adult Core is a planned **self-hosted** adult membership platform, **not SaaS**. One core and universal browser installer support two installation profiles:
@@ -89,3 +89,7 @@ Next: verify M2/M3/M4 MySQL and cPanel HTTPS/install/upload routing, then implem
 This development update adds a signed theme CSS route, draft member/content/consent schema and private entitlement predicate, billing webhook-inbox primitives, a signed Pro job-envelope protocol, and a source-release ZIP builder. **No payment processing, public adult media publishing, live streaming, verified age/consent records, or production-ready theme runtime is available yet.** Do not enable public content or billing on this build.
 
 Run the new tests with `php tests/advanced_tests.php`. See `docs/ROADMAP.md` and `docs/SESSION_HANDOFF.md`.
+
+## GitHub CI verification — 2026-11-20
+
+GitHub Actions run [44707148841](https://github.com/afterburn25/Adult_Core/actions/runs/44707148841) passed: PHP lint, 62 core tests, 29 package tests, 8 advanced foundation tests, 23 HTTP smoke checks, a real disposable MySQL installation test, and a real MySQL-backed administrator login/logout integration test. This verification runs on GitHub Ubuntu/MySQL; Apache/cPanel, public release packaging, adult compliance workflows, real billing, member media authorization, and Pro streaming remain unverified/incomplete.
