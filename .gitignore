@@ -1,0 +1,16 @@
+/vendor/
+/storage/*
+!/storage/.gitkeep
+/config/pro-agent-secret.php
+/.env
+/.env.*
+/.phpunit.cache/
+/.DS_Store
+
+/config/database.php
+/config/app-key.php
+
+# Operator-provisioned trust anchors and signing keys are environment-specific.
+/config/trusted-publishers/*.pem
+**/*-private.pem
+**/private-key.pem

@@ -1,0 +1,187 @@
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/src/Support/Autoload.php';
+
+use AdultCore\Package\PackageStore;
+use AdultCore\Package\PackageVerifier;
+
+$passed = 0;
+$failed = [];
+function verifyPackageTest(string $name, bool $value): void
+{
+    global $passed, $failed;
+    if ($value) {
+        ++$passed;
+    } else {
+        $failed[] = $name;
+    }
+}
+function expectRefusal(string $name, callable $action): void
+{
+    try {
+        $action();
+        verifyPackageTest($name, false);
+    } catch (RuntimeException) {
+        verifyPackageTest($name, true);
+    }
+}
+function packageFixture(string $path, array $manifest, array $contents, string $privateKey, array $additional = []): void
+{
+    @unlink($path);
+    $manifest['files'] = [];
+    foreach ($contents as $name => $value) {
+        $manifest['files'][] = ['path' => $name, 'sha256' => hash('sha256', $value)];
+    }
+    $raw = json_encode($manifest, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+    openssl_sign($raw, $signature, $privateKey, OPENSSL_ALGO_SHA256);
+    $zip = new PharData($path, 0, null, Phar::ZIP);
+    $zip['package.json'] = $raw;
+    $zip['package.sig'] = base64_encode($signature);
+    foreach ($contents as $name => $value) {
+        $zip['payload/' . $name] = $value;
+    }
+    foreach ($additional as $name => $value) {
+        $zip[$name] = $value;
+    }
+    unset($zip);
+}
+function manifestFixture(string $id, string $type = 'module', array $editions = ['lite', 'pro'], array $deps = []): array
+{
+    return [
+        'id' => $id, 'name' => ucwords(str_replace('-', ' ', $id)),
+        'type' => $type, 'publisher' => 'example-author', 'version' => '1.0.0',
+        'minimum_core_version' => '0.1.0', 'editions' => $editions,
+        'required_capabilities' => ['fileinfo'], 'dependencies' => $deps,
+    ];
+}
+function wipeFixture(string $directory): void
+{
+    if (!is_dir($directory)) {
+        return;
+    }
+    foreach (new FilesystemIterator($directory) as $file) {
+        if ($file->isDir() && !$file->isLink()) {
+            wipeFixture($file->getPathname());
+        } else {
+            unlink($file->getPathname());
+        }
+    }
+    rmdir($directory);
+}
+
+$root = sys_get_temp_dir() . '/ac-package-tests-' . bin2hex(random_bytes(8));
+mkdir($root, 0700);
+mkdir($root . '/storage', 0700);
+mkdir($root . '/config', 0700);
+mkdir($root . '/config/trusted-publishers', 0700);
+$key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+if ($key === false) {
+    throw new RuntimeException('Could not generate ephemeral test signing key.');
+}
+openssl_pkey_export($key, $privateKey);
+$publicKey = openssl_pkey_get_details($key)['key'];
+$keyPath = $root . '/config/trusted-publishers/example-author.pem';
+file_put_contents($keyPath, $publicKey);
+$fixtureDir = $root . '/fixtures';
+mkdir($fixtureDir, 0700);
+$verifier = new PackageVerifier($root . '/config/trusted-publishers');
+$store = new PackageStore($root);
+$caps = ['fileinfo', 'storage_writable'];
+try {
+    $baseZip = $fixtureDir . '/base-module.zip';
+    packageFixture($baseZip, manifestFixture('base-module'), ['readme.txt' => 'This is a metadata-only test module.'], $privateKey);
+    $verified = $verifier->inspect($baseZip);
+    verifyPackageTest('Valid publisher-signed module accepted', $verified['manifest']['id'] === 'base-module');
+    verifyPackageTest('Archive reads exact verified content', $verified['files']['readme.txt'] === 'This is a metadata-only test module.');
+    $store->install($baseZip, 'lite', $caps);
+    verifyPackageTest('Signed module installed in private storage', is_file($root . '/storage/packages/modules/base-module/payload/readme.txt'));
+    verifyPackageTest('New extension disabled until admin enables', !$store->isRunnable('module', 'base-module', 'lite', $caps));
+    $store->changeStatus('module', 'base-module', true, 'lite', $caps);
+    verifyPackageTest('Validated module enables on Lite', $store->isRunnable('module', 'base-module', 'lite', $caps));
+    verifyPackageTest('Runtime fails closed on missing capability', !$store->isRunnable('module', 'base-module', 'lite', []));
+    expectRefusal('Repeated module install refused', fn () => $store->install($baseZip, 'lite', $caps));
+
+    $proZip = $fixtureDir . '/pro-only.zip';
+    packageFixture($proZip, manifestFixture('pro-only', 'module', ['pro']), ['readme.txt' => 'pro'], $privateKey);
+    expectRefusal('Pro-only module rejected on Lite', fn () => $store->install($proZip, 'lite', $caps));
+    verifyPackageTest('Rejected module never enters storage', !is_dir($root . '/storage/packages/modules/pro-only'));
+    $store->install($proZip, 'pro', $caps);
+    $store->changeStatus('module', 'pro-only', true, 'pro', $caps);
+    verifyPackageTest('Pro-only module accepted when edition is Pro', $store->isRunnable('module', 'pro-only', 'pro', $caps));
+    verifyPackageTest('Pro-only module cannot run under Lite context', !$store->isRunnable('module', 'pro-only', 'lite', $caps));
+
+    $dependentZip = $fixtureDir . '/dependent-module.zip';
+    packageFixture($dependentZip, manifestFixture('dependent-module', 'module', ['lite', 'pro'], ['base-module']), ['info.json' => '{}'], $privateKey);
+    $store->install($dependentZip, 'lite', $caps);
+    $store->changeStatus('module', 'dependent-module', true, 'lite', $caps);
+    verifyPackageTest('Dependent is runnable when dependency is healthy', $store->isRunnable('module', 'dependent-module', 'lite', $caps));
+    verifyPackageTest('Dependent fails closed if base capability disappears', !$store->isRunnable('module', 'dependent-module', 'lite', []));
+    $basePayload = $root . '/storage/packages/modules/base-module/payload/readme.txt';
+    $originalBaseContents = file_get_contents($basePayload);
+    file_put_contents($basePayload, 'tampered dependency');
+    verifyPackageTest('Dependent fails closed if signed dependency becomes corrupted', !$store->isRunnable('module', 'dependent-module', 'lite', $caps));
+    file_put_contents($basePayload, $originalBaseContents);
+    expectRefusal('Cannot disable active dependency', fn () => $store->changeStatus('module', 'base-module', false, 'lite', $caps));
+    $store->changeStatus('module', 'dependent-module', false, 'lite', $caps);
+    $store->changeStatus('module', 'base-module', false, 'lite', $caps);
+    expectRefusal('Dependent activation requires active dependency', fn () => $store->changeStatus('module', 'dependent-module', true, 'lite', $caps));
+    verifyPackageTest('Disabling module works', !$store->isRunnable('module', 'base-module', 'lite', $caps));
+
+    $themeZip = $fixtureDir . '/midnight-theme.zip';
+    packageFixture($themeZip, manifestFixture('midnight-theme', 'theme'), ['assets/theme.css' => '.theme{color:white}'], $privateKey);
+    $store->install($themeZip, 'lite', $caps);
+    $store->changeStatus('theme', 'midnight-theme', true, 'lite', $caps);
+    verifyPackageTest('Theme selection state works', $store->isRunnable('theme', 'midnight-theme', 'lite', $caps));
+    $theme2 = $fixtureDir . '/sunset-theme.zip';
+    packageFixture($theme2, manifestFixture('sunset-theme', 'theme'), ['assets/theme.css' => '.theme{color:orange}'], $privateKey);
+    $store->install($theme2, 'lite', $caps);
+    $store->changeStatus('theme', 'sunset-theme', true, 'lite', $caps);
+    verifyPackageTest('Selecting next theme disables previous one', !$store->isRunnable('theme', 'midnight-theme', 'lite', $caps));
+    verifyPackageTest('New theme selected', $store->isRunnable('theme', 'sunset-theme', 'lite', $caps));
+
+    $unsignedExtra = $fixtureDir . '/extra.zip';
+    packageFixture($unsignedExtra, manifestFixture('unsigned-extra'), ['readme.txt' => 'ok'], $privateKey, ['payload/evil.css' => 'bad']);
+    expectRefusal('Unsigned archive files rejected', fn () => $verifier->inspect($unsignedExtra));
+
+    $badSig = $fixtureDir . '/bad-signature.zip';
+    packageFixture($badSig, manifestFixture('bad-signature'), ['readme.txt' => 'ok'], $privateKey);
+    $zip = new PharData($badSig, 0, null, Phar::ZIP);
+    $zip['package.sig'] = base64_encode(random_bytes(256));
+    unset($zip);
+    expectRefusal('Invalid signature rejected', fn () => $verifier->inspect($badSig));
+
+    $badPath = manifestFixture('unsafe-path');
+    $badPath['files'] = [['path' => '../config.php', 'sha256' => hash('sha256', 'bad')]];
+    $raw = json_encode($badPath, JSON_THROW_ON_ERROR);
+    openssl_sign($raw, $sig, $privateKey, OPENSSL_ALGO_SHA256);
+    expectRefusal('Traversal even if signed rejected', fn () => $verifier->verifyManifest($raw, base64_encode($sig)));
+
+    $badPhp = manifestFixture('code-drop');
+    $badPhp['files'] = [['path' => 'auto-run.php', 'sha256' => hash('sha256', '<?php echo 1;')]];
+    $raw = json_encode($badPhp, JSON_THROW_ON_ERROR);
+    openssl_sign($raw, $sig, $privateKey, OPENSSL_ALGO_SHA256);
+    expectRefusal('Executable PHP payload rejected', fn () => $verifier->verifyManifest($raw, base64_encode($sig)));
+
+    // Tamper with the installed payload after activation: even registry-enabled
+    // modules must never be trusted without integrity and compatibility checks.
+    file_put_contents($root . '/storage/packages/themes/sunset-theme/payload/assets/theme.css', 'evil');
+    verifyPackageTest('Tampered enabled theme no longer runnable', !$store->isRunnable('theme', 'sunset-theme', 'lite', $caps));
+    file_put_contents($root . '/storage/packages/themes/sunset-theme/payload/extra.txt', 'unsigned');
+    expectRefusal('Unexpected installed files are rejected', fn () => $verifier->verifyInstalled($root . '/storage/packages/themes/sunset-theme'));
+
+    $listed = $store->listPackages('lite', $caps);
+    $bad = array_values(array_filter($listed, fn (array $p) => $p['id'] === 'sunset-theme'));
+    verifyPackageTest('Tampered package displayed as blocked', count($bad) === 1 && count($bad[0]['blocked']) >= 1);
+    unlink($keyPath);
+    verifyPackageTest('Revoked trust disables active modules', !$store->isRunnable('theme', 'midnight-theme', 'lite', $caps));
+    expectRefusal('Unknown publisher cannot install', fn () => $verifier->inspect($themeZip));
+} finally {
+    wipeFixture($root);
+}
+if ($failed !== []) {
+    fwrite(STDERR, "FAILED package tests:\n- " . implode("\n- ", $failed) . "\n");
+    exit(1);
+}
+echo "Passed {$passed} signed-package lifecycle tests.\n";

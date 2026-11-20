@@ -1,0 +1,9 @@
+{
+  "id": "photo-gallery",
+  "name": "Photo Gallery",
+  "version": "0.1.0",
+  "minimum_core_version": "0.1.0",
+  "editions": ["lite", "pro"],
+  "required_capabilities": ["fileinfo", "storage_writable"],
+  "dependencies": []
+}

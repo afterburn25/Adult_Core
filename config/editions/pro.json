@@ -1,0 +1,9 @@
+{
+  "id": "pro",
+  "name": "Adult Core Pro",
+  "description": "Requires an independently verified local Pro agent and persistent process support.",
+  "required_capabilities": [
+    "php_83", "pdo_mysql", "json", "openssl", "fileinfo", "sessions",
+    "storage_writable", "config_writable", "public_docroot", "pro_agent", "persistent_process"
+  ]
+}

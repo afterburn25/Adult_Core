@@ -1,0 +1,9 @@
+{
+  "id": "realtime-chat",
+  "name": "Realtime Chat",
+  "version": "0.1.0",
+  "minimum_core_version": "0.1.0",
+  "editions": ["pro"],
+  "required_capabilities": ["pro_agent", "persistent_process", "websocket_service"],
+  "dependencies": []
+}

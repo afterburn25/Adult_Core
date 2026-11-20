@@ -1,0 +1,59 @@
+name: PHP checks
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootsecret
+          MYSQL_DATABASE: adultcore_ci
+          MYSQL_USER: adultcore
+          MYSQL_PASSWORD: adultcorepass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -prootsecret"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, openssl, fileinfo, phar
+          coverage: none
+      - name: Lint all PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' f; do php -l "$f"; done < <(find src install public tests scripts -type f -name '*.php' -print0)
+      - name: Unit and installation-gate tests
+        run: php tests/run.php
+      - name: Signed module and theme package tests
+        run: php tests/package_tests.php
+      - name: Advanced foundations (themes, billing inbox, Pro jobs)
+        run: php tests/advanced_tests.php
+      - name: HTTP lifecycle smoke tests
+        run: python3 tests/http_smoke.py
+      - name: Real MySQL installation integration test (disposable CI database)
+        run: php tests/mysql_install.php
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass
+
+      - name: Real HTTP administrator login/logout integration test (disposable CI database)
+        run: python3 tests/mysql_http_auth.py
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass

@@ -1,0 +1,11 @@
+{
+  "id": "basic-theme",
+  "name": "Basic Example Theme (Signed CSS Only)",
+  "type": "theme",
+  "publisher": "example-author",
+  "version": "1.0.0",
+  "minimum_core_version": "0.1.0",
+  "editions": ["lite", "pro"],
+  "required_capabilities": [],
+  "dependencies": []
+}

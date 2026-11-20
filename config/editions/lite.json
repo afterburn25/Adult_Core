@@ -1,0 +1,9 @@
+{
+  "id": "lite",
+  "name": "Adult Core Lite",
+  "description": "Runs on compatible PHP/MySQL shared hosting without persistent workers.",
+  "required_capabilities": [
+    "php_83", "pdo_mysql", "json", "openssl", "fileinfo", "sessions",
+    "storage_writable", "config_writable", "public_docroot"
+  ]
+}
