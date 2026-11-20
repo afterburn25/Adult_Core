@@ -1,3 +1,5 @@
+**Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
+
 ## 2026-11-20 — 0.8.6 dev-server route correction
 
 - Added `public/router.php` for PHP's built-in development server to correctly route dynamic `/design.css` and `/design/asset/*`; Apache continues using `public/.htaccess`. Updated HTTP integration tests to use the dev router. This keeps the installation/auth/image gates in effect, rather than inventing a static file.

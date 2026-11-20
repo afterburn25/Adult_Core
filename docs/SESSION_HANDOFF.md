@@ -1,3 +1,5 @@
+**Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
+
 # Development server routing note
 
 Run `php -S 127.0.0.1:8080 -t public public/router.php` for local tests. PHP's default static handling may return 404 for `/design.css`, so `tests/mysql_http_auth.py` and HTTP smoke tests now use this explicit router. Apache uses `public/.htaccess`; dynamic asset URLs must never bypass `public/index.php`.
