@@ -124,7 +124,7 @@ def main():
             code, private_home = req('/')
             ensure('Homepage remains draft until published', code == 503)
             code, designcss = req('/design.css')
-            ensure('Validated custom palette delivered', code == 200 and '#ae758b' in designcss)
+            ensure(f'Validated custom palette delivered (HTTP {code}, body={designcss[:180]!r})', code == 200 and '#ae758b' in designcss)
             code, noasset = req('/design/asset/12')
             ensure('Unknown or unselected image refused', code == 404)
             # Regular page editor exclusively controls the homepage publishing status.
