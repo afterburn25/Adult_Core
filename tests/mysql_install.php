@@ -469,6 +469,45 @@ try {
     $pdo->exec("INSERT INTO ac_content (title,status,visibility,review_status,requires_consent,created_at) VALUES ('Safe test text','published','members','approved',0,UTC_TIMESTAMP())");
     $safeId=(int)$pdo->lastInsertId();
     if (!$policy->canView($member['id'],$safeId)) throw new RuntimeException('Verified fixture was denied.');
+    // A published paid gallery remains hidden until an independently
+    // authenticated billing adapter has created a valid active membership.
+    // These rows are test fixtures, NOT simulated successful real charges.
+    $pdo->exec("INSERT INTO ac_membership_tiers (name,is_active) VALUES ('Disposable Test Tier',1)");
+    $paidTier=(int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO ac_content (title,status,visibility,tier_id,review_status,requires_consent,created_at)
+        VALUES ('Private paid fixture','published','paid',?,'approved',0,UTC_TIMESTAMP())")
+        ->execute([$paidTier]);
+    $paidContent=(int)$pdo->lastInsertId();
+    if ($policy->canView((int)$member['id'],$paidContent)
+        || $library->detail((int)$member['id'],$paidContent)!==null) {
+        throw new RuntimeException('Private paid gallery was exposed without a paid membership.');
+    }
+    $pdo->prepare("INSERT INTO ac_memberships (user_id,tier_id,status,starts_at,expires_at)
+        VALUES (?,?,'pending',DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY),
+        DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 DAY))")->execute([$member['id'],$paidTier]);
+    $membershipId=(int)$pdo->lastInsertId();
+    if ($library->detail((int)$member['id'],$paidContent)!==null) {
+        throw new RuntimeException('Pending payment unlocked paid gallery detail.');
+    }
+    $pdo->prepare("UPDATE ac_memberships SET status='active' WHERE id=?")->execute([$membershipId]);
+    $paidDetails=$library->detail((int)$member['id'],$paidContent);
+    if (!is_array($paidDetails) || $paidDetails['id']!==$paidContent) {
+        throw new RuntimeException('Active authorized test membership did not unlock paid gallery.');
+    }
+    $pdo->prepare("UPDATE ac_memberships SET status='cancelled' WHERE id=?")->execute([$membershipId]);
+    if ($library->detail((int)$member['id'],$paidContent)!==null) {
+        throw new RuntimeException('Cancelled test membership remained authorized for paid gallery.');
+    }
+    $pdo->prepare("UPDATE ac_memberships SET status='active',expires_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND)
+        WHERE id=?")->execute([$membershipId]);
+    if ($library->detail((int)$member['id'],$paidContent)!==null) {
+        throw new RuntimeException('Expired test membership remained authorized for paid gallery.');
+    }
+    $pdo->prepare("UPDATE ac_memberships SET expires_at=DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY)
+        WHERE id=?")->execute([$membershipId]);
+    if ($library->detail((int)$member['id'],$paidContent)===null) {
+        throw new RuntimeException('Renewed test membership did not restore gallery entitlement.');
+    }
     $revokeAge=['event_id'=>'agerevoked0001','claim_type'=>'member_age','subject_id'=>$member['id'],
         'decision'=>'revoked','reference'=>'approved-provider-ref001','occurred_at'=>time()];
     if (!$registry->apply('approved_test',$revokeAge)) throw new RuntimeException('Age revocation was not recorded.');
