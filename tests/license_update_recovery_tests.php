@@ -66,6 +66,8 @@ try {
             try { $once->replaceLicense($key, $domain); $blocked = false; }
             catch (RuntimeException) { $blocked = true; }
             $check('License replacement refuses symlinked lock '.$lockName, $blocked);
+            $check('Installed site refuses symlinked lock despite fresh positive cache '.$lockName,
+                $once->status($domain) === 'unavailable');
             if ($lockName === '.license-refresh.lock') {
                 $check('Manual license refresh refuses symlinked refresh lock',
                     $once->status($domain, true) === 'unavailable');
