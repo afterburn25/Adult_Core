@@ -42,6 +42,33 @@ try {
         'Removing test-only sentinel restores existing signed gate');
     try {$upgrade->rollback();$ok=false;}catch(RuntimeException){$ok=true;}
     $check($ok,'CLI recovery refuses missing pending transition');
+    // Pro migration must not overlap a same-edition license replacement.
+    $shared = fopen($root.'/storage/.license-update.lock', 'c+');
+    if (!is_resource($shared) || !flock($shared, LOCK_EX | LOCK_NB)) {
+        throw new RuntimeException('Could not set up shared license-update lock test.');
+    }
+    try {
+        try { $upgrade->rollback(); $blocked = false; }
+        catch (RuntimeException $error) {
+            $blocked = str_contains($error->getMessage(), 'Another license update is running');
+        }
+        $check($blocked, 'Edition recovery refuses concurrent license replacement lock');
+    } finally {
+        flock($shared, LOCK_UN); fclose($shared);
+    }
+    $refresh = fopen($root.'/storage/.license-refresh.lock', 'c+');
+    if (!is_resource($refresh) || !flock($refresh, LOCK_EX | LOCK_NB)) {
+        throw new RuntimeException('Could not set up shared license-refresh lock test.');
+    }
+    try {
+        try { $upgrade->rollback(); $blocked = false; }
+        catch (RuntimeException $error) {
+            $blocked = str_contains($error->getMessage(), 'Another license refresh is running');
+        }
+        $check($blocked, 'Edition recovery refuses concurrent license cache refresh');
+    } finally {
+        flock($refresh, LOCK_UN); fclose($refresh);
+    }
     $check(is_file($root.'/storage/install-state.json'),'Refused recovery preserves original signed state');
     $script = file_get_contents(dirname(__DIR__).'/scripts/recover-edition-upgrade.php');
     $check(str_contains($script,"PHP_SAPI !== 'cli'"),'Emergency recovery refuses web requests');
