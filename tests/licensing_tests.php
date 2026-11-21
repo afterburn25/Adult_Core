@@ -29,6 +29,24 @@ foreach($products as $sku=>$identity){
     $other=$sku===CajunWebClient::SKU_LITE_ONCE?CajunWebClient::SKU_PRO_ONCE:CajunWebClient::SKU_LITE_ONCE;
     $check('Cross-product license denied '.$sku,$made($sku)->validate($key,$domain,$other)==='denied');
 }
+// Actual Cajun Web Pro handler returns authorized=true with error=null.
+// Contradictory or malformed responses must not grant license authority.
+$responseCases = [
+    ['name' => 'Valid issuer success with null error', 'body' => '{"authorized":true,"error":null}', 'expected' => 'valid'],
+    ['name' => 'Issuer denial with reason', 'body' => '{"authorized":false,"error":"Domain not registered"}', 'expected' => 'denied'],
+    ['name' => 'Contradictory success plus error', 'body' => '{"authorized":true,"error":"License expired"}', 'expected' => 'transient'],
+    ['name' => 'Contradictory success plus false error', 'body' => '{"authorized":true,"error":false}', 'expected' => 'transient'],
+    ['name' => 'Numeric success is invalid', 'body' => '{"authorized":1,"error":null}', 'expected' => 'transient'],
+    ['name' => 'String success is invalid', 'body' => '{"authorized":"true","error":null}', 'expected' => 'transient'],
+    ['name' => 'Missing authorization is invalid', 'body' => '{"error":null}', 'expected' => 'transient'],
+    ['name' => 'Invalid JSON response is inconclusive', 'body' => '{broken', 'expected' => 'transient'],
+];
+foreach ($responseCases as $case) {
+    $responseClient = new CajunWebClient(static fn(string $payload): array => [
+        'status' => 200, 'body' => $case['body'],
+    ]);
+    $check($case['name'], $responseClient->validate($key, $domain, CajunWebClient::SKU_LITE_ONCE) === $case['expected']);
+}
 $denier=new CajunWebClient(static fn(string $body):array=>['status'=>200,'body'=>'{"authorized":false}']);
 $check('Unregistered key has no product',$denier->resolve($key,$domain)===null);
 foreach([400,429,500,302] as $status){
