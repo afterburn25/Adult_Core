@@ -174,6 +174,30 @@ try{
     $check('Wrong-edition replacement preserves config',$manager->config()['sku']===CajunWebClient::SKU_LITE_MONTH);
     $manager->replaceLicense($key,$domain);
     $check('Same-edition key replacement remains authorized',$manager->status($domain)==='valid');
+    // A cache path changed to a symlink must block the entire replacement,
+    // not allow a new config to be written before the cache update fails.
+    $cachePath = $root.'/storage/license-cache.json';
+    $cacheBackup = $root.'/storage/cache-before-replace.json';
+    $oldConfig = file_get_contents($root.'/config/license.php');
+    if (rename($cachePath, $cacheBackup)) {
+        try {
+            if (@symlink($cacheBackup, $cachePath)) {
+                $attempted = new LicenseManager($root,$made(CajunWebClient::SKU_LITE_ONCE));
+                try { $attempted->replaceLicense($key,$domain); $blocked = false; }
+                catch (RuntimeException) { $blocked = true; }
+                $check('Symlinked license cache blocks replacement', $blocked);
+                $check('Failed cache preflight preserves original license config',
+                    file_get_contents($root.'/config/license.php') === $oldConfig
+                    && $manager->config()['sku'] === CajunWebClient::SKU_LITE_MONTH);
+                unlink($cachePath);
+            }
+        } finally {
+            if (is_link($cachePath)) unlink($cachePath);
+            rename($cacheBackup, $cachePath);
+        }
+    } else {
+        throw new RuntimeException('Could not prepare private cache replacement fixture.');
+    }
     $old=LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::REFRESH_SECONDS-2,time()-LicenseManager::REFRESH_SECONDS-2,CajunWebClient::SKU_LITE_MONTH);
     file_put_contents($root.'/storage/license-cache.json',$old);
     $transient=new LicenseManager($root,new CajunWebClient(static fn(string $body):array=>['status'=>503,'body'=>'{}']));
