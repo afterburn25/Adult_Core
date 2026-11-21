@@ -28,6 +28,12 @@ file_put_contents($receiptPath,json_encode($changed,JSON_THROW_ON_ERROR));
 try {$inbox->accept($job,$secret);throw new RuntimeException('Altered persisted receipt accepted');}
 catch(RuntimeException $e){ck($e->getMessage()!=='Altered persisted receipt accepted','Conflicting on-disk job receipt rejected');}
 file_put_contents($receiptPath,$original);
+$alteredSignature=json_decode($original,true,12,JSON_THROW_ON_ERROR);
+$alteredSignature['signature']=str_repeat('0',64);
+file_put_contents($receiptPath,json_encode($alteredSignature,JSON_THROW_ON_ERROR));
+try {$inbox->accept($job,$secret);throw new RuntimeException('Tampered receipt signature accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Tampered receipt signature accepted','Tampered stored Pro job signature rejected');}
+file_put_contents($receiptPath,$original);
 ck(!$inbox->accept($job,$secret),'Restored valid job remains idempotent');
 $bad=JobEnvelope::create('pro-job-00002','video.transcode',['asset_id'=>7,'path'=>'/etc/passwd'],$secret);
 try{$inbox->accept($bad,$secret);throw new RuntimeException('Path payload accepted');}catch(RuntimeException $e){ck($e->getMessage()!=='Path payload accepted','Payload allowlist');}
