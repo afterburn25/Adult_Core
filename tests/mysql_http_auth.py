@@ -1554,6 +1554,21 @@ def main():
             code, bad_cursor=req('/admin/pages?before=0')
             ensure('Zero numeric page cursor refused without browsing content',
                    code==422 and 'Invalid page list cursor' in bad_cursor)
+            code, found_pages=req('/admin/pages?q=Bulk%20fixture%20page%2000')
+            ensure('Owner page search locates one matching private title only',
+                   code==200 and 'Bulk fixture page 00' in found_pages
+                   and 'Bulk fixture page 01' not in found_pages)
+            code, all_search=req('/admin/pages?q=Bulk%20fixture%20page')
+            filtered_next=re.search(r'href="/admin/pages\?before=(\d+)&amp;q=Bulk%20fixture%20page"',all_search)
+            ensure('Private text search preserves filter in paginated navigation',
+                   code==200 and filtered_next is not None)
+            code, filtered_tail=req('/admin/pages?before='+filtered_next.group(1)
+                                    +'&q=Bulk%20fixture%20page')
+            ensure('Filtered second page reaches final saved draft',
+                   code==200 and 'Bulk fixture page 00' in filtered_tail)
+            code, invalid_search=req('/admin/pages?q=%00')
+            ensure('Control characters in local page search are refused',
+                   code==422 and 'Invalid page search' in invalid_search)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)

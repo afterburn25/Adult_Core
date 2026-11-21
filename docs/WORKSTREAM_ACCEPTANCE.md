@@ -1,3 +1,11 @@
+## Bounded local page search across saved drafts — development (2026-11-21)
+
+The owner-only Admin → Pages view now supports literal title/slug search across saved pages, including drafts beyond the first 50 rows. The query is retained during keyset pagination and restricted to 80 valid UTF-8 bytes without control characters. Prepared SQL substring matching does not interpret wildcard characters. Search never changes publishing, private media, license, creator or membership permissions.
+
+Disposable SQL and authenticated HTTP tests cover exact matches, invalid controls, full 51-result pagination and privacy. This is a local site-management feature, not an adult payment or compliance release gate.
+
+---
+
 ## Safe per-site page duplication into unpublished drafts — 2026-11-21
 
 Local owners/admins may now copy an existing, saved public-site plain-text page into a new **draft-only** page with a separately supplied lowercase slug. This uses the protected page editor's current session, role and CSRF checks, locks the source row and rejects a stale revision. The copy contains only the original safely escaped title/body, starts with revision 1 and an unlisted menu state, and cannot be publicly accessed until a separate owner publishing action. Copying leaves the original page, menu, protected media, member accounts and creator records unchanged.

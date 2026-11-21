@@ -431,6 +431,26 @@ try {
         $repo->save(0,sprintf('page-%02d',$n),'Saved test page '.$n,
             'Only safe private draft text','draft');
     }
+    $searchOne=$repo->pageList(null,'Saved test page 0');
+    if (count($searchOne['pages'])!==1 || $searchOne['next']!==null
+        || $searchOne['pages'][0]['title']!=='Saved test page 0') {
+        throw new RuntimeException('Literal owner search did not match exactly one page.');
+    }
+    $searchMany=$repo->pageList(null,'Saved test page');
+    $searchTail=$repo->pageList($searchMany['next'],'Saved test page');
+    if (count($searchMany['pages'])!==50 || $searchMany['next']===null
+        || count($searchTail['pages'])!==1 || $searchTail['next']!==null) {
+        throw new RuntimeException('Owner search paging skipped matching pages.');
+    }
+    if ($repo->pageList(null,'%_')['pages']!==[]) {
+        throw new RuntimeException('Search wildcard metacharacters were expanded.');
+    }
+    try {
+        $repo->pageList(null,str_repeat('x',81));
+        throw new RuntimeException('Overlong private page search accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Overlong private page search accepted.') throw $e;
+    }
     $first=$repo->pageList();
     if (count($first['pages'])!==50 || $first['next']===null) {
         throw new RuntimeException('Page list omitted next-page navigation.');

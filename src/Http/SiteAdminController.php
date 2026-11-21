@@ -211,10 +211,27 @@ final class SiteAdminController
                 '<p role="alert">The page link was invalid. <a href="/admin/pages">Return to the first page</a>.</p>');
             return;
         }
-        $pageSet=$repo->pageList($before);
+        $rawSearch=$_GET['q']??'';
+        if (!is_string($rawSearch)) {
+            $this->render(422,'Invalid page search',
+                '<p role="alert">The page search was invalid.</p>');
+            return;
+        }
+        try {
+            $pageSet=$repo->pageList($before,$rawSearch);
+        } catch (RuntimeException) {
+            $this->render(422,'Invalid page search',
+                '<p role="alert">Search must contain no control characters and at most 80 bytes.</p>');
+            return;
+        }
         $html = '<p class="admin-section-subtitle">Make thoughtful changes to your published website. Newest created pages first.</p>'
             . '<div class="page-actions"><a class="button-secondary" href="/admin/page">Create page</a>'
-            . '<a class="button-secondary" href="/admin/setup">Schema setup</a></div>';
+            . '<a class="button-secondary" href="/admin/setup">Schema setup</a></div>'
+            . '<form method="get" action="/admin/pages" class="install-form">'
+            . '<label for="admin-page-search">Find local pages by title or URL slug</label>'
+            . '<input id="admin-page-search" name="q" maxlength="80" value="'.self::e(trim($rawSearch)).'">'
+            . '<button class="button-secondary" type="submit">Search pages</button>'
+            . '<a href="/admin/pages">Clear search</a></form>';
         if (($_GET['result'] ?? '') === 'saved') $html .= '<p role="status">Page saved.</p>';
         $html .= '<section class="panel"><h2>Public pages</h2><table class="page-table"><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th></th></tr></thead><tbody>';
         foreach ($pageSet['pages'] as $page) {
@@ -224,11 +241,18 @@ final class SiteAdminController
                 . ' · <a href="/admin/page/preview?id=' . $id . '" target="_blank" rel="noopener noreferrer">Preview saved</a></td></tr>';
         }
         $html .= '</tbody></table>';
+        if ($pageSet['pages']===[]) {
+            $html.='<p>No saved pages match this search or page.</p>';
+        }
         if ($pageSet['next']!==null) {
-            $html.='<p><a href="/admin/pages?before='.(int)$pageSet['next'].'">Older pages</a></p>';
+            $html.='<p><a href="/admin/pages?before='.(int)$pageSet['next']
+                .($rawSearch!==''?'&amp;q='.rawurlencode(trim($rawSearch)):'')
+                .'">Older pages</a></p>';
         }
         if ($before!==null) {
-            $html.='<p><a href="/admin/pages">Back to newest pages</a></p>';
+            $html.='<p><a href="/admin/pages'
+                .($rawSearch!==''?'?q='.rawurlencode(trim($rawSearch)):'')
+                .'">Back to newest pages</a></p>';
         }
         $html.='</section><p class="muted">Pages support escaped plain text, not user-supplied HTML or scripts.</p>';
         $this->render(200, 'Manage pages', $html);

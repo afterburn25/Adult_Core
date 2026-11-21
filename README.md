@@ -1,3 +1,7 @@
+## Search your saved pages (development)
+
+Admin → Pages has a literal title/slug search across local saved drafts and published text pages, with bounded 50-row pages and retained filters. Searching cannot publish content or bypass site permissions.
+
 ## Duplicate a page without publishing (development)
 
 An authenticated owner can copy a saved plain-text public-site page from its editor into a new **unpublished and unlisted** draft with a different URL slug. Stale source revisions are refused, and the original is never modified. Copying cannot publish media or change member billing or age/consent status.

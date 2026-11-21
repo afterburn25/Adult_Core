@@ -45,16 +45,34 @@ final class PageRepository
      *
      * @return array{pages:list<array<string,mixed>>,next:?int}
      */
-    public function pageList(?int $before=null): array
+    public function pageList(?int $before=null,?string $search=null): array
     {
         if ($before!==null && $before<1) {
             throw new RuntimeException('Invalid page list cursor.');
         }
+        $term=$search===null?'':trim($search);
+        if (strlen($term)>80 || preg_match('//u',$term)!==1
+            || preg_match('/[\x00-\x1f\x7f]/',$term)===1) {
+            throw new RuntimeException('Invalid page search term.');
+        }
         $sql='SELECT id,slug,title,status,show_in_menu,nav_position,updated_at
             FROM ac_pages';
-        if ($before!==null) $sql.=' WHERE id<?';
+        $conditions=[];
+        $bindings=[];
+        if ($before!==null) {
+            $conditions[]='id<?';
+            $bindings[]=$before;
+        }
+        if ($term!=='') {
+            // LOCATE treats input as a literal substring: wildcard
+            // metacharacters do not alter the search.
+            $conditions[]='(LOCATE(?,slug)>0 OR LOCATE(?,title)>0)';
+            $bindings[]=$term;
+            $bindings[]=$term;
+        }
+        if ($conditions!==[]) $sql.=' WHERE '.implode(' AND ',$conditions);
         $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 51');
-        $q->execute($before===null?[]:[$before]);
+        $q->execute($bindings);
         $rows=$q->fetchAll(PDO::FETCH_ASSOC);
         $more=count($rows)>50;
         if ($more) array_pop($rows);
