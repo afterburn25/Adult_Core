@@ -139,7 +139,7 @@ final class LocalCreators
         if (!is_array($profile)) return null;
         $q=$this->pdo->prepare("SELECT id,title,summary,status,review_note,revision,updated_at
             FROM ac_creator_drafts WHERE creator_id=?
-                AND status IN ('private','submitted','changes','rejected')
+                AND status IN ('private','submitted','changes','rejected','archived')
             ORDER BY id DESC LIMIT 50");
         $q->execute([$creatorId]);
         $drafts=$q->fetchAll(PDO::FETCH_ASSOC);
@@ -258,10 +258,61 @@ final class LocalCreators
         if ($creator===null) return [];
         $q=$this->pdo->prepare("SELECT id,title,summary,status,review_note,revision,updated_at
             FROM ac_creator_drafts WHERE creator_id=?
-                AND status IN ('private','submitted','changes','rejected')
+                AND status IN ('private','submitted','changes','rejected','archived')
             ORDER BY id DESC LIMIT 50");
         $q->execute([(int)$creator['id']]);
         return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Member-scoped reversible archive for unsent private planning text.
+     * Retained records still count toward the per-creator 50-draft limit.
+     * Rejected, submitted and changes-requested plans are never archivable.
+     */
+    public function changeDraftArchive(int $memberId,int $draftId,int $expectedRevision,
+                                       string $action): void
+    {
+        if ($memberId<1 || $draftId<1 || $expectedRevision<1
+            || !in_array($action,['archive','restore'],true)) {
+            throw new RuntimeException('Invalid private draft archive action.');
+        }
+        $this->pdo->beginTransaction();
+        try {
+            // Lock the owning active creator before the draft, matching
+            // saveDraft/submit/withdraw and the manager suspension boundary.
+            $q=$this->pdo->prepare("SELECT c.id FROM ac_creator_profiles c
+                JOIN ac_users u ON u.id=c.member_id
+                JOIN ac_member_email_confirmations e ON e.user_id=u.id AND e.confirmed_at IS NOT NULL
+                WHERE c.member_id=? AND c.status='enabled' AND u.role='member'
+                    AND u.status IN ('pending','active') LIMIT 1 FOR UPDATE");
+            $q->execute([$memberId]);
+            $creatorId=(int)$q->fetchColumn();
+            if ($creatorId<1) throw new RuntimeException('Creator workspace unavailable.');
+            $q=$this->pdo->prepare('SELECT status,revision FROM ac_creator_drafts
+                WHERE id=? AND creator_id=? FOR UPDATE');
+            $q->execute([$draftId,$creatorId]);
+            $draft=$q->fetch(PDO::FETCH_ASSOC);
+            $from=$action==='archive'?'private':'archived';
+            $to=$action==='archive'?'archived':'private';
+            if (!is_array($draft) || $draft['status']!==$from) {
+                throw new RuntimeException('Only unsent private plans can be archived or restored.');
+            }
+            if ((int)$draft['revision']!==$expectedRevision) {
+                throw new RuntimeException('Draft changed; reload your workspace.');
+            }
+            $this->pdo->prepare('UPDATE ac_creator_drafts
+                SET status=?,revision=revision+1,updated_at=UTC_TIMESTAMP()
+                WHERE id=? AND creator_id=?')->execute([$to,$draftId,$creatorId]);
+            $event=$action==='archive'?'archived':'restored';
+            $q=$this->pdo->prepare('INSERT INTO ac_creator_draft_events
+                (draft_id,actor_id,action,created_at) VALUES (?,?,?,UTC_TIMESTAMP())');
+            $q->execute([$draftId,$memberId,$event]);
+            $this->record($memberId,$creatorId,'draft_'.$event);
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
     }
 
     /** Never touches public/ac_content or media/moderation/verification records. */
