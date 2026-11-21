@@ -17,7 +17,7 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Strictly scoped moderation-staff lifecycle with manager password step-up. */
+/** Strictly scoped moderator lifecycle with a bounded server-side manager authorization window. */
 final class StaffController
 {
     public function __construct(private readonly string $root) {}
@@ -48,22 +48,35 @@ final class StaffController
             }
             $repo=new StaffRepository($pdo);
             if ($method==='POST') {
-                $password=$_POST['manager_password']??null;
-                if (!is_string($password) || strlen($password)>72 || $password==='') {
-                    throw new RuntimeException('Manager password confirmation required.');
-                }
-                (new InstallRateLimiter($this->root.'/storage'))->consume(
-                    'staff-stepup:'.(string)($_SERVER['REMOTE_ADDR']??'unknown'));
-                $verified=(new AdminAccounts($pdo))->verifyCredentials($admin['email'],$password);
-                if ($verified===null || (int)$verified['id']!==$admin['id']
-                    || !RolePolicy::allows($verified['role'],'members.manage')) {
-                    throw new RuntimeException('Manager password confirmation failed.');
-                }
                 $action=$_POST['action']??null;
+                if ($action==='verify') {
+                    // Only this explicit one-time unlock form accepts the
+                    // manager password; routine changes reuse the server
+                    // session for the next 30 minutes.
+                    $password=$_POST['manager_password']??null;
+                    if (!is_string($password) || strlen($password)>72 || $password==='') {
+                        throw new RuntimeException('Manager password confirmation required.');
+                    }
+                    (new InstallRateLimiter($this->root.'/storage'))->consume(
+                        'staff-stepup:'.(string)($_SERVER['REMOTE_ADDR']??'unknown'));
+                    $verified=(new AdminAccounts($pdo))->verifyCredentials($admin['email'],$password);
+                    if ($verified===null || (int)$verified['id']!==$admin['id']
+                        || !RolePolicy::allows($verified['role'],'members.manage')) {
+                        throw new RuntimeException('Manager password confirmation failed.');
+                    }
+                    AdminSession::markManagerVerified();
+                    header('Location: /admin/staff?result=unlocked',true,303);
+                    return;
+                }
+                if (!AdminSession::managerVerifiedRecently()) {
+                    throw new RuntimeException('Confirm your password once to unlock staff changes.');
+                }
                 if ($action==='create') {
                     $newPassword=$_POST['new_password']??null;
                     if (!is_string($newPassword)) throw new RuntimeException('Invalid staff credentials.');
-                    if (hash_equals($password,$newPassword)) {
+                    $managerReuse=(new AdminAccounts($pdo))
+                        ->verifyCredentials($admin['email'],$newPassword);
+                    if ($managerReuse!==null && (int)$managerReuse['id']===$admin['id']) {
                         throw new RuntimeException('Choose a different password for the new moderator.');
                     }
                     $repo->createModerator($admin['id'],self::text($_POST['email']??null),$newPassword);
@@ -72,7 +85,9 @@ final class StaffController
                 } elseif ($action==='restore') {
                     $newPassword=$_POST['new_password']??null;
                     if (!is_string($newPassword)) throw new RuntimeException('Invalid staff credentials.');
-                    if (hash_equals($password,$newPassword)) {
+                    $managerReuse=(new AdminAccounts($pdo))
+                        ->verifyCredentials($admin['email'],$newPassword);
+                    if ($managerReuse!==null && (int)$managerReuse['id']===$admin['id']) {
                         throw new RuntimeException('Choose a different password for the moderator.');
                     }
                     $repo->restoreModerator($admin['id'],self::positive($_POST['staff_id']??null),$newPassword);
@@ -85,6 +100,7 @@ final class StaffController
         } catch (RuntimeException $e) {
             $allowed=[
                 'Manager password confirmation required.','Manager password confirmation failed.',
+                'Confirm your password once to unlock staff changes.',
                 'Enter a valid staff email.','Use a staff password between 16 and 72 bytes without control characters.',
                 'Staff credential creation unavailable.','Moderator account limit reached.',
                 'Staff email already in use.','Invalid moderator account.','Moderator is not active.',
@@ -103,14 +119,32 @@ final class StaffController
     private function dashboard(StaffRepository $repo,int $actorId): string
     {
         $csrf=self::e(AdminSession::csrf());
+        $unlocked=AdminSession::managerVerifiedRecently();
         $html='<p class="intro">Create or suspend restricted moderation accounts. '
-            .'Only a manager can operate this page; every change also requires a fresh manager password. '
-            .'Moderators can review private pending content, not publish, activate paid membership, '
-            .'manage licenses or change site settings.</p>';
+            .'Your secure login cookie keeps your session active across page reloads and browser restarts '
+            .'within the server timeout. Staff changes use a 30-minute manager authorization window '
+            .'after sign-in or a single password confirmation; no password is stored in the cookie. '
+            .'Moderators cannot publish, activate paid membership, manage licenses or site settings.</p>';
         if (($_GET['result']??'')==='saved') {
             $html.='<p role="status">Staff change recorded in the private audit history.</p>';
         }
-        $html.='<section class="panel"><h2>Add restricted moderator</h2>'
+        if (($_GET['result']??'')==='unlocked') {
+            $html.='<p role="status">Staff changes unlocked for 30 minutes.</p>';
+        }
+        if (!$unlocked) {
+            $html.='<section class="panel"><h2>Confirm once to edit staff</h2>'
+                .'<p>Your signed-in session remains valid. Confirm your manager password once '
+                .'to authorize staff changes for 30 minutes; no repeated password per change.</p>'
+                .'<form method="post" action="/admin/staff" class="install-form" autocomplete="off">'
+                .'<input type="hidden" name="csrf" value="'.$csrf.'">'
+                .'<input type="hidden" name="action" value="verify">'
+                .'<label>Manager password<input name="manager_password" type="password" maxlength="72" required autocomplete="current-password"></label>'
+                .'<button class="install-button">Unlock staff changes</button></form></section>';
+        } else {
+            $html.='<p role="status">Staff editing authorized for this session. '
+                .'Confirmation expires 30 minutes after your last password verification.</p>';
+        }
+        if ($unlocked) $html.='<section class="panel"><h2>Add restricted moderator</h2>'
             .'<p>Set a unique initial password and transmit it privately to the intended person. '
             .'No invitation email or identity verification is sent by this development build. '
             .'Do not reuse your administrator password.</p>'
@@ -119,32 +153,29 @@ final class StaffController
             .'<input type="hidden" name="action" value="create">'
             .'<label>Staff email<input name="email" type="email" maxlength="190" required></label>'
             .'<label>Initial moderator password<input name="new_password" type="password" minlength="16" maxlength="72" required autocomplete="new-password"></label>'
-            .'<label>Confirm your manager password<input name="manager_password" type="password" maxlength="72" required autocomplete="current-password"></label>'
-            .'<button class="install-button" type="submit">Create moderator</button></form></section>'
-            .'<section class="panel"><h2>Moderator accounts</h2>'
+            .'<button class="install-button" type="submit">Create moderator</button></form></section>';
+        $html.='<section class="panel"><h2>Moderator accounts</h2>'
             .'<table class="page-table"><thead><tr><th>ID</th><th>Email</th><th>Status</th><th>Authenticator</th><th>Account action</th></tr></thead><tbody>';
         foreach ($repo->moderators($actorId) as $item) {
             $id=$item['id'];$status=$item['status'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e($item['email']).'</td>'
                 .'<td>'.self::e($status).'</td>'
                 .'<td>'.($item['mfa_enabled']===1?'Enrolled':'Not enrolled').'</td><td>';
-            if ($status==='active') {
+            if ($status==='active' && $unlocked) {
                 $html.='<form method="post" action="/admin/staff" class="install-form" autocomplete="off">'
                     .'<input type="hidden" name="csrf" value="'.$csrf.'">'
                     .'<input type="hidden" name="action" value="suspend">'
                     .'<input type="hidden" name="staff_id" value="'.$id.'">'
-                    .'<label>Manager password<input name="manager_password" type="password" maxlength="72" required autocomplete="current-password"></label>'
                     .'<button class="button-secondary" type="submit">Suspend moderator</button></form>';
-            } elseif ($status==='suspended') {
+            } elseif ($status==='suspended' && $unlocked) {
                 $html.='<form method="post" action="/admin/staff" class="install-form" autocomplete="off">'
                     .'<input type="hidden" name="csrf" value="'.$csrf.'">'
                     .'<input type="hidden" name="action" value="restore">'
                     .'<input type="hidden" name="staff_id" value="'.$id.'">'
                     .'<label>Replacement moderator password<input name="new_password" type="password" minlength="16" maxlength="72" required autocomplete="new-password"></label>'
-                    .'<label>Manager password<input name="manager_password" type="password" maxlength="72" required autocomplete="current-password"></label>'
                     .'<button class="button-secondary" type="submit">Restore with new password</button></form>';
             } else {
-                $html.='Unavailable';
+                $html.=$unlocked?'Unavailable':'Unlock staff changes to edit';
             }
             $html.='</td></tr>';
         }
