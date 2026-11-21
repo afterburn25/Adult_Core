@@ -1,3 +1,9 @@
+## Design Studio requires page history before editing — 2026-11-21
+
+The homepage visual Design Studio now reports a clear 503 setup-required state until the m19 private page-history migration is installed. The repository already required m19 and rolled back failed editor saves; this adds a pre-editor guard so owners do not unknowingly work in a form that cannot be saved. Existing license, permissions, private image and homepage publish gates are unchanged. The design unit suite asserts the guard is present.
+
+---
+
 ## Disposable HTTP fixture timeout stabilization — 2026-11-21
 
 A MariaDB 10.11 run intermittently timed out while the authenticated `/admin/setup` request was applying many additive local migrations, despite earlier and later builds passing the same functionality. The test-only urllib transport deadline is now 12 seconds (previously 4) for actual loopback requests, keeping all response codes, CSRF/MFA, negative tests, deployment locks and content-access checks unchanged. This does not raise public PHP/proxy request limits or certify real cPanel/VPS installs. CI must rerun successfully to accept the updated fixture.

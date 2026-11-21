@@ -127,6 +127,8 @@ designCheck(str_contains($js, 'Add your cutout photo') && str_contains($css, 'st
 $source = file_get_contents(dirname(__DIR__) . '/src/Http/DesignController.php');
 designCheck(str_contains((string)$source, 'No cutout — keep theme background'), 'No-cutout option preserves preset styling');
 designCheck(str_contains((string)$source,'cutout-placement-controls') && str_contains((string)$source,'cutout_width'), 'Form declares explicit editor placement controls');
+designCheck(str_contains((string)$source,'PageHistorySchema::installed'),
+    'Design Studio refuses writes before transactional private page-history migration');
 $studioCSS=(string)file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(str_contains($studioCSS,'.cutout-positioner') && str_contains($studioCSS,'touch-action:none'), 'Cutout image placement is styled for touch input');
 echo "Passed $checks visual-design safety checks.\n";

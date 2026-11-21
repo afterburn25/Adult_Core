@@ -17,6 +17,7 @@ use AdultCore\UI\Layout;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\PageHistorySchema;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -71,6 +72,11 @@ final class DesignController
             if (!HighlightSchema::installed($pdo)) {
                 $this->render(503,'Homepage card setup required',
                     '<p>Back up the database, then apply the additive homepage cards migration in <a href="/admin/setup">Site setup</a> before editing.</p>');
+                return;
+            }
+            if (!PageHistorySchema::installed($pdo)) {
+                $this->render(503,'Page history setup required',
+                    '<p>Back up the database, then apply the additive private page history migration in <a href="/admin/setup">Site setup</a> before editing.</p>');
                 return;
             }
             $repo = new DesignRepository($pdo);
