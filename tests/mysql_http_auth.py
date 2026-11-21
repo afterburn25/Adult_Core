@@ -1521,7 +1521,7 @@ def main():
             code, older_pages=req('/admin/pages?before='+older_link.group(1))
             ensure('Owner can reach older saved pages and return to newest',
                    code==200 and 'Back to newest pages' in older_pages
-                   and 'Welcome' in older_pages
+                   and '<td>home</td>' in older_pages
                    and 'Bulk fixture page 00' in older_pages)
             code, still_draft=req('/p/bulk-fixture-00')
             ensure('Paginated private synthetic page remains unpublished',
