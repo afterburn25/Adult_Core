@@ -9,8 +9,11 @@ use RuntimeException;
 /** Private PHP file sessions suitable for compatible shared hosting. */
 final class AdminSession
 {
-    public const IDLE_SECONDS = 1800;
-    public const MAX_SECONDS = 43200;
+    // A persistent, opaque session-ID cookie; NEVER a stored password/token.
+    // Session data lives only in private server storage and has hard limits.
+    public const IDLE_SECONDS = 86400; // 24 hours of no activity
+    public const MAX_SECONDS = 604800; // 7 days since login
+    public const STAFF_STEPUP_SECONDS = 1800; // reverify sensitive staff work every 30 minutes
 
     public static function start(string $root, bool $secure): void
     {
@@ -35,6 +38,7 @@ final class AdminSession
         session_save_path($directory);
         session_name('adultcore_admin');
         session_set_cookie_params([
+            'lifetime' => self::MAX_SECONDS,
             'path' => '/', 'httponly' => true, 'secure' => $secure, 'samesite' => 'Strict',
         ]);
         if (!session_start()) {
@@ -67,8 +71,37 @@ final class AdminSession
         $now ??= time();
         $_SESSION = [
             'admin_csrf' => bin2hex(random_bytes(32)),
-            'admin_auth' => ['id' => $id, 'issued_at' => $now, 'last_seen_at' => $now, 'mfa_verified' => $mfaVerified],
+            'admin_auth' => [
+                'id' => $id, 'issued_at' => $now, 'last_seen_at' => $now,
+                'mfa_verified' => $mfaVerified,
+                'manager_verified_at' => $now,
+            ],
         ];
+    }
+
+    /**
+     * The initial password-based login authorizes a brief staff-change window.
+     * This is server-side session metadata, never a second browser token.
+     * Older sessions with no timestamp require an explicit re-verification.
+     */
+    public static function managerVerifiedRecently(?int $now = null): bool
+    {
+        $now ??= time();
+        $auth = $_SESSION['admin_auth'] ?? null;
+        $verified = is_array($auth) ? ($auth['manager_verified_at'] ?? null) : null;
+        return self::authenticatedId($now) !== null
+            && is_int($verified) && $verified <= $now
+            && $now - $verified < self::STAFF_STEPUP_SECONDS;
+    }
+
+    /** Call only after current manager credentials were verified on the server. */
+    public static function markManagerVerified(?int $now = null): void
+    {
+        $now ??= time();
+        if (self::authenticatedId($now) === null) {
+            throw new RuntimeException('Cannot verify an expired administrator session.');
+        }
+        $_SESSION['admin_auth']['manager_verified_at'] = $now;
     }
 
     /**
