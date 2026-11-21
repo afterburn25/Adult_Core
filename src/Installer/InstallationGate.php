@@ -62,6 +62,14 @@ final class InstallationGate
         if (in_array($this->status(), [self::BACKUP_RESTORE_PENDING, self::EDITION_UPGRADE_PENDING, self::LICENSE_UPDATE_PENDING], true)) {
             return false;
         }
+        // An add-on activation can also leave two private entitlement files
+        // from different generations. Never back up that inconsistent pair.
+        $moduleDir = $this->projectRoot . '/storage/packages/module-licenses';
+        if (is_link($moduleDir)) return false;
+        if (is_dir($moduleDir)) {
+            if (!is_readable($moduleDir)) return false;
+            if (glob($moduleDir . '/.pending-*') ?: []) return false;
+        }
         return $this->installedStatus() === self::READY;
     }
 
