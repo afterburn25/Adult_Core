@@ -36,7 +36,7 @@ if ($state === InstallationGate::SETUP_REQUIRED) {
 // This gate is evaluated BEFORE any application/admin route, including /install.
 if ($state !== InstallationGate::READY) {
     http_response_code(503);
-    header('Retry-After: 3600');
+    header('Retry-After: '.($state === InstallationGate::BACKUP_MAINTENANCE ? '300' : '3600'));
     $messages = [
         InstallationGate::CLEANUP_REQUIRED => [
             'Installation cleanup required',
@@ -45,6 +45,10 @@ if ($state !== InstallationGate::READY) {
         InstallationGate::INSTALLER_MISSING => [
             'Installer missing',
             'Installation is not complete and install/ is missing. Restore the install/ directory from the matching release package. The site and /admin remain locked.',
+        ],
+        InstallationGate::BACKUP_MAINTENANCE => [
+            'Backup maintenance',
+            'The website is temporarily unavailable while an administrator creates a secure backup. Try again after maintenance is complete.',
         ],
         InstallationGate::EDITION_UPGRADE_PENDING => [
             'Edition upgrade recovery required',

@@ -1,3 +1,9 @@
+## New in 0.8.9 — verify/copy and coordinated maintenance
+
+The existing archive format and this empty-target restore command are unchanged. Optional read-only `scripts/verify-backup.php`, `scripts/ship-backup.php` and coordinated `scripts/backup-job.php` are described in [Backup Operations](BACKUP_OPERATIONS.md). A private vault path is **not** proof of offsite replication. Pause in-flight writes and Pro workers at the host before running the job; the new fail-closed maintenance marker only blocks new HTTP requests. Always rehearse a full isolated restore.
+
+---
+
 # Encrypted portable backup and disaster restore — 0.8.8-backup-dev
 
 **Development safety milestone, not a production certification.** Lite and Pro use the same CLI tools and the installed license remains bound to its original Cajun Web Pro SKU/domain. No recurring payment, CWP license, billing record or identity verification is created by restoration. No browser download/upload interface is provided.

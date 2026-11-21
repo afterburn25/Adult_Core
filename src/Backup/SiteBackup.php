@@ -40,7 +40,7 @@ final class SiteBackup
     /** CLI-managed export; quiesce site and Pro workers before calling. */
     public function create(PDO $pdo,string $destination,string $hexKey):array
     {
-        if((new InstallationGate($this->root))->status()!==InstallationGate::READY)throw new RuntimeException('Only a completed, unlocked installation can be backed up.');
+        if(!(new InstallationGate($this->root))->eligibleForBackup())throw new RuntimeException('Only a completed, signed installation without pending recovery can be backed up.');
         $this->assertMysql($pdo);
         Schema::verify($pdo);
         $dir=realpath(dirname($destination));$root=realpath($this->root);

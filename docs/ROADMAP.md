@@ -1,3 +1,9 @@
+# 0.8.9 development checkpoint — backup verification, private vault and controlled scheduling
+
+Encrypted archival verification and verified vault rotation are now development features. Operators can schedule the CLI job **only with actual host-side draining, stopped file/DB writers and stopped Pro workers**; the new HTTP maintenance gate alone does not guarantee a consistent cross-file/database snapshot. Retention is count-based in an operator-provided private directory, not remote upload, immutable storage or true PITR. Real cPanel and Pro VPS disaster drills, cloud/remote replication, external monitoring, billing sandbox activation and independent compliance/security review remain open. See `docs/BACKUP_OPERATIONS.md`.
+
+---
+
 # Current milestone — encrypted portable backup and empty-site restore (0.8.8-backup-dev)
 
 Development implementation: streaming encrypted `.acfull` backup covers Adult_Core MySQL schema/rows and private media/license/MFA files; CLI-only verified restore targets a fresh same-version source plus completely empty dedicated MySQL database and preserves the installer gate. See `docs/PORTABLE_BACKUP_RECOVERY.md` for explicit limits and destructive-DDL warnings. Complete production backup/restore is **not yet certified**: offsite retention, write quiescence, cPanel/VPS drills, large data, database PITR and independent security review remain. Cajun Web Pro real product registration/billing and adult identity/consent/processor gates remain unchanged.

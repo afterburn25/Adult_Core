@@ -6,6 +6,8 @@ declare(strict_types=1);
 require dirname(__DIR__).'/src/Support/Autoload.php';
 use AdultCore\Backup\SiteBackup;
 use AdultCore\Backup\StreamArchive;
+use AdultCore\Backup\BackupVerifier;
+use AdultCore\Backup\BackupVault;
 use AdultCore\Database\Schema;
 use AdultCore\Database\Connection;
 use AdultCore\Installer\InstallService;
@@ -22,7 +24,7 @@ if(!is_string($db)||!is_string($user)||!is_string($pass)||!preg_match('/^[A-Za-z
 $pdo=new PDO("mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4",$user,$pass,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]);
 Schema::assertFresh($pdo);
 $base=sys_get_temp_dir().'/adult-core-backup-mysql-'.bin2hex(random_bytes(8));mkdir($base,0700);
-$src=$base.'/source';$dst=$base.'/restored';$archive=$base.'/recovery.acfull';
+$src=$base.'/source';$dst=$base.'/restored';$archive=$base.'/recovery.acfull';$vaultDir=$base.'/vault';mkdir($vaultDir,0700);
 $backupKey=bin2hex(random_bytes(32));$check=0;
 function verifyRecovery(bool $condition,string $msg):void{global $check;if(!$condition)throw new RuntimeException('Backup restore regression: '.$msg);$check++;}
 function testRoot(string $root):void{
@@ -74,10 +76,20 @@ try{
     verifyRecovery((new InstallationGate($src))->status()===InstallationGate::READY,'Source is installed');
     $originalState=file_get_contents($src.'/storage/install-state.json');
     $originalMfaHash=(string)$pdo->query("SELECT password_hash FROM ac_users WHERE email='owner@example.test'")->fetchColumn();
+    file_put_contents($src.'/storage/.backup-maintenance','site writes paused for disposal fixture');
+    verifyRecovery((new InstallationGate($src))->status()===InstallationGate::BACKUP_MAINTENANCE,'Maintenance gate locks HTTP during real database backup');
     $stats=(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);
+    unlink($src.'/storage/.backup-maintenance');
+    verifyRecovery((new InstallationGate($src))->status()===InstallationGate::READY,'Temporary backup maintenance releases signed site');
     verifyRecovery($stats['tables']>=7&&$stats['rows']>=6&&$stats['files']>=6,'Encrypted backup contains schema, rows and private files');
     verifyRecovery(is_file($archive)&&!str_contains((string)file_get_contents($archive),'Original member content preserved.'),'Archive is encrypted');
     $originalArchiveHash=hash_file('sha256',$archive);
+    $checkReport=(new BackupVerifier())->verify($archive,$backupKey);
+    verifyRecovery($checkReport['sha256']===$originalArchiveHash&&$checkReport['edition']==='lite','Read-only verifier authenticates real MySQL and private media archive');
+    verifyRecovery($checkReport['tables']===$stats['tables']&&$checkReport['rows']===$stats['rows']&&$checkReport['files']===$stats['files'],'Read-only semantic counts match the real database backup');
+    $vaultCopy=(new BackupVault($src))->ship($archive,$vaultDir,$backupKey,2);
+    verifyRecovery(is_file($vaultCopy['archive'])&&$vaultCopy['sha256']===$originalArchiveHash,'Vault contains an identical authenticated encrypted backup');
+    verifyRecovery((new BackupVerifier())->verify($vaultCopy['archive'],$backupKey)['file_bytes']===$stats['file_bytes'],'Transferred media blocks reverify with the offline key');
     try{(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);throw new RuntimeException('Archive overwrite accepted');}
     catch(RuntimeException $e){if($e->getMessage()==='Archive overwrite accepted')throw $e;}
     verifyRecovery(is_file($archive)&&hash_file('sha256',$archive)===$originalArchiveHash,'Refused overwrite must preserve original backup byte-for-byte');
@@ -95,7 +107,7 @@ try{
     catch(RuntimeException $e){if($e->getMessage()==='Truncated restore accepted')throw $e;}
     Schema::assertFresh($pdo);
     verifyRecovery(!file_exists($dst.'/storage/.backup-restore-pending'),'Corrupt preflight refuses before modifying DB');
-    $restored=$recovery->restore(Connection::open($dst),$archive,$backupKey);
+    $restored=$recovery->restore(Connection::open($dst),$vaultCopy['archive'],$backupKey);
     verifyRecovery($restored===$stats,'Backup and restore counters agree');
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
     verifyRecovery($pdo->query("SELECT title FROM ac_pages WHERE slug='home'")->fetchColumn()==='Recovered creator page','Creator page retained');

@@ -1,3 +1,9 @@
+## 0.8.9 backup vault and scheduled-job controls
+
+Cryptographically verified archives remain sensitive, encrypted containers. A read-only inspector checks authenticated record order, row encoding, media hashes and the signed installation state without printing recovered secrets. Vault shipping uses private staging, postcopy validation and byte identity; only older verified, expected-name archives can be pruned after a new copy is durable. A site maintenance marker causes 503 on public/admin routes and survives hard crashes, but is **not** a database/filesystem transaction or guarantee that earlier requests and Pro workers have stopped. Production use requires independently arranged write quiescence, offsite replication, key escrow, alerting and recovery drills; do not keep keys under `public/`, in Git or in crontab. See `docs/BACKUP_OPERATIONS.md`.
+
+---
+
 ## Encrypted recovery hardening — 0.8.8-backup-dev
 
 CLI-only `.acfull` backup uses an **independent offline AES-256-GCM key**, authenticated sequenced streaming records, mandatory final record, file hashes, and strict source/destination path policy. Encrypted archives include sensitive user data, license keys and MFA secrets; store offline under controlled retention and never expose via `public/`. Restore is deliberately destructive only to a fresh, empty dedicated DB/target; MySQL DDL cannot be rolled back, so a pending marker blocks every HTTP route after an interrupted import. Preserve the marker until the failed target is wiped and rebuilt; never delete it to bypass the safety gate. See `docs/PORTABLE_BACKUP_RECOVERY.md`.

@@ -1,3 +1,9 @@
+## ADR — Explicitly verified private backup vault and coordinated maintenance (2026-11-20)
+
+A backup copy is not trusted merely because the encrypted file exists or `fwrite()` succeeded. Independently authenticate and structurally validate complete files and signed installation state after transfer; delete only known-name old *verified* archives, after a new verified copy is durable. No filename or mount path can establish remote replication. To support shared hosting with no background service, provide optional CLI/cron entry points while refusing ordinary jobs unless the operator confirms traffic and writers are drained. Backup maintenance fails new HTTP routes closed and crash markers persist. No claim of automatic Pro-agent control, real point-in-time consistency or hosted recovery readiness follows from these controls.
+
+---
+
 ## 2026-11-20 — First-party TOTP MFA, no external secret-sharing
 
 An authenticated password login for an MFA-enrolled administrator becomes an unprivileged, expiring challenge, not a regular admin session. Use RFC 6238 TOTP and app-key-encrypted secrets, with single-use HMAC recovery codes and authenticated, replay-safe consumption. Do not outsource enrollment QR creation to a third-party service or bypass MFA during vendor-license recovery; `/admin/mfa` is explicitly allowed by the commercial-license gate. Existing installations may add the schema through the authorized setup route and a prior enrollment marker blocks table/row-deletion downgrade. No public adult media, billing or licensing verification changes.

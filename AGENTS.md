@@ -1,3 +1,9 @@
+## Current milestone: verified backup vault + controlled cron-safe operations — 0.8.9-backup-ops-dev
+
+Preserve the original AES-GCM `.acfull` format, strict *empty-target-only* restoration, signed installation and Cajun Web Pro edition/product licensing. `src/Backup/BackupVerifier.php` deeply authenticates, checks file checksums, schema/rows and signed install state without restoring or exposing secrets. `BackupVault::ship()` copies to a separate operator-provided private directory, verifies after copy and prunes only recognizable older verified files; it deliberately cannot certify that a path is genuinely offsite. `scripts/backup-job.php` adds a 503 maintenance marker blocking **new** HTTP and requires explicit site-writes-paused acknowledgment; **it cannot stop already-running PHP requests/Pro workers**, so actual quiescence is still an operator prerequisite. Hard-crash markers stay fail-closed; never delete them before incident review. Run `php tests/backup_vault_tests.php`, all local suites, disposable MySQL backup/restore CI and real host drills before release. Details in `docs/BACKUP_OPERATIONS.md`. **No production 1.0 or billing certification**.
+
+---
+
 ## Current security increment: full-site encrypted disaster recovery — 0.8.8-backup-dev
 
 Do not weaken the `SiteBackup` fresh-empty-database restore boundary, `Storage/.backup-restore-pending` fail-closed marker, independently stored backup key, encrypted streaming record verification, private-file traversal limits or MySQL DDL nontransactional warning. Restore **never** merges into an existing installation. Keep `install/` present after restoration for operator verification; manually delete it before normal access. `config/database.php` must be newly provisioned on the destination and excluded from archived files. Real MySQL CI and independent Lite/Pro host drills are mandatory before production use. See `docs/PORTABLE_BACKUP_RECOVERY.md`.

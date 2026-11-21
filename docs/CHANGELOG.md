@@ -1,3 +1,12 @@
+## 0.8.9-backup-ops-dev — Verified backup operations and private vault retention
+
+- Add CLI read-only authenticated archive verifier: validates version/edition, schema/row ordering, safe private-file paths, chunk lengths/hashes, signed installation state, mandatory files and authenticated terminal counters; never exports secrets.
+- Add private vault copy + postcopy full verification/SHA-256 match, immutable unique naming, conservative retention of the newest N verified backups, stale/concurrent lock refusal and preservation of unreadable/unknown files.
+- Add opt-in cron-compatible backup job requiring externally quiesced writes and Pro worker shutdown confirmation. The signed installed site enters fail-closed backup maintenance (503) for new HTTP requests during the operation; a hard crash leaves a marker for operator recovery.
+- Add isolated unit tests, CI integration with full real-MySQL vault-copy-to-empty-DB restore, operator runbook and CLI commands. No storage-provider upload, automatic write quiescence, real host recovery certification or production 1.0 claim.
+
+---
+
 ## 0.8.8-backup-dev — Encrypted full-site restore development milestone
 
 - Add a streaming AES-256-GCM authenticated archive for all Adult_Core InnoDB DDL/rows and explicitly allowed private media/config files (including signed licensing, design, MFA material), excluding sessions and old DB credentials.
