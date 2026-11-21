@@ -1,3 +1,12 @@
+## Paid add-on license defense in depth — 2026-11-21
+
+- Paid modules retain **separate Cajun Web Pro module-SKU license keys** and HMAC-signed receipts. A module's successful receipt does **not** override an incomplete installation or an expired, revoked, wrong-domain, or unavailable **core** license.
+- Before paid module activation or runtime entitlement checks, the module manager now requires a **ready signed installation** and a currently authorized core license (including the core's signed-cache, denial and bounded-outage policies). This also protects backend service calls not routed through the HTTP controller. The module's own entitlement must independently remain authorized.
+- The module manager also refuses symlinked storage parents, its private `.lock`, and symlinked module license configuration/cache files. Both private destinations are preflight-checked under the module lock before activation rewrites either one. The two writes are not one atomic filesystem transaction; external trusted-backup recovery may still be necessary after an unexpected mid-write failure.
+- `tests/package_tests.php` exercises these failure modes with fixture license keys and signed local installation state, including core revocation and interrupted replacement. These are **not live Cajun Web Pro addon purchases**, real renewal events, or real host deployments.
+
+---
+
 ## 0.8.6.7 subscription-lifecycle verification boundary
 
 Automated isolated HTTP contract simulation exercises product binding, initial monthly activation, paid-through expiration, renewal/restoration, cancellation, definitive revocation, wrong domains, rate limits and transient service failures with the actual Adult_Core resolver and signed license cache. `tests/cwp_subscription_contract.py` **does not use the actual Cajun Web Pro issuer server**. The license screen now explicitly states that key replacement cannot cancel monthly payments and that Adult_Core does not know the next bill date; the billing link remains `https://cajunwebpro.com`. Real Cajun Web Pro catalog and approved merchant sandbox acceptance are still required. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`.
