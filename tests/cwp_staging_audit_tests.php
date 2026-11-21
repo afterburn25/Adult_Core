@@ -73,11 +73,50 @@ try {
     $assert('Matching product authorizes', $report['outcome'] === 'passed');
     $assert('Edition comes from product', $report['edition'] === 'lite');
     $assert('Monthly term is preserved', $report['term'] === 'month');
-    $assert('Exactly three read-only validation calls', count($calls) === 3 && $report['api_calls'] === 3);
+    $assert('Exactly five read-only validation calls', count($calls) === 5 && $report['api_calls'] === 5);
     $assert('Correct product first', $calls[0]['product_id'] === $sku && $calls[0]['domain'] === $domain);
-    $assert('Other product denied', $report['checks']['other_product'] === 'denied' && $calls[1]['product_id'] !== $sku);
-    $assert('Unregistered domain denied', $report['checks']['unregistered_domain'] === 'denied' && $calls[2]['domain'] === CwpStagingAudit::NEGATIVE_DOMAIN);
+    $otherSkus = array_values(array_filter(array_keys(CajunWebClient::products()), static fn(string $other): bool => $other !== $sku));
+    $assert('All three other product checks are separately denied',
+        array_keys($report['checks']['other_products']) === $otherSkus
+        && count(array_filter($report['checks']['other_products'], static fn(string $answer): bool => $answer === 'denied')) === 3
+        && array_column(array_slice($calls, 1, 3), 'product_id') === $otherSkus);
+    $assert('Unregistered domain denied', $report['checks']['unregistered_domain'] === 'denied'
+        && $calls[4]['domain'] === CwpStagingAudit::NEGATIVE_DOMAIN
+        && $calls[4]['product_id'] === $sku);
     $assert('Report never includes the private key', !str_contains(json_encode($report, JSON_THROW_ON_ERROR), $key));
+
+    // If any *one* of the three competing SKUs is incorrectly authorized,
+    // the audit must fail rather than misreport a valid single-product grant.
+    foreach (array_keys(CajunWebClient::products()) as $expectedSku) {
+        foreach (array_keys(CajunWebClient::products()) as $unexpectedSku) {
+            if ($unexpectedSku === $expectedSku) continue;
+            $overbroad = new CajunWebClient(static function (string $request) use ($expectedSku, $unexpectedSku, $domain): array {
+                $in = json_decode($request, true, 8, JSON_THROW_ON_ERROR);
+                $authorized = $in['domain'] === $domain
+                    && in_array($in['product_id'], [$expectedSku, $unexpectedSku], true);
+                return ['status' => 200, 'body' => json_encode(['authorized' => $authorized], JSON_THROW_ON_ERROR)];
+            });
+            $result = CwpStagingAudit::run($overbroad, $key, $domain, $expectedSku);
+            $assert('Cross-product grant never passes '.$expectedSku.' / '.$unexpectedSku,
+                $result['outcome'] === 'failed'
+                && $result['checks']['other_products'][$unexpectedSku] === 'valid');
+        }
+    }
+    // A transient answer for any individual competing SKU is inconclusive,
+    // not equivalent to a definitive denial.
+    foreach (array_keys(CajunWebClient::products()) as $uncertainSku) {
+        $uncertain = new CajunWebClient(static function (string $request) use ($sku, $domain, $uncertainSku): array {
+            $in = json_decode($request, true, 8, JSON_THROW_ON_ERROR);
+            if ($in['product_id'] === $uncertainSku && $in['domain'] === $domain) {
+                return ['status' => 503, 'body' => '{}'];
+            }
+            return ['status' => 200, 'body' => json_encode([
+                'authorized' => $in['product_id'] === $sku && $in['domain'] === $domain,
+            ], JSON_THROW_ON_ERROR)];
+        });
+        $result = CwpStagingAudit::run($uncertain, $key, $domain, $sku);
+        $assert('Staging control outage is inconclusive '.$uncertainSku, $result['outcome'] === 'inconclusive');
+    }
 
     $allTrue = new CajunWebClient(static fn(string $request): array => ['status'=>200, 'body'=>'{"authorized":true}']);
     $assert('Master/overbroad grants fail negative controls', CwpStagingAudit::run($allTrue, $key, $domain, $sku)['outcome'] === 'failed');
