@@ -92,6 +92,22 @@ final class MemberController
                 $this->report($pdo, $method, $accounts);
                 return;
             }
+            if (str_starts_with($path, '/members/library/')) {
+                if ($method !== 'GET') { $this->denyMethod('GET'); return; }
+                if (preg_match('#^/members/library/([1-9][0-9]{0,17})$#D', $path, $match) !== 1) {
+                    $this->view(404,'Not found','<p>Gallery unavailable.</p>'); return;
+                }
+                $member=$this->member($accounts);
+                if ($member===null) { $this->redirect('/members/login'); return; }
+                $gallery=(new MemberLibrary($pdo))->detail((int)$member['id'],(int)$match[1]);
+                if ($gallery===null) {
+                    // An unauthorized, unapproved or missing item is the
+                    // same external response: no gallery metadata disclosure.
+                    $this->view(404,'Not found','<p>Gallery unavailable.</p>'); return;
+                }
+                $this->view(200, 'Private gallery', MemberLibrary::renderDetail($gallery));
+                return;
+            }
             if ($path === '/members/library') {
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 $member = $this->member($accounts);
