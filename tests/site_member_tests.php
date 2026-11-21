@@ -25,8 +25,34 @@ claim(str_contains($emptyLibrary,'No content is currently available')
 $escapedLibrary=MemberLibrary::render([['id'=>12,'title'=>'<script>secret</script>','visibility'=>'paid']]);
 claim(!str_contains($escapedLibrary,'<script>') && str_contains($escapedLibrary,'&lt;script&gt;')
     && str_contains($escapedLibrary,'Paid membership')
+    && str_contains($escapedLibrary,'href="/members/library/12"')
     && !str_contains($escapedLibrary,'/media/'),
-    'Private library encodes content titles without generating unguarded media links');
+    'Private library escapes titles and links only to guarded gallery details');
+$detailPage=MemberLibrary::renderDetail([
+    'id'=>12,'title'=>'<img src=x onerror=alert(1)>','visibility'=>'paid',
+    'media'=>[
+        ['id'=>19,'mime_type'=>'image/jpeg'],
+        ['id'=>20,'mime_type'=>'text/html'],
+        ['id'=>21,'mime_type'=>'image/svg+xml'],
+    ],
+]);
+claim(str_contains($detailPage,'&lt;img src=x onerror=alert(1)&gt;')
+    && !str_contains($detailPage,'<img src=x')
+    && str_contains($detailPage,'src="/media/19"')
+    && !str_contains($detailPage,'/media/20')
+    && !str_contains($detailPage,'/media/21')
+    && str_contains($detailPage,'/members/report?id=12'),
+    'Private gallery escapes metadata and renders only guarded safe image URLs');
+claim(str_contains(MemberLibrary::renderDetail([
+    'id'=>99,'title'=>'Empty gallery','media'=>[],
+]),'no approved images'), 'Approved text-only empty galleries render safely');
+try {
+    MemberLibrary::renderDetail(['id'=>0,'title'=>'Invalid','media'=>[]]);
+    throw new RuntimeException('Invalid gallery accepted');
+} catch (RuntimeException $e) {
+    claim($e->getMessage()!=='Invalid gallery accepted',
+        'Invalid gallery data rejected by renderer');
+}
 foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@example.com',str_repeat('p',73)]] as $case) {
     try { MemberAccounts::validate(...$case); throw new RuntimeException('Bad registration accepted'); }
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Bad registration accepted', 'Invalid registration rejected'); }
