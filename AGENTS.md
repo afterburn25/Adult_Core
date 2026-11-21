@@ -1,3 +1,9 @@
+## Pro job receipt authenticated metadata — 2026-11-21
+
+Keep `JobInbox::receiptMac()` bound to the entire `received_at/job/signature/status` record using the separate `adult-core-pro-receipt-v1` HMAC domain. Idempotent retries must reject tampered status or timestamps, changed jobs/signatures, corrupted or unsigned legacy receipts; never auto-delete legal/incident-sensitive job records. Future production workers MUST provide a separately reviewed atomic receipt state transition and supervision/authorization model, not direct writes that bypass MAC verification. Existing `JobEnvelope` expiry and allowlisted payload checks remain in force. The current inbox NEVER executes video, shell or media delivery.
+
+---
+
 ## Pro job inbox private path guard — 2026-11-21
 
 `JobInbox::accept()` must reject a symlinked/missing `storage/` parent and symlinked `pro-jobs/` before creating signed receipts. A valid HMAC job cannot authorize private filesystem redirection. Preserve `tests/pro_release_tests.php` linked-parent negative control. This inbox only records signed jobs, it never executes shell, FFmpeg or publishes video; the production VPS worker and streaming gate remain open.

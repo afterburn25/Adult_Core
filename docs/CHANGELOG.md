@@ -1,3 +1,9 @@
+## Pro receipt integrity MAC — 2026-11-21
+
+- Seal receipt status and timestamp as well as original job/signature with a domain-separated SHA-256 HMAC.
+- Reject tampered status, modified timestamps, unsigned old receipts and conflicting signed replays, preserving operator-only recovery.
+- Add isolated signed-envelope tests; queue, FFmpeg and live-stream worker remain unfinished.
+
 ## Pro receipt private-path guard — 2026-11-21
 
 - Reject symlinked `storage/` before creating any signed Pro job receipt; reject symlinked `pro-jobs/` as before.

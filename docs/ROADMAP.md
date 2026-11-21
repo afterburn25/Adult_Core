@@ -1,3 +1,9 @@
+## HMAC-authenticated Pro job receipts — 2026-11-21
+
+Accepted signed Pro job receipts now include an additional domain-separated HMAC over the complete stored `received_at`, original signed `job`, `signature` and `status` fields. Replaying an identical signed envelope requires a matching stored receipt MAC; changed status/timestamps, missing MACs and corrupt fields fail closed instead of being treated as a valid duplicate. This is an internal receipt integrity safeguard, not job execution, background supervision, video transcoding, streaming, idempotent processing or deployment readiness. Legacy unsigned receipts need controlled operator review, not automatic deletion. No production Pro worker has been deployed.
+
+---
+
 ## Pro job receipt storage ancestry — 2026-11-21
 
 `JobInbox::accept()` now refuses a symlinked or absent `storage/` ancestor before creating `storage/pro-jobs`. Disposable tests assert that a valid signed Pro envelope cannot redirect a private receipt into a linked destination. This extends existing replay/corruption checks **without executing a job or starting a worker**. Real VPS service provisioning, durable queue processing, FFmpeg isolation, signed HLS and load/recovery acceptance remain open.

@@ -1,3 +1,9 @@
+## Pro receipt status/timestamp integrity — 2026-11-21
+
+`JobInbox` persists `mac` over the complete receipt using a domain-separated HMAC keyed by the already validated job secret. Existing signed original envelopes remain unchanged; receipt status, `received_at`, payload, envelope signature and their serialized field ordering must match the stored HMAC on idempotent reacceptance. Tampering, missing receipt MACs and legacy unsealed records fail closed; **do not silently delete old receipts or mark jobs completed**, and future worker status transitions require an authenticated atomic update contract. `tests/pro_release_tests.php` adds status/timestamp/missing-seal regressions. Verify the latest GitHub Actions result before claiming green. This does not run FFmpeg or close Pro hosting/streaming release gates.
+
+---
+
 ## Metadata audit mode visibility — 2026-11-21
 
 The private-media audit now includes `metadata_scan_enabled` in its text/JSON aggregate report. The default quick scan explicitly reports `false`; an operator using `--metadata` sees `true`. This prevents a zero metadata-rejection count in a **non-metadata** quick scan from being mistaken for verification. The bounded scan still refuses to certify truncated or risky data, and never outputs filenames, keys or private content. Unit/CI acceptance should be checked against the latest commit.
