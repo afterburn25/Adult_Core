@@ -316,6 +316,9 @@ def main():
             code, anonymous_library = req('/members/library')
             ensure('Anonymous private library redirects to member sign-in',
                    code == 303 and 'Fixture gallery' not in anonymous_library)
+            code, anonymous_detail = req(f'/members/library/{draft_id}')
+            ensure('Anonymous gallery details require an authenticated member',
+                   code == 303 and 'Private test draft' not in anonymous_detail)
             # Registration creates a pending member, not a verified adult.
             code, registration = req('/join')
             join_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', registration)
@@ -334,6 +337,18 @@ def main():
                    and '<img' not in library)
             code, rejected_post = req('/members/library', {'test': 'unsafe'})
             ensure('Member library forbids mutating HTTP methods', code == 405)
+            code, forbidden_detail = req(f'/members/library/{draft_id}')
+            ensure('Pending member does not see draft gallery detail',
+                   code == 404 and 'Private test draft' not in forbidden_detail
+                   and 'Protected gallery image' not in forbidden_detail)
+            code, absent_detail = req('/members/library/999999999')
+            ensure('Unknown gallery and denied gallery have identical external response',
+                   code == 404 and absent_detail == forbidden_detail)
+            code, malformed_detail = req('/members/library/1unsafe')
+            ensure('Malformed gallery URL is not interpreted as a valid content ID',
+                   code == 404 and 'Private test draft' not in malformed_detail)
+            code, method_detail = req(f'/members/library/{draft_id}', {'unsafe': 'POST'})
+            ensure('Private gallery detail only allows GET', code == 405)
             code, email_page = req('/members/email')
             ensure('Email settings available', code == 200 and 'Not confirmed' in email_page)
             code, bad_confirm = req('/members/email/confirm?token=invalid')
