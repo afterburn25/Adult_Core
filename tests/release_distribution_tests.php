@@ -31,6 +31,7 @@ try {
         'public/index.php','src/Membership/MemberLibrary.php',
         'src/Support/ReleaseMilestones.php','src/Support/ReleaseReadiness.php',
         'src/Billing/WebhookInbox.php','src/Pro/JobInbox.php',
+        'src/Media/PrivateMediaAudit.php','scripts/audit-private-media.php',
         'src/Verification/VerificationRegistry.php','src/Installer/InstallService.php',
         'docs/WORKSTREAM_ACCEPTANCE.md','config/editions/lite.json',
         'config/editions/pro.json','VERSION',
