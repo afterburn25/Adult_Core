@@ -92,6 +92,7 @@ final class ModuleLicenseManager
         if (!is_resource($lock)) throw new RuntimeException('Module license lock unavailable.');
         try {
             if (!flock($lock,LOCK_EX)) throw new RuntimeException('Module license lock unavailable.');
+            $this->assertSafeStorage();
             // Both destinations must be safe before writing either one.
             self::assertReplaceable($dir.'/'.$id.'.php');
             self::assertReplaceable($dir.'/'.$id.'.json');
