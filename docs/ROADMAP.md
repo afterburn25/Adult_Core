@@ -1,3 +1,19 @@
+## Ten-workstream development increment — 2026-11-21
+
+The owner requested implementation across **all ten** workstreams. The single unified Lite/Pro product, edition-selected by the four Cajun Web Pro SKUs, remains unchanged. This increment delivers **code and development tests, not commercial launch**:
+
+- **#4 Member billing:** `WebhookInbox::recordVerified()` now treats an exact verified event retry as idempotent while refusing conflicting payload or type under the same provider event ID. A new disposable real-MySQL contract test runs in CI. This never charges a card or grants a membership; a contracted adult-approved processor adapter remains missing.
+- **#5 / #8 Private member UX:** `/members/library` displays a text-only entitled catalog to logged-in members and hides unverified age, incomplete performer consent, failed moderation, unpaid tiers and all unpublished titles. Tests use actual MySQL and a browser HTTP session. It is not a creator upload or approved adult gallery launcher.
+- **#3 Identity/consent status:** The read-only admin moderation queue summarizes expected performer records and evidence coverage, explicitly stating that local evidence is not independent publication approval.
+- **#6 Pro foundation:** The signed job inbox rejects a conflicting reused job ID, corrupted stored records and tampered persisted signatures; no video transcoder or streaming worker is installed.
+- **#7 Signed package updates:** The administrator can run a trusted-publisher signed ZIP **compatibility preview** for an installed, disabled, data-only add-on or theme. It rejects downgrades, product/publisher changes and unsupported editions without writing installed assets or registry. Actual package replacement, rollback and executable extension runtime remain **unimplemented**.
+- **#10 Release control:** `ReleaseMilestones`, `scripts/release-matrix.php --json` and the existing `release-check.php` uniformly track ten open production gates. Neither CI nor simulation can mark the app ready.
+- **#1 / #2 / #9:** Existing four-SKU license validation, host preflights, HTTPS audit and encrypted backup/restore are preserved. Actual owner-controlled CWP product/payment staging, real Lite cPanel/Pro VPS installation and real disaster drills remain untested; see [WORKSTREAM_ACCEPTANCE.md](WORKSTREAM_ACCEPTANCE.md).
+
+**Not completed:** real member payments, age/identity contracts, verified performer consent policy, public adult uploads, production video/streaming, executable third-party extensions, complete page builder, signed upgrade/rollback installation lifecycle, and independent security/compliance acceptance. These remain explicit production blockers.
+
+---
+
 ## Paid add-on license recovery safety — 2026-11-21 (development only)
 
 Signed, separately purchased module entitlements now require a valid core license and ready installation before use. New add-on activations create a private per-module pending marker before rewriting the separate module key/configuration and HMAC receipt; an interrupted update makes only the affected add-on unavailable until an authenticated administrator revalidates the add-on key through **Repair paid module license**. Backup creation refuses module-activation pending markers; encrypted archives exclude nested module-license journals/locks. Test coverage includes simulated interrupted writes, tampered/symlinked paths, UI repair forms, reactivation and backup behavior. [GitHub Actions 44886306977](https://github.com/afterburn25/Adult_Core/actions/runs/44886306977) passed for source/test commit `f2e6b73a`.
