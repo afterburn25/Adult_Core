@@ -61,8 +61,9 @@ def main():
         _, pro, _ = scan(expected="pro", env=env)
         by_id = {x["id"]: x for x in pro["checks"]}
         check(by_id["host_verified_pro_background_service"]["pass"], "Agent accepted only with matching token")
-        check("pro_agent" not in next(x["detail"] for x in pro["checks"] if x["id"] == "edition_capabilities" and not x["pass"]),
-              "Pro agent capability satisfied")
+        capability = by_id["edition_capabilities"]
+        check(capability["pass"] or "pro_agent" not in capability["detail"],
+              "Pro agent capability satisfied whether all requirements pass or another dependency is missing")
         wrong_env = dict(env, AFTERBURN_PRO_AGENT_TOKEN=secrets.token_urlsafe(42))
         _, badpro, _ = scan(expected="pro", env=wrong_env)
         check(not next(x for x in badpro["checks"] if x["id"] == "host_verified_pro_background_service")["pass"],
