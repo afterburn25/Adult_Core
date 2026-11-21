@@ -91,6 +91,17 @@ final class ModerationController
                 if ($action==='new_draft') {
                     if (!is_string($_POST['title']??null)) throw new RuntimeException('Title is required.');
                     $repo->createDraft($_POST['title'], $admin['id']);
+                } elseif ($action==='rename_draft') {
+                    $repo->renameDraft(
+                        self::positiveId($_POST['content_id']??null), $admin['id'],
+                        self::safeString($_POST['expected_title']??null),
+                        self::safeString($_POST['title']??null)
+                    );
+                } elseif ($action==='reject_draft_image') {
+                    $repo->rejectDraftImage(
+                        self::positiveId($_POST['media_id']??null),$admin['id'],
+                        self::safeString($_POST['note']??null)
+                    );
                 } elseif ($action==='declare_performers') {
                     $repo->declarePerformers(self::positiveId($_POST['content_id']??null),$admin['id'],self::positiveId($_POST['performer_count']??null));
                 } elseif ($action==='upload_draft_image') {
@@ -120,7 +131,9 @@ final class ModerationController
                 'Only private, unreviewed drafts accept images.','Private draft image limit reached.',
                 'Invalid or oversized image upload.','Image type not allowed.','Image type or dimensions not allowed.',
                 'Private image could not be safely inspected.','Image contains metadata or an unsupported image structure.',
-                'Private storage unavailable.'];
+                'Private storage unavailable.','Only private, unreviewed drafts can be edited.',
+                'Draft changed; reload the moderation queue before editing.','Draft title is unchanged.',
+                'Pending private draft image not found.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -161,7 +174,7 @@ final class ModerationController
             .'<label>Existing unpublished draft ID<input type="number" name="content_id" min="1" required></label>'
             .'<label>Private image<input type="file" name="draft_image" accept="image/jpeg,image/png,image/webp" required></label>'
             .'<button class="button-secondary" type="submit">Store image privately for review</button></form></section>';
-        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
+        $html.='<section class="panel"><h2>Content queue</h2><p class="muted">Draft names can be edited only while unpublished and pending review. Concurrent edits are refused until the queue is reloaded.</p><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th><th>Draft title</th></tr></thead><tbody>';
         foreach ($repo->contentQueue() as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
@@ -169,7 +182,20 @@ final class ModerationController
                 .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="content_id" value="'.$id.'">'
                 .'<label>Decision<select name="action"><option value="quarantine">Quarantine</option><option value="reject">Reject</option></select></label>'
                 .'<label>Reason<input name="note" required minlength="10" maxlength="500" placeholder="Reason for review decision"></label>'
-                .'<button class="button-secondary">Record decision</button></form></td></tr>';
+                .'<button class="button-secondary">Record decision</button></form></td><td>';
+            if ($item['status']==='draft' && $item['visibility']==='private'
+                && $item['review_status']==='pending') {
+                $html.='<form method="post" action="/admin/moderation">'
+                    .'<input type="hidden" name="csrf" value="'.$csrf.'">'
+                    .'<input type="hidden" name="action" value="rename_draft">'
+                    .'<input type="hidden" name="content_id" value="'.$id.'">'
+                    .'<input type="hidden" name="expected_title" value="'.self::e((string)$item['title']).'">'
+                    .'<label>Edit title<input name="title" value="'.self::e((string)$item['title']).'" maxlength="190" required></label>'
+                    .'<button class="button-secondary">Save private title</button></form>';
+            } else {
+                $html.='<span class="muted">Not editable</span>';
+            }
+            $html.='</td></tr>';
         }
         $html.='</tbody></table></section>';
         $html.='<section class="panel"><h2>Pending private draft images</h2>'
@@ -180,7 +206,14 @@ final class ModerationController
             $html.='<li>Draft #'.(int)$image['content_id'].' — '
                 .self::e((string)$image['title']).' ('.self::e((string)$image['mime_type']).') '
                 .'<a href="/admin/moderation/image/'.$id.'" target="_blank" rel="noopener noreferrer">'
-                .'Review pending image #'.$id.'</a></li>';
+                .'Review pending image #'.$id.'</a>'
+                .'<form method="post" action="/admin/moderation" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.$csrf.'">'
+                .'<input type="hidden" name="action" value="reject_draft_image">'
+                .'<input type="hidden" name="media_id" value="'.$id.'">'
+                .'<label>Rejection reason<input name="note" minlength="10" maxlength="500" required'
+                .' placeholder="Reason image cannot be accepted"></label>'
+                .'<button class="button-secondary">Reject this pending image</button></form></li>';
         }
         $html.='</ul></section>';
         $html.='<section class="panel"><h2>Declare performer roster (draft only)</h2><p>Enter the number of people depicted in the draft. This does not verify anyone or permit publication. Each record receives a private numeric reference for the contracted verification provider.</p>'

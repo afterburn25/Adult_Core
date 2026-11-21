@@ -15,6 +15,10 @@ function expect(bool $yes,string $name): void {
 }
 expect(ModerationSchema::VERSION==='m8_moderation_review_v1','Versioned migration');
 expect(ModerationRepository::validateTitle('  Gallery  ')==='Gallery','Title trimmed');
+expect(str_contains((string)file_get_contents(dirname(__DIR__).'/src/Http/ModerationController.php'),
+    "value=\"rename_draft\""),'Private draft editor has an explicit guarded POST action');
+expect(str_contains((string)file_get_contents(dirname(__DIR__).'/src/Http/ModerationController.php'),
+    "value=\"reject_draft_image\""),'Image rejection form uses explicit POST action');
 expect(ModerationRepository::validateNote('  Reason for quarantine.  ')==='Reason for quarantine.','Review note trimmed');
 expect(ModerationRepository::validateReportReason('  I need this reviewed.  ')==='I need this reviewed.','Report reason trimmed');
 // Moderation evidence is a read-only cue, not publishing authority.

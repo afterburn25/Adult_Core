@@ -60,6 +60,81 @@ final class ModerationRepository
     }
 
     /**
+     * Edit the private title only while the draft is still unreviewed.
+     * The original title is an optimistic concurrency token: two moderators
+     * must not silently overwrite each other's changes. No status changes.
+     */
+    public function renameDraft(int $contentId, int $actorId, string $expectedTitle, string $newTitle): void
+    {
+        if ($contentId < 1) throw new RuntimeException('Invalid record ID.');
+        $expectedTitle=self::validateTitle($expectedTitle);
+        $newTitle=self::validateTitle($newTitle);
+        $this->requireModerator($actorId);
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT title,status,visibility,review_status FROM ac_content WHERE id=? FOR UPDATE');
+            $q->execute([$contentId]);
+            $row=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row) || $row['status']!=='draft'
+                || $row['visibility']!=='private' || $row['review_status']!=='pending') {
+                throw new RuntimeException('Only private, unreviewed drafts can be edited.');
+            }
+            if (!hash_equals((string)$row['title'],$expectedTitle)) {
+                throw new RuntimeException('Draft changed; reload the moderation queue before editing.');
+            }
+            if (hash_equals((string)$row['title'],$newTitle)) {
+                throw new RuntimeException('Draft title is unchanged.');
+            }
+            $this->pdo->prepare('UPDATE ac_content SET title=? WHERE id=?')->execute([$newTitle,$contentId]);
+            // Do not duplicate potentially sensitive draft titles in audit notes.
+            $this->audit($contentId,null,$actorId,'draft_renamed',
+                'Private draft title edited; visibility and review status unchanged.');
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Reject one image in an unpublished draft without deleting its private
+     * bytes (which may require legal retention). This cannot mark anything
+     * approved, restore a quarantined draft or publish a member gallery.
+     */
+    public function rejectDraftImage(int $mediaId, int $actorId, string $note): void
+    {
+        if ($mediaId < 1) throw new RuntimeException('Invalid record ID.');
+        $note=self::validateNote($note);
+        $this->requireModerator($actorId);
+        $this->pdo->beginTransaction();
+        try {
+            // Identify parent, then lock parent before the media row to match
+            // the staging path's locking order and avoid deadlocks.
+            $lookup=$this->pdo->prepare('SELECT content_id FROM ac_media WHERE id=?');
+            $lookup->execute([$mediaId]);
+            $contentId=(int)$lookup->fetchColumn();
+            if ($contentId < 1) throw new RuntimeException('Pending private draft image not found.');
+            $q=$this->pdo->prepare('SELECT status,visibility,review_status FROM ac_content WHERE id=? FOR UPDATE');
+            $q->execute([$contentId]);
+            $content=$q->fetch(PDO::FETCH_ASSOC);
+            $asset=$this->pdo->prepare('SELECT content_id,review_status FROM ac_media WHERE id=? FOR UPDATE');
+            $asset->execute([$mediaId]);
+            $media=$asset->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($content) || !is_array($media) || (int)$media['content_id']!==$contentId
+                || $content['status']!=='draft' || $content['visibility']!=='private'
+                || $content['review_status']!=='pending' || $media['review_status']!=='pending') {
+                throw new RuntimeException('Pending private draft image not found.');
+            }
+            $this->pdo->prepare("UPDATE ac_media SET review_status='rejected' WHERE id=?")->execute([$mediaId]);
+            $this->audit($contentId,null,$actorId,'image_rejected',$note);
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * Stage an actual HTTP-uploaded image in a strictly private, unpublished
      * draft. Its DB record stays pending; no member/media route can serve it.
      * All actor and draft checks also run for direct service callers.

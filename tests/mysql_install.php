@@ -450,6 +450,20 @@ try {
     // Safety reports must auto-quarantine even an otherwise approved fixture.
     $moderation=new ModerationRepository($pdo);
     $draft=$moderation->createDraft('Private test draft',(int)$valid['id']);
+    $moderation->renameDraft($draft,(int)$valid['id'],'Private test draft','Private test draft revised');
+    $q=$pdo->prepare('SELECT title,status,visibility,review_status FROM ac_content WHERE id=?');
+    $q->execute([$draft]); $titleState=$q->fetch(PDO::FETCH_ASSOC);
+    if ($titleState['title']!=='Private test draft revised'
+        || $titleState['status']!=='draft' || $titleState['visibility']!=='private'
+        || $titleState['review_status']!=='pending') {
+        throw new RuntimeException('Draft rename changed visibility/review or failed to persist.');
+    }
+    try {
+        $moderation->renameDraft($draft,(int)$valid['id'],'Private test draft','Unsafe stale rename');
+        throw new RuntimeException('Stale draft rename accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale draft rename accepted.') throw $e;
+    }
     $roster=$moderation->declarePerformers($draft,(int)$valid['id'],2);
     if (count($roster)!==2 || count(array_unique($roster))!==2) throw new RuntimeException('Performer roster was not declared.');
     try { $moderation->declarePerformers($draft,(int)$valid['id'],1); throw new RuntimeException('Duplicate roster unexpectedly created.'); }
