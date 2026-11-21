@@ -35,6 +35,7 @@ try {
         'src/Member/MemberDirectory.php',
         'src/Member/MemberSafetySchema.php','src/Member/LocalMemberSafety.php',
         'src/Member/MemberPasswordChange.php','src/Member/MemberSessionRevocation.php',
+        'src/Member/MemberProfileSchema.php','src/Member/MemberProfiles.php',
         'src/Http/MemberSafetyController.php',
         'src/Support/SiteHealth.php','src/Http/HealthController.php',
         'src/Support/OwnerWorkSummary.php',

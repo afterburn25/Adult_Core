@@ -17,6 +17,8 @@ use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
 use AdultCore\Member\MemberPasswordChange;
 use AdultCore\Member\MemberSessionRevocation;
+use AdultCore\Member\MemberProfileSchema;
+use AdultCore\Member\MemberProfiles;
 use AdultCore\Member\PasswordRecoverySchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
@@ -65,6 +67,19 @@ foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }
 }
 MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true,'Valid member details');
+claim(MemberProfileSchema::VERSION==='m22_private_member_profiles_v1',
+    'Member private profile marker is independent of membership entitlements');
+claim(MemberProfiles::validateDisplayName(' Private <Pixie> ')==='Private <Pixie>',
+    'Private member display name is validated and trimmed');
+foreach (['a','  ',str_repeat('X',101),"Bad\nName",'Bad'."\0",'Invalid'."\x7f"] as $badDisplayName) {
+    try {
+        MemberProfiles::validateDisplayName($badDisplayName);
+        throw new RuntimeException('Invalid private member display name accepted.');
+    } catch (RuntimeException $e) {
+        claim($e->getMessage()!=='Invalid private member display name accepted.',
+            'Unsafe display names rejected before database changes');
+    }
+}
 $emailHealthRoot=sys_get_temp_dir().'/adult-core-email-check-'.bin2hex(random_bytes(8));
 if (!mkdir($emailHealthRoot,0700) || !mkdir($emailHealthRoot.'/config',0700)) {
     throw new RuntimeException('Disposable email health fixture failed.');

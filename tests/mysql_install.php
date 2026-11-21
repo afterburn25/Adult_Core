@@ -432,6 +432,8 @@ try {
     PasswordRecoverySchema::migrate($pdo);
     MemberSafetySchema::migrate($pdo);
     MemberSafetySchema::migrate($pdo);
+    \AdultCore\Member\MemberProfileSchema::migrate($pdo);
+    \AdultCore\Member\MemberProfileSchema::migrate($pdo);
     $repo = new PageRepository($pdo);
     $homepage=(array)$pdo->query("SELECT id,revision FROM ac_pages WHERE slug='home'")->fetch(PDO::FETCH_ASSOC);
     $homeId=(int)($homepage['id']??0);
@@ -707,6 +709,34 @@ try {
     $accounts = new MemberAccounts($pdo);
     $accounts->register('newmember@example.test', 'long-example-passphrase');
     $member = $accounts->verify('newmember@example.test', 'long-example-passphrase');
+    $profiles=new \AdultCore\Member\MemberProfiles($pdo);
+    if ($profiles->current((int)$member['id'])!==null
+        || $profiles->current((int)$valid['id'])!==null) {
+        throw new RuntimeException('Private member profile leaked staff or invented a name.');
+    }
+    $profiles->save((int)$member['id'],0,'Nickname <private>');
+    if ($profiles->current((int)$member['id'])!==[
+        'display_name'=>'Nickname <private>','revision'=>1]) {
+        throw new RuntimeException('Local member private display name not saved.');
+    }
+    $profiles->save((int)$member['id'],1,'Updated <private>');
+    foreach ([
+        static fn()=> $profiles->save((int)$member['id'],1,'Stale nickname'),
+        static fn()=> $profiles->save((int)$valid['id'],0,'Manager cannot set profile'),
+        static fn()=> $profiles->save((int)$member['id'],2,'Updated <private>'),
+        static fn()=> $profiles->save((int)$member['id'],2,"Bad\nDisplay"),
+    ] as $invalidProfile) {
+        try {
+            $invalidProfile();
+            throw new RuntimeException('Unsafe private profile edit accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe private profile edit accepted.') throw $e;
+        }
+    }
+    if ($profiles->current((int)$member['id'])!==[
+        'display_name'=>'Updated <private>','revision'=>2]) {
+        throw new RuntimeException('Denied profile edit modified private member data.');
+    }
     $safety=new LocalMemberSafety($pdo);
     $generationBefore=(new PasswordRecovery($pdo))->generation((int)$member['id']);
     if ($safety->change((int)$valid['id'],(int)$member['id'],
@@ -1782,7 +1812,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_member_status_actions','ac_page_history','ac_creator_feedback_history','ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_member_profiles','ac_member_status_actions','ac_page_history','ac_creator_feedback_history','ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');

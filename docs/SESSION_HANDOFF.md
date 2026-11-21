@@ -1,3 +1,9 @@
+## Local private member display names: m22 backend — 2026-11-21
+
+Added repeatable additive `MemberProfileSchema` m22, a site-local `ac_member_profiles` table with a private per-member UTF-8 display name, monotonic revision and last-updated time. `MemberProfiles` reads only current pending/active `role=member` records, allows creation with expected revision 0 and editing with an exact revision match, and locks the member row before the profile in a transaction. Names must be 2–100 UTF-8 bytes on one line; controls, stale edits, unchanged edits, suspended/staff targets and cross-member data are refused. No public nickname directory, creator approval, age/consent, merchant billing or private media entitlement is created. Added unit, repeatable MySQL/MariaDB, disposable cleanup ordering and unified Lite/Pro source ZIP required-file checks. The signed-in member's own `/members/profile` UI, migration setup wiring, HTTP tests and backup parity are follow-up increments. Keep failed/unapplied m22 routes closed until migration.
+
+---
+
 ## PHP mail availability included in boolean transport self-check — 2026-11-21
 
 The Site Health member-email configuration result now requires both a validated enabled private config and an available PHP `mail()` function. On hosts where mail() is disabled, merely writing a configuration file cannot produce a green transport status; even a green status does **not** imply delivery or provider acceptance. The check has no side effects or outbound messages, and the unit suite is host-aware (`function_exists('mail')`) so a disabled-mail CI image remains testable. Customer email delivery and DNS/provider reputation checks still require actual host verification.
