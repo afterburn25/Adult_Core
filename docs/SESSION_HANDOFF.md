@@ -1,3 +1,9 @@
+## m22 private member profiles encrypted backup recovery — 2026-11-21
+
+The existing disposable `.acfull` encrypted full-site backup → empty database → restore test now applies m22 twice, creates and edits a strictly private local member name (revision 2), and verifies the exact name, revision, member ID and migration marker survive restoration byte-for-byte with no new identity/consent, billing or member activation. The backup engine automatically includes `ac_member_profiles` among its normal InnoDB site tables; no secret copying or public media/export is introduced. Actual offsite/live cPanel/VPS restore acceptance remains outstanding.
+
+---
+
 ## Real two-session HTTP coverage for private m22 member profile — 2026-11-21
 
 The disposable authenticated browser suite now signs a pending local member into a separate member cookie jar, creates a private name through `/members/profile`, checks CSRF denial, NUL input rejection, monotonic revision=1, escaped HTML in both account and editor, stale revision 422, one-time server-confirmed success notice and no corresponding public page route. The member stays pending with no age/consent/paid approval. Admin → Setup is asserted to report the new schema installed. These tests operate entirely on disposable fixtures under MySQL 8/MariaDB 10.11 and never use real customer accounts. CI must pass before the UI is considered verified.

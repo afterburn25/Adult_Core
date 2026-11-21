@@ -25,6 +25,8 @@ use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\PasswordRecovery;
 use AdultCore\Member\MemberSafetySchema;
+use AdultCore\Member\MemberProfileSchema;
+use AdultCore\Member\MemberProfiles;
 use AdultCore\Member\LocalMemberSafety;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Creator\CreatorSchema;
@@ -100,6 +102,8 @@ try{
     PasswordRecoverySchema::migrate($pdo);
     MemberSafetySchema::migrate($pdo);
     MemberSafetySchema::migrate($pdo);
+    MemberProfileSchema::migrate($pdo);
+    MemberProfileSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
     // Deliberately leave m14 unapplied until after one m13-era draft is saved.
     // This proves the additive review upgrade preserves existing private data.
@@ -139,6 +143,15 @@ try{
     $memberId=(int)$pdo->lastInsertId();
     $ownerId=(int)$pdo->query("SELECT id FROM ac_users WHERE email='owner@example.test' AND role='admin'")->fetchColumn();
     verifyRecovery($memberId>0 && $ownerId>0,'Disposable local owner and member accounts exist');
+    $privateProfile=new MemberProfiles($pdo);
+    $privateProfile->save($memberId,0,'Saved private <Name>');
+    $privateProfile->save($memberId,1,'Recovered <Private Name> & Co');
+    $beforeMemberProfile=$pdo->query('SELECT user_id,display_name,revision
+        FROM ac_member_profiles ORDER BY user_id')->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery(count($beforeMemberProfile)===1
+        && $privateProfile->current($memberId)===[
+            'display_name'=>'Recovered <Private Name> & Co','revision'=>2],
+        'Private revisioned local member profile exists before encrypted backup');
     $emailConfirmation=new EmailConfirmations($pdo);
     verifyRecovery($emailConfirmation->confirm($emailConfirmation->issue($memberId)),
         'Local member email confirmation fixture established');
@@ -244,6 +257,13 @@ try{
     $restored=$recovery->restore(Connection::open($dst),$vaultCopy['archive'],$backupKey);
     verifyRecovery($restored===$stats,'Backup and restore counters agree');
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
+    $afterMemberProfile=$pdo->query('SELECT user_id,display_name,revision
+        FROM ac_member_profiles ORDER BY user_id')->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery(MemberProfileSchema::installed($pdo)
+        && $afterMemberProfile===$beforeMemberProfile
+        && (new MemberProfiles($pdo))->current($memberId)===[
+            'display_name'=>'Recovered <Private Name> & Co','revision'=>2],
+        'Encrypted full-site restore retains exact m22 private member display name and revision');
     $afterMemberAudit=$pdo->query('SELECT member_id,actor_id,old_status,new_status,reason
         FROM ac_member_status_actions ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
     verifyRecovery(MemberSafetySchema::installed($pdo)
