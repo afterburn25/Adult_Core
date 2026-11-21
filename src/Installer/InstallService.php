@@ -42,6 +42,16 @@ final class InstallService
                     throw new RuntimeException('Installation files already exist. Restore a backup or contact the operator.');
                 }
             }
+            // Enforce hostname identity at the service boundary as well as in
+            // the browser controller. CLI fixture installations have no HTTP
+            // origin, so only actual web requests must supply a matching Host.
+            // This check precedes any vendor requests or MySQL writes.
+            if (PHP_SAPI !== 'cli') {
+                InstallInput::assertRequestHost(
+                    (string) ($fields['license_domain'] ?? ''),
+                    (string) ($_SERVER['HTTP_HOST'] ?? '')
+                );
+            }
             // Denied or unreachable licensing means zero database creation and no completion marker.
             $licensing = new LicenseManager($this->root, $this->licenseClient);
             $license = $licensing->verifyForInstall((string) ($fields['license_key'] ?? ''), (string) ($fields['license_domain'] ?? ''));
