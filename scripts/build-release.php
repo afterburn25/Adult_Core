@@ -38,7 +38,10 @@ try {
         foreach ($iterator as $entry) {
             if ($entry->isLink() || !$entry->isFile()) continue;
             $name = substr($entry->getPathname(), strlen($root)+1);
-            if (str_contains($name, 'private') || str_contains('/'.$name.'/', '/__pycache__/')
+            // Do not mistake safe source filenames (e.g. audit-private-media.php)
+            // for a secrets directory. Source files cannot embed customer data;
+            // whole private/ paths and secret key formats remain excluded.
+            if (str_contains('/'.$name.'/', '/private/') || str_contains('/'.$name.'/', '/__pycache__/')
                 || preg_match('/\.(?:pem|key|log|pyc|pyo)$/D', $name)) continue;
             if (!$zip->addFile($entry->getPathname(), $name)) {
                 throw new RuntimeException('Could not add source release file.');
