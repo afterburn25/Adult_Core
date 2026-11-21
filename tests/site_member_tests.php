@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberAccounts;
+use AdultCore\Membership\MemberLibrary;
 use AdultCore\Member\MemberSession;
 use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberEmailSchema;
@@ -18,6 +19,14 @@ foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }
 }
 MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true,'Valid member details');
+$emptyLibrary=MemberLibrary::render([]);
+claim(str_contains($emptyLibrary,'No content is currently available')
+    && !str_contains($emptyLibrary,'<img'), 'Unverified member library is neutral and text-only');
+$escapedLibrary=MemberLibrary::render([['id'=>12,'title'=>'<script>secret</script>','visibility'=>'paid']]);
+claim(!str_contains($escapedLibrary,'<script>') && str_contains($escapedLibrary,'&lt;script&gt;')
+    && str_contains($escapedLibrary,'Paid membership')
+    && !str_contains($escapedLibrary,'/media/'),
+    'Private library encodes content titles without generating unguarded media links');
 foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@example.com',str_repeat('p',73)]] as $case) {
     try { MemberAccounts::validate(...$case); throw new RuntimeException('Bad registration accepted'); }
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Bad registration accepted', 'Invalid registration rejected'); }
