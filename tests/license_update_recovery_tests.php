@@ -51,6 +51,31 @@ try {
         && !file_exists($root.LicenseUpdateRecovery::MARKER));
     $check('Replacement cache remains valid', $once->status($domain) === 'valid');
 
+    // Neither live replacement nor a manual status refresh may follow lock
+    // symlinks into arbitrary private paths.
+    foreach (['.license-update.lock', '.license-refresh.lock'] as $lockName) {
+        $lockPath = $root.'/storage/'.$lockName;
+        $safeLock = $lockPath.'.original';
+        if (!rename($lockPath, $safeLock)) {
+            throw new RuntimeException('Could not prepare lock symlink test fixture.');
+        }
+        try {
+            if (!@symlink($safeLock, $lockPath)) {
+                throw new RuntimeException('Could not create lock symlink fixture.');
+            }
+            try { $once->replaceLicense($key, $domain); $blocked = false; }
+            catch (RuntimeException) { $blocked = true; }
+            $check('License replacement refuses symlinked lock '.$lockName, $blocked);
+            if ($lockName === '.license-refresh.lock') {
+                $check('Manual license refresh refuses symlinked refresh lock',
+                    $once->status($domain, true) === 'unavailable');
+            }
+        } finally {
+            if (is_link($lockPath)) unlink($lockPath);
+            rename($safeLock, $lockPath);
+        }
+    }
+
     $oldConfig = $once->config();
     $oldCache = file_get_contents($root.'/storage/license-cache.json');
     $check('Old cache exists for snapshot', is_string($oldCache));
