@@ -215,6 +215,34 @@ try {
     }
     verifyPackageTest('Module license restored after rejecting unsafe storage',
         $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    // A paid add-on cannot outlive a revoked core license, even while its own
+    // independent signed receipt remains fresh and valid.
+    file_put_contents($coreCache, \AdultCore\Licensing\LicenseState::encode(
+        'ABCD-EF12-3456-7890','example.test',$siteSecret,'denied',time(),time()-60,$coreSku));
+    verifyPackageTest('Core revocation disables otherwise valid paid add-on',
+        !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    expectRefusal('Revoked core license prevents new paid module activation',
+        fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    file_put_contents($coreCache, \AdultCore\Licensing\LicenseState::encode(
+        'ABCD-EF12-3456-7890','example.test',$siteSecret,'valid',time(),time(),$coreSku));
+    verifyPackageTest('Reauthorized core restores valid paid module access',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $pendingLicenseUpdate = $root.'/storage/.license-update-pending';
+    file_put_contents($pendingLicenseUpdate,'synthetic incomplete core replacement');
+    verifyPackageTest('Interrupted core license replacement disables paid add-on',
+        !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    expectRefusal('Pending core replacement prevents module activation',
+        fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    unlink($pendingLicenseUpdate);
+    verifyPackageTest('Recovered core transition restores module runtime',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $signedInstalled = file_get_contents($installedState);
+    unlink($installedState);
+    verifyPackageTest('Missing signed core installation prevents paid add-on runtime',
+        !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    file_put_contents($installedState,$signedInstalled);
+    verifyPackageTest('Restored signed installation permits paid module runtime',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
     file_put_contents($licenseCache, \AdultCore\Licensing\LicenseState::encode('AAAA-BBBB-CCCC-DDDD','example.test',str_repeat('a',64),'denied',time(),time()-5,$paidSku));
     verifyPackageTest('Revoked module receipt prevents runtime', !$paidStore->isRunnable('module','paid-chat','lite',$caps));
     $paidStore->changeStatus('module','paid-chat',false,'lite',$caps);
