@@ -96,6 +96,53 @@ final class PackageStore
         });
     }
 
+    /**
+     * Read-only gate for a future signed data-only update workflow.
+     * No files or registry entries are rewritten, and no code is executed.
+     * Plans are advisory; a later updater MUST revalidate under lock.
+     *
+     * @param list<string> $capabilities
+     * @return array{id:string,type:string,publisher:string,current_version:string,proposed_version:string}
+     */
+    public function previewUpdate(string $incomingZip, string $edition, array $capabilities): array
+    {
+        if (!is_file($incomingZip) || is_link($incomingZip)
+            || !is_readable($incomingZip) || (filesize($incomingZip) ?: 0) > PackageVerifier::MAX_ARCHIVE_BYTES) {
+            throw new RuntimeException('The proposed update ZIP is invalid.');
+        }
+        $candidate = $this->verifier->inspect($incomingZip)['manifest'];
+        $type = $candidate['type'];
+        $id = $candidate['id'];
+        $category = self::category($type);
+        $registry = $this->readRegistry();
+        $installed = $registry[$category][$id] ?? null;
+        if (!is_array($installed)) {
+            throw new RuntimeException('Update target is not installed.');
+        }
+        if (($installed['enabled'] ?? false) === true
+            || ($type === 'theme' && ($registry['selected_theme'] ?? null) === $id)) {
+            throw new RuntimeException('Disable the installed package before inspecting an update.');
+        }
+        $current = $this->installedManifest($type, $id);
+        if ($candidate['publisher'] !== $current['publisher']
+            || $candidate['publisher'] !== $installed['publisher']
+            || ($candidate['license_sku'] ?? null) !== ($current['license_sku'] ?? null)) {
+            throw new RuntimeException('Update must retain the signed publisher and paid-product identity.');
+        }
+        if (!is_string($installed['version'])
+            || $installed['version'] !== $current['version']
+            || version_compare($candidate['version'], $current['version'], '<=')) {
+            throw new RuntimeException('Update must be a strictly newer signed version.');
+        }
+        $this->assertCompatible($candidate, $edition, $capabilities,
+            $this->runtimeActiveModules($registry, $edition, $capabilities));
+        return [
+            'id' => $id, 'type' => $type, 'publisher' => $candidate['publisher'],
+            'current_version' => $current['version'],
+            'proposed_version' => $candidate['version'],
+        ];
+    }
+
     /** @param list<string> $capabilities */
     public function changeStatus(string $type, string $id, bool $enable, string $edition, array $capabilities, ?string $moduleLicenseKey = null): void
     {
