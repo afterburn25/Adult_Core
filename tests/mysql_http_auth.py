@@ -159,6 +159,92 @@ def main():
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            # Two independent staff sessions ensure a suspended-and-restored
+            # moderator's OLD cookie stays revoked even without an intervening
+            # HTTP request while the database account was suspended.
+            code, staff_page = req('/admin/staff')
+            staff_token = re.search(r'name="csrf" value="([a-f0-9]{64})"',staff_page)
+            ensure('Owner can access CSRF-protected staff management after setup',
+                   code == 200 and staff_token is not None
+                   and 'Moderation team' in staff_page)
+            manager_password='strong-example-admin-password'
+            new_staff_email='new-staff@example.test'
+            initial_staff_password='first-long-staff-password'
+            next_staff_password='restored-long-staff-password'
+            code, _=req('/admin/staff',{
+                'csrf':'invalid','action':'create','email':new_staff_email,
+                'new_password':initial_staff_password,'manager_password':manager_password})
+            ensure('Staff creation requires manager CSRF',code == 403)
+            code, refused=req('/admin/staff',{
+                'csrf':staff_token.group(1),'action':'create','email':new_staff_email,
+                'new_password':initial_staff_password,'manager_password':'incorrect-manager-password'})
+            ensure('Manager reauthentication is required for staff changes',
+                   code == 422 and 'Manager password confirmation failed.' in refused)
+            code, _=req('/admin/staff',{
+                'csrf':staff_token.group(1),'action':'create','email':new_staff_email,
+                'new_password':initial_staff_password,'manager_password':manager_password,
+                'role':'owner'})
+            ensure('Staff can only be provisioned as a restricted moderator',code == 303)
+            code, staff_page=req('/admin/staff')
+            new_staff_row=re.search(
+                r'<tr><td>(\d+)</td><td>new-staff@example.test</td><td>active</td>',staff_page)
+            ensure('Staff dashboard lists restricted moderator and private create audit',
+                   code == 200 and new_staff_row is not None
+                   and 'created' in staff_page
+                   and initial_staff_password not in staff_page)
+            new_staff_id=new_staff_row.group(1)
+            def make_staff_browser():
+                browser=urllib.request.build_opener(NoRedirect,
+                    urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+                def make_req(path,data=None):
+                    payload=urllib.parse.urlencode(data).encode() if data is not None else None
+                    try:
+                        response=browser.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=4)
+                    except urllib.error.HTTPError as err:
+                        response=err
+                    with response:
+                        return response.status,response.read().decode('utf-8',errors='replace')
+                return make_req
+            staff_req=make_staff_browser()
+            stale_staff_req=make_staff_browser()
+            for browser_req in (staff_req,stale_staff_req):
+                code, login_form=browser_req('/admin/login')
+                csrf_match=re.search(r'name="csrf" value="([a-f0-9]{64})"',login_form)
+                ensure('Staff session has independent login CSRF',code == 200 and csrf_match is not None)
+                code, _=browser_req('/admin/login',{
+                    'csrf':csrf_match.group(1),'email':new_staff_email,
+                    'password':initial_staff_password})
+                ensure('Owner-created moderator signs into restricted workspace',code == 303)
+            code, staff_queue=staff_req('/admin/moderation')
+            ensure('New moderator has restricted review permission',code == 200)
+            code, _=req('/admin/staff',{
+                'csrf':staff_token.group(1),'action':'suspend','staff_id':new_staff_id,
+                'manager_password':manager_password})
+            ensure('Manager can suspend only a moderator',code == 303)
+            code, _=staff_req('/admin/moderation')
+            ensure('Suspended moderator active session is denied',code == 302)
+            code, _=req('/admin/staff',{
+                'csrf':staff_token.group(1),'action':'restore','staff_id':new_staff_id,
+                'new_password':next_staff_password,'manager_password':manager_password})
+            ensure('Restoring staff rotates password and session revocation epoch',code == 303)
+            code, _=stale_staff_req('/admin/moderation')
+            ensure('Restoration cannot resurrect pre-suspension session cookie',code == 302)
+            code, staff_form=staff_req('/admin/login')
+            new_staff_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',staff_form)
+            ensure('Restored moderator must perform a fresh sign-in',
+                   code == 200 and new_staff_token is not None)
+            code, _=staff_req('/admin/login',{
+                'csrf':new_staff_token.group(1),'email':new_staff_email,
+                'password':initial_staff_password})
+            ensure('Restoring moderator invalidated previous password',code == 401)
+            code, _=staff_req('/admin/login',{
+                'csrf':new_staff_token.group(1),'email':new_staff_email,
+                'password':next_staff_password})
+            ensure('Restored moderator signs in using only new credential',code == 303)
+            code, staff_page=req('/admin/staff')
+            ensure('Staff private audit includes creation, suspension and restoration',
+                   code == 200 and all(x in staff_page for x in ('created','suspended','restored'))
+                   and next_staff_password not in staff_page)
             subprocess.check_output(php_fixture + ['seed-moderator'],cwd=root)
             # Distinct cookie jar models a second human moderator. Neither
             # browser shares an administrator session or CSRF token.
@@ -196,7 +282,7 @@ def main():
                 'title':'Moderator restricted test draft'
             })
             ensure('Moderator can stage a private-only content draft',code == 303)
-            for forbidden in ('/admin/tiers','/admin/upgrade','/admin/license',
+            for forbidden in ('/admin/staff','/admin/tiers','/admin/upgrade','/admin/license',
                               '/admin/pages','/admin/packages','/admin/page/preview?id=1'):
                 code, _=mod_req(forbidden)
                 ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
