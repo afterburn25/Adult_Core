@@ -63,6 +63,7 @@ final class LicenseManager
             throw new RuntimeException('This license belongs to another edition. An edition upgrade requires a separate verified migration; no files were changed.');
         }
         $lock = $this->root . '/storage/.license-update.lock';
+        if (is_link($lock)) throw new RuntimeException('Unsafe license update lock file.');
         $fp = @fopen($lock, 'c+');
         if ($fp === false) throw new RuntimeException('License update lock unavailable.');
         try {
@@ -71,7 +72,9 @@ final class LicenseManager
                 throw new RuntimeException('Interrupted license update requires server-console rollback.');
             }
             // A running refresh must not race the two-file replacement.
-            $refresh = @fopen($this->root . '/storage/.license-refresh.lock', 'c+');
+            $refreshPath = $this->root . '/storage/.license-refresh.lock';
+            if (is_link($refreshPath)) throw new RuntimeException('Unsafe license refresh lock file.');
+            $refresh = @fopen($refreshPath, 'c+');
             if (!is_resource($refresh)) throw new RuntimeException('License refresh lock unavailable.');
             try {
                 if (!flock($refresh, LOCK_EX)) throw new RuntimeException('License refresh lock unavailable.');
@@ -141,7 +144,9 @@ final class LicenseManager
         }
         // A single in-flight network refresh per installation. No nonblocking
         // request can bypass the grace bound or a recorded explicit denial.
-        $fp = @fopen($this->root . '/storage/.license-refresh.lock', 'c+');
+        $refreshPath = $this->root . '/storage/.license-refresh.lock';
+        if (is_link($refreshPath)) return 'unavailable';
+        $fp = @fopen($refreshPath, 'c+');
         if ($fp === false) return $this->transientVerdict($cached, $now);
         try {
             if (!flock($fp, LOCK_EX | LOCK_NB)) return $this->transientVerdict($cached, $now);
