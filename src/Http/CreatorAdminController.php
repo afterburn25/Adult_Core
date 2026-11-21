@@ -70,9 +70,13 @@ final class CreatorAdminController
             if ($data['drafts']===[]) $html.='<p>No saved private drafts.</p>';
             foreach ($data['drafts'] as $draft) {
                 $html.='<article class="panel"><h3>'.self::e((string)$draft['title'])
-                    .'</h3><p>Status: private, unpublished.</p>'
-                    .'<p>'.nl2br(self::e((string)$draft['summary'])).'</p>'
-                    .'<p class="muted">Draft #'.(int)$draft['id']
+                    .'</h3><p>Status: '.self::e((string)$draft['status']).', unpublished.</p>'
+                    .'<p>'.nl2br(self::e((string)$draft['summary'])).'</p>';
+                if ((string)($draft['review_note']??'')!=='') {
+                    $html.='<p>Local review feedback: '
+                        .nl2br(self::e((string)$draft['review_note'])).'</p>';
+                }
+                $html.='<p class="muted">Draft #'.(int)$draft['id']
                     .' · Last changed '.self::e((string)$draft['updated_at']).' UTC</p>'
                     .'</article>';
             }

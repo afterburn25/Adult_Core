@@ -26,6 +26,8 @@ use AdultCore\Design\CutoutPlacement;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\LocalCreators;
+use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\PasswordRecovery;
@@ -349,6 +351,8 @@ try {
     MemberEmailSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
+    CreatorReviewSchema::migrate($pdo);
+    CreatorReviewSchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
@@ -590,6 +594,111 @@ try {
     }
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn()!==0) {
         throw new RuntimeException('Local creator grant pretended to verify age.');
+    }
+    // Strictly private text review. Moderators may request changes or
+    // reject; there is NO approve/publish transition or media insertion.
+    $textReview=new CreatorDraftReview($pdo);
+    $beforeContent=(int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn();
+    if ($textReview->queue($moderatorId)!==[]) {
+        throw new RuntimeException('Unsubmitted private creator plan leaked to review queue.');
+    }
+    try {
+        $textReview->queue((int)$member['id']);
+        throw new RuntimeException('Member could read moderator text-review queue.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Member could read moderator text-review queue.') throw $e;
+    }
+    $ready=$creators->ownDrafts((int)$member['id'])[0];
+    try {
+        $textReview->submit((int)$secondMember['id'],$draftId,(int)$ready['revision']);
+        throw new RuntimeException('Other creator submitted another account\'s private plan.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Other creator submitted another account\'s private plan.') throw $e;
+    }
+    $textReview->submit((int)$member['id'],$draftId,(int)$ready['revision']);
+    $submitted=$creators->ownDrafts((int)$member['id'])[0];
+    $queue=$textReview->queue($moderatorId);
+    if ($submitted['status']!=='submitted' || count($queue)!==1
+        || (int)$queue[0]['id']!==$draftId || (int)$queue[0]['revision']!==(int)$submitted['revision']) {
+        throw new RuntimeException('Submitted private text plan not locked for local review.');
+    }
+    try {
+        $creators->saveDraft((int)$member['id'],$draftId,(int)$submitted['revision'],
+            'Forbidden edit while submitted','This edit must be denied while the private plan is under review.');
+        throw new RuntimeException('Creator edited submitted private text.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Creator edited submitted private text.') throw $e;
+    }
+    foreach (['approved','published','accepted'] as $unsafe) {
+        try {
+            $textReview->decide($moderatorId,$draftId,(int)$submitted['revision'],
+                $unsafe,'Moderator cannot approve or publish this text-only plan.');
+            throw new RuntimeException('Moderator transitioned private creator text to public/approved.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Moderator transitioned private creator text to public/approved.') throw $e;
+        }
+    }
+    try {
+        $textReview->decide((int)$member['id'],$draftId,(int)$submitted['revision'],
+            'changes','Member may not review their own submitted text plan.');
+        throw new RuntimeException('Member made unauthorized text-review decision.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Member made unauthorized text-review decision.') throw $e;
+    }
+    $textReview->decide($moderatorId,$draftId,(int)$submitted['revision'],
+        'changes','Please clarify the private story and exclude all identity evidence.');
+    $rework=$creators->ownDrafts((int)$member['id'])[0];
+    if ($rework['status']!=='changes'
+        || !str_contains((string)$rework['review_note'],'clarify')
+        || $textReview->queue($moderatorId)!==[]) {
+        throw new RuntimeException('Moderator private revision feedback unavailable to creator.');
+    }
+    try {
+        $textReview->submit((int)$member['id'],$draftId,(int)$rework['revision']);
+        throw new RuntimeException('Creator resubmitted requested changes without editing first.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Creator resubmitted requested changes without editing first.') throw $e;
+    }
+    $creators->saveDraft((int)$member['id'],$draftId,(int)$rework['revision'],
+        'Revised private story','A revised private summary with no evidence, media or publication.');
+    $revised=$creators->ownDrafts((int)$member['id'])[0];
+    if ($revised['status']!=='private' || (string)$revised['review_note']!=='') {
+        throw new RuntimeException('Revision failed to clear obsolete moderator feedback.');
+    }
+    $textReview->submit((int)$member['id'],$draftId,(int)$revised['revision']);
+    $resubmitted=$creators->ownDrafts((int)$member['id'])[0];
+    try {
+        $textReview->decide($moderatorId,$draftId,(int)$submitted['revision'],
+            'rejected','A stale moderation decision must not overwrite a newer submission.');
+        throw new RuntimeException('Stale moderator review revision was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale moderator review revision was accepted.') throw $e;
+    }
+    $textReview->decide($moderatorId,$draftId,(int)$resubmitted['revision'],
+        'rejected','Rejected because required rights and documentation are not ready.');
+    $rejected=$creators->ownDrafts((int)$member['id'])[0];
+    if ($rejected['status']!=='rejected' || !str_contains((string)$rejected['review_note'],'Rejected')
+        || $textReview->queue($moderatorId)!==[]) {
+        throw new RuntimeException('Rejected private text plan stayed in queue or lost feedback.');
+    }
+    try {
+        $creators->saveDraft((int)$member['id'],$draftId,(int)$rejected['revision'],
+            'Attempted rejected draft edit','Rejected plans may not be resubmitted by the creator.');
+        throw new RuntimeException('Rejected private plan was edited without owner intervention.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Rejected private plan was edited without owner intervention.') throw $e;
+    }
+    $q=$pdo->prepare('SELECT action FROM ac_creator_draft_events WHERE draft_id=? ORDER BY id');
+    $q->execute([$draftId]);
+    if ($q->fetchAll(PDO::FETCH_COLUMN)!==['submitted','changes','submitted','rejected']
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn()!==0) {
+        throw new RuntimeException('Text review mutated public content, verification or audit history.');
+    }
+    $ownerAfterReview=$creators->privatePlansForOwner((int)$valid['id'],$creatorId);
+    if ($ownerAfterReview['drafts'][0]['status']!=='rejected'
+        || !str_contains((string)$ownerAfterReview['drafts'][0]['review_note'],'Rejected')) {
+        throw new RuntimeException('Local owner cannot inspect retained rejected text plans.');
     }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
@@ -1002,7 +1111,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');
