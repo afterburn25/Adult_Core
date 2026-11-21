@@ -344,6 +344,15 @@ try {
     $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    $moderationQueue=(new ModerationRepository($pdo))->contentQueue();
+    $moderationRow=null;
+    foreach ($moderationQueue as $row) {
+        if ((int)$row['id'] === $contentId) { $moderationRow=$row; break; }
+    }
+    if (!is_array($moderationRow) || (int)$moderationRow['recorded_performers']!==1
+        || (int)$moderationRow['evidenced_performers']!==1) {
+        throw new RuntimeException('Moderation queue failed to summarize documented performer evidence.');
+    }
     $authorizedTitles=$library->visible((int)$member['id']);
     if (count($authorizedTitles)!==1 || $authorizedTitles[0]['id']!==$contentId
         || $authorizedTitles[0]['title']!=='Fixture gallery') {
