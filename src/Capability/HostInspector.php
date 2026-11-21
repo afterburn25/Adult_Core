@@ -50,7 +50,9 @@ final class HostInspector
             && is_file($public . '/index.php') && !is_link($public . '/index.php')
             && is_file($public . '/router.php') && !is_link($public . '/router.php')
             && is_string($rules) && str_contains($rules, 'RewriteEngine On')
-            && str_contains($rules, 'Options -Indexes');
+            && str_contains($rules, 'Options -Indexes')
+            && str_contains($rules, '[F,L,NC]')
+            && str_contains($rules, '<FilesMatch "^(?!index\\.php$)');
         $check('public_docroot', 'Secure public document root', $safeDocroot,
             'The domain document root must be the bundled public/ directory with safe routing files and no private trees, unexpected scripts or symlinks.');
 

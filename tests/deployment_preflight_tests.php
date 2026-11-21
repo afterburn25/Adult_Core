@@ -84,6 +84,12 @@ try {
     $apache=(string)file_get_contents($base . '/public/.htaccess');
     ensure(str_contains($apache,'[F,L,NC]') && str_contains($apache,'<FilesMatch'),
         'Apache distribution refuses unexpected executable scripts directly');
+    file_put_contents($base . '/public/.htaccess',str_replace('[F,L,NC]','[L]',$apache));
+    ensure(!row($tool->inspect($base . '/public','lite','preinstall'),'apache_routing_file')['pass'],
+        'Deployment preflight refuses Apache policy without direct-script denial');
+    ensure(!in_array('public_docroot',(new HostInspector($base))->inspect($base . '/public')['capabilities'],true),
+        'Browser installer refuses Apache policy missing executable-denial guard');
+    file_put_contents($base . '/public/.htaccess',$apache);
     file_put_contents($base . '/config/license.php', '<?php return '. var_export([
         'license_key' => 'FAKE-TEST-KEY-0001', 'domain' => 'staging.example.test',
         'sku' => CajunWebClient::SKU_LITE_MONTH,

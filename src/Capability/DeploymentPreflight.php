@@ -74,7 +74,9 @@ final class DeploymentPreflight
         $apacheRules = is_file($apacheConfig) && !is_link($apacheConfig) ? @file_get_contents($apacheConfig) : false;
         $record('apache_routing_file', is_string($apacheRules)
                 && str_contains($apacheRules, 'RewriteEngine On')
-                && str_contains($apacheRules, 'Options -Indexes'),
+                && str_contains($apacheRules, 'Options -Indexes')
+                && str_contains($apacheRules, '[F,L,NC]')
+                && str_contains($apacheRules, '<FilesMatch "^(?!index\\.php$)'),
             'Bundled Apache routing and directory-listing guards must be present; actual mod_rewrite support must be checked on hosting.');
 
         $unsafe = PublicRootSafety::unsafePaths($public);
