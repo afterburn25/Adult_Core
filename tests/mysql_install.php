@@ -749,6 +749,21 @@ try {
         }
     }
     $directory=new \AdultCore\Member\MemberDirectory($pdo);
+    $byEmail=$directory->byEmail(' NEWMEMBER@EXAMPLE.TEST ');
+    if ($byEmail===null || $byEmail['id']!==(int)$member['id']
+        || $byEmail['status']!=='pending'
+        || $directory->byEmail('no-such-local-member@example.test')!==null
+        || $directory->byEmail('owner@example.test')!==null) {
+        throw new RuntimeException('Exact member email query leaked staff or returned wrong account.');
+    }
+    foreach (['',str_repeat('a',192),"bad\n@example.test",'not-email'] as $invalidEmail) {
+        try {
+            $directory->byEmail($invalidEmail);
+            throw new RuntimeException('Invalid member email lookup was allowed.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Invalid member email lookup was allowed.') throw $e;
+        }
+    }
     $oneMember=$directory->page(null,'pending',(int)$member['id']);
     if (count($oneMember['members'])!==1
         || $oneMember['members'][0]['email']!=='newmember@example.test'

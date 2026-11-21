@@ -1,3 +1,9 @@
+## Exact POST-ready local member email query — 2026-11-21
+
+`MemberDirectory::byEmail()` adds a prepared, bounded, normalized exact-match query that exposes only local member ID/email/status/registration time, never password hashes, account age/consent details, merchant information, creator content or staff accounts. Input rejects control characters, invalid addresses and overlong strings before SQL; unknown accounts return null. Disposable MySQL/MariaDB regressions cover case normalization, staff exclusion, missing accounts and malicious inputs. Do not expose private emails in GET URLs: a separately authenticated POST-only owner form is the next increment. All existing member security step-ups and adult release gates remain intact.
+
+---
+
 ## Responsive keyboard-friendly owner dashboard work tiles — 2026-11-21
 
 The four local read-only work counters now use a responsive grid with 4 desktop, 2 tablet and 1 small-screen columns. Each count is a standard link to a protected local admin list with visible keyboard focus, wrapping for long status labels and no JavaScript, external assets or commercial provider calls. This is solely presentation; no private record or entitlements are embedded in CSS. UI tests assert responsive and focus rules.

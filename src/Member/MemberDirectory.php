@@ -16,6 +16,34 @@ final class MemberDirectory
 {
     public function __construct(private readonly PDO $pdo) {}
 
+    /** Validate the exact local email lookup before any database operation. */
+    public static function validateLookupEmail(mixed $raw): string
+    {
+        if (!is_string($raw) || strlen($raw)>190
+            || preg_match('//u',$raw)!==1
+            || preg_match('/[\x00-\x1f\x7f]/',$raw)===1) {
+            throw new RuntimeException('Enter a valid member email address.');
+        }
+        $email=strtolower(trim($raw));
+        if (strlen($email)>190 || filter_var($email,FILTER_VALIDATE_EMAIL)===false) {
+            throw new RuntimeException('Enter a valid member email address.');
+        }
+        return $email;
+    }
+
+    /** @return array{id:int,email:string,status:string,created_at:string}|null */
+    public function byEmail(mixed $email): ?array
+    {
+        $normalized=self::validateLookupEmail($email);
+        $q=$this->pdo->prepare("SELECT id,email,status,created_at
+            FROM ac_users WHERE email=? AND role='member' LIMIT 1");
+        $q->execute([$normalized]);
+        $row=$q->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($row)) return null;
+        return ['id'=>(int)$row['id'],'email'=>(string)$row['email'],
+            'status'=>(string)$row['status'],'created_at'=>(string)$row['created_at']];
+    }
+
     /** @return array{members:list<array{id:int,email:string,status:string,created_at:string}>,next:?int} */
     public function page(?int $before=null,?string $status=null,?int $memberId=null): array
     {
