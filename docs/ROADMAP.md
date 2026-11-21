@@ -1,3 +1,11 @@
+## Revision-specific private creator feedback retention — development only (2026-11-21)
+
+An additive m15 local creator feedback-history table now snapshots each request-changes or reject decision, private note, reviewer, and submitted draft revision in the same transaction. An active local creator can inspect their own last 100 private decisions even after editing/resubmitting; owner/admin can see last 100 locally retained decisions in the protected read-only creator detail view, including suspended creator profiles. Text stays HTML-escaped in a no-store/noindex environment. The existing numeric-only action log remains text-free. The initial m15 upgrade does not reconstruct decisions from earlier m14 installations; current prior note stays in its existing row. Lite and Pro remain one self-hosted software package, selected by the customer's software license.
+
+This is private planning feedback, **not an age/consent check, media approval, public publication, payment entitlement, vendor creator application or final compliance release**. SQL, HTTP, source ZIP and encrypted restore tests guard the boundary.
+
+---
+
 ## Private local creator text-review cycle (2026-11-21, development only)
 
 Each **independently installed** Adult_Core site can now hand off creator-owned **text-only** planning drafts to its own moderation team. The creator saves a private plan, explicitly submits it, and cannot edit while submitted. Local owner/admin/moderator reviewers can request changes (with a private escaped feedback note) or reject. Changes require the creator to save a new private revision before resubmitting. Rejected plans stay private and cannot be edited. Optimistic draft revisions, active creator/member/role checks, CSRF and numeric-only draft action events block stale submissions, cross-account actions and unauthorized review.

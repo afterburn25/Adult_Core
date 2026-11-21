@@ -1,3 +1,9 @@
+## Local creator private feedback history — 2026-11-21
+
+- Record each moderator's `changes`/`rejected` review note with actor, submitted draft revision and UTC timestamp in a new local `ac_creator_feedback_history` table; unique per reviewed submission revision and written transactionally with the original decision.
+- Add read-only, bounded private feedback timelines for the currently enabled creator and site owner/admin. Old private feedback persists through plan edits/resubmission instead of being overwritten. Escaped rendering and separate member/site-admin authorization remain mandatory.
+- Add repeatable m15 site-setup migration and fail-closed UI setup guards; ZIP inventory and MySQL/MariaDB/HTTP/encrypted-restore regression coverage. Pre-m15 decisions are not falsely reconstructed with guessed reviewers.
+
 ## Creator private-state recovery coverage — 2026-11-21
 
 - Test full encrypted backup and empty-database restoration of a local creator account, email confirmation, archived/submitted/rejected text plans, private reviewer feedback and numeric events.

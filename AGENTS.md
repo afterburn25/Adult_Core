@@ -1,3 +1,11 @@
+## Creator review feedback history, keep private and site-local — 2026-11-21
+
+`CreatorFeedbackSchema` m15 adds `ac_creator_feedback_history` after m14, enforcing one row per (draft_id, submitted_revision). Only local `CreatorDraftReview::decide()` may write a moderator's text feedback in the **same transaction** as the private draft state and numeric event; never approve, grant entitlements, modify media or publish. `CreatorFeedbackHistory::forMember()` must join local creator+member+email tables and require currently enabled ownership; `forOwner()` must require active local owner/admin `members.manage`. Render at most 100 latest entries with HTML escaping and no-store/noindex, and never move private feedback into `ac_creator_draft_events` numeric audit rows, HTTP GET query strings, or user-visible error logs.
+
+Site setup must apply m15 after m14 and all history-dependent routes fail closed until migrated. The first upgrade does not fabricate historical reviewer attribution for prior m14 decisions. Keep ZIP, unit, MySQL/MariaDB, authenticated HTTP and encrypted backup/restore tests current. No centrally hosted creators, SaaS registration, public approval, age/consent verification or payment entitlement results from this feature.
+
+---
+
 ## Creator state in encrypted self-hosted backups — 2026-11-21
 
 Backup/restore must include **all** local creator records (m13 profile and private drafts, m14 review notes/events, local audit, confirmed email state). `SiteBackup::listTables` automatically includes ordinary `ac_` InnoDB tables; do not add exclusions or secret-copy shortcuts. Keep actual disposable encrypted `.acfull` export → wipe → empty restore tests for archived, submitted and rejected creator text (and numeric event history). The restored site must not auto-publish or grant age/consent/paid entitlement. Do not suggest real host continuity until an operator has performed a verified offsite and host-level recovery drill.

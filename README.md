@@ -1,3 +1,7 @@
+## Private creator feedback timeline
+
+Each local site's text-only creator review retains separate private feedback snapshots by submitted draft revision. Only that site's enabled creator and owner/admin can inspect their permitted review history; no SaaS creator accounts or public media are involved. Apply the additive site-setup migration first. See [Local creator management and review](docs/LOCAL_CREATORS.md).
+
 ## Local creator text-plan review, without public publication
 
 Owner-provisioned creators can submit private **text-only** draft plans to the moderator of that particular self-hosted website. Moderators can request changes or reject (no approve/publish button). Creators see private feedback in their own account, make revisions and resubmit. It does not provide an adult media approval, payment, identity/age or performer consent workflow. Apply the local creator review migration under **Admin → Setup**. See [Local creator workflow](docs/LOCAL_CREATORS.md).

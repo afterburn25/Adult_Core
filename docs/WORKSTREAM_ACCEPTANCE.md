@@ -1,3 +1,9 @@
+## Local private creator feedback timeline — internal development acceptance
+
+For creator text plans, each new local decision now retains a separate private reviewer note with submitted revision, actor and time, and a numeric-only global audit event. Member access is restricted to an active email-confirmed local creator's own drafts; owner/admin can inspect site-local retained notes even if the creator is suspended. No unverified staff member, third-party tenant or public route can expose the timeline. Private notes are HTML-escaped and capped at 500 bytes, and queries have a 100-entry limit. Additive m15 migration and encrypted backup/restore regressions are covered in disposable CI. This does not close performer identity/consent, adult merchant billing, real-host cPanel/VPS installation, moderation publication or production legal/security signoff.
+
+---
+
 ## Private local creator text review — not publish acceptance (2026-11-21)
 
 The site-local text workflow has a private `submit → changes/rejected` moderator cycle. The enabled creator can edit only unsent or returned-for-changes plans and must save a revision before resubmission. Active local owner/admin/moderator permission, CSRF, no-store rendering, escaped feedback, optimistic concurrency and numeric-only draft action events govern the process. Critically, there is no `approved` transition, public ac_content/ac_media mutation, adult age/identity/performer-consent verification or paid access. This does **not** satisfy public creator media review/publish or commercial release gates and must not be used as certification of a creator or performer.

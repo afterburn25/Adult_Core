@@ -1,3 +1,12 @@
+## Private creator review feedback timeline (m15) — 2026-11-21
+
+- Added repeatable `CreatorFeedbackSchema::migrate()` after m14, installing local `ac_creator_feedback_history` with unique (draft_id,submitted_revision), reviewer ID, decision, private feedback and UTC timestamp. Reviewer `CreatorDraftReview::decide()` now writes the feedback snapshot **inside the same transaction** as the draft decision and numeric event. No approve/publish or vendor-side SaaS.
+- `CreatorFeedbackHistory::forMember()` exposes at most 100 latest local review decisions to the **active, email-confirmed owner of the local creator profile**; `forOwner()` permits only a currently active owner/admin with `members.manage` for that site-local creator, including after creator suspension. No moderator route exposes the full private timeline. Both views escape feedback; old feedback survives creator revisions without leaking into the numeric-only event log.
+- `/admin/setup` now applies m15 after m14. Member creator page, local owner private plans page and moderator review page **fail closed with setup-required messages** until migration. Source ZIP requires the new classes. Unit, disposable MySQL/MariaDB, real protected HTTP and encrypted backup/restore tests were expanded. Run latest CI before claiming green; actual Lite cPanel/Pro VPS, independent identity/consent and payment integrations still block release.
+- This migration tracks review decisions **recorded after m15 is applied**. It does not manufacture historical reviewer identity/feedback for decisions completed before upgrade. Existing m14 current review_note is retained but is not backfilled into the new timeline.
+
+---
+
 ## Local creator encrypted disaster recovery regression — 2026-11-21
 
 - Expanded the existing full `tests/mysql_backup_restore.php` integration fixture: after adding m9 email + m13 creator + m14 review migrations, the source site seeds an owner-provisioned local creator with an archived revised draft, submitted draft, rejected draft, escaped private reviewer feedback and numeric audit history. The unchanged `SiteBackup` implementation already captures all ordinary `ac_` InnoDB tables.
