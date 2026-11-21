@@ -21,7 +21,7 @@ Both intentionally exit nonzero while production is not certified. Never bypass 
 | 6 | Pro video/streaming | Narrow signed HMAC jobs, replay-conflict protected receipt and agent preflight | Production FFmpeg worker/queues, secure segmented playback, live streaming, authorization expiration, VPS load/soak tests |
 | 7 | Add-ons and updates | Signed data-only packages, edition compatibility, paid module recovery and non-mutating signed update compatibility preview | Trusted execution API/sandbox design, signed version updates with tested rollback and migration compatibility |
 | 8 | Design and member UX | Responsive admin, design studio, draft pages, member accounts and private library | Complete page builder, tier/creator dashboard, usable mobile/accessibility and cross-browser acceptance |
-| 9 | Operations and disaster recovery | Authenticated encrypted archive/vault, CLI restore fixture, host preflight, source ZIP checksum verification and maintenance gates | Real cPanel/VPS restore drills, monitoring, incident response, offsite retention, tested source/package updates |
+| 9 | Operations and disaster recovery | Authenticated encrypted archive/vault, CLI restore fixture, host preflight, source ZIP checksums, read-only private-media integrity audit and maintenance gates | Real cPanel/VPS restore drills, monitoring, incident response, offsite retention, tested source/package updates |
 | 10 | Security, compliance, release | Automated regressions, ten-workstream blocker CLI and fail-closed readiness checker | Independent security assessment, privacy/consent/legal review, accessibility, performance, incident and support signoff |
 
 ## Operator-controlled actions
@@ -57,3 +57,9 @@ An authenticated administrator can now use `/admin/moderation` to attach a maxim
 
 The production creator upload workflow, EXIF/geolocation removal and malware scanning, approved age/identity and consent provider, moderation publication flow, subscription processor, and media storage/streaming lifecycle remain incomplete.
 
+
+## Read-only private-media integrity checks
+
+Operators of a **completed installation** can run `php scripts/audit-private-media.php` or `php scripts/audit-private-media.php --json` from a server terminal. It queries registered `ac_media` storage keys and scans the private `storage/private-media` directory for missing files, unreferenced blobs, unexpected file types, symlinked paths and invalid file sizes (up to 8 MiB). Output contains **aggregate counts only**, never filenames, storage keys, performer evidence, private paths or image bytes.
+
+The audit is deliberately **non-mutating** and fails with a nonzero exit code if inconsistencies are found; it does not repair the database, delete possible evidence, authorize a public image, or bypass an incomplete installation. Run it during normal owner-controlled maintenance and investigate anomalies using a trusted backup and your legally required retention process. `tests/mysql_private_media_audit.php` performs a separate disposable MySQL and filesystem test; it does not touch customer files. This is not an external disaster-recovery drill or independent compliance certification.
