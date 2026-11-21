@@ -1,3 +1,9 @@
+## Read-only member record status — development-only member UX
+
+Signed-in members can now see only their own locally persisted subscription state/tier/date fields on `/members`. A locally recorded `active` membership is clearly NOT proof of payment or verified entitlement, and disabled new catalog tiers remain non-eligible in the existing `Entitlements` policy. The page contains no checkout, cancellation, subscription-grant or provider callback function; it does not reveal billing tokens. Member-ID-bound queries, escaped renderer output and non-disclosing empty state are exercised in unit, disposable MySQL and authenticated HTTP tests. Real processor-approved billing, renewal, cancellation, refund/chargeback and fulfillment remain open in workstream #4.
+
+---
+
 ## Saved draft page preview — development only
 
 The website page builder now links to a private `/admin/page/preview?id=ID` endpoint. This admin-authenticated, no-store and noindex read-only route displays a saved draft with the same escaping, layout and safe imagery conditions used by the public renderer, plus a prominent admin-only preview notice. Anonymous requests do not receive draft content, and `/p/slug` continues to refuse unpublished pages. This is a useful workstream #8 increment, not completed visual builder, mobile/accessibility certification or permission to publish adult media.

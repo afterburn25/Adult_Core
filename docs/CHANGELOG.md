@@ -1,3 +1,10 @@
+## Member subscription status overview — 2026-11-21 (development only)
+
+- Show member-scoped, read-only membership tier/state/dates in the authenticated member dashboard, with clear caveats that locally stored statuses are not authenticated payment receipts.
+- Explicitly display disabled tier access and escape all names/statuses; do not expose other members' records, billing credentials, checkout or cancellation actions.
+- Add unit, disposable MySQL and real HTTP tests for empty/assigned records, disabled entitlement state and no payment authorization. Require the source in the unified Lite/Pro ZIP.
+- Still no processor-specific subscription fulfillment or production release.
+
 ## Saved page preview, admin-only — 2026-11-21 (development only)
 
 - Add authenticated, role-gated, read-only `/admin/page/preview?id=ID` for saved unpublished drafts and saved published page revisions.

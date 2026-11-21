@@ -1,3 +1,11 @@
+## Read-only member subscription overview — 2026-11-21
+
+The authenticated member dashboard now renders at most 20 subscription **records belonging to the signed-in member**, with tier labels, locally recorded state, subscription dates and the tier's current entitlement-active flag. `MemberSubscriptionSummary::forMember()` uses a member-ID-bound prepared statement; the renderer escapes every database-owned string. It explicitly warns that local `active` status is not proof of a completed charge and cannot cancel, purchase, grant, verify age or publish media. New catalog tiers remain entitlement-inactive, and this view has no privilege to change them.
+
+Unit, disposable SQL and real authenticated HTTP tests cover empty and assigned records, disabled tier labeling, no cross-user record disclosure and HTML/XSS-safe output. This is a member UX increment, **not** a real billing portal or processor integration; payment lifecycle, refunds and independent age/consent checks remain blocked.
+
+---
+
 ## Administrator-only saved page preview — 2026-11-21
 
 A saved public-page draft can now be previewed under the authenticated `GET /admin/page/preview?id=ID` route, using the same escaped `Layout::site()` theme and plain-text body renderer as the public website. The administrator sees an explicit **ADMIN PREVIEW — SAVED PAGE** notice; the response sets private no-store caching and noindex/nofollow headers. Public URLs remain governed exclusively by `PageRepository::published()` and cannot show saved unpublished pages. Only previously saved database text is previewed (not unsaved browser form state), and unapproved private decorative images are never added. The page list/editor link to this authenticated read-only preview.

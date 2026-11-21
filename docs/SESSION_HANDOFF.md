@@ -1,3 +1,11 @@
+## Member-scoped read-only subscription overview — 2026-11-21
+
+- Added `src/Membership/MemberSubscriptionSummary.php` to display only the logged-in member's recorded subscription rows under `/members` after the membership schema migration. The controller obtains the member ID from its protected session, not HTTP input. Rows show tier name, recorded status, dates and inactive/active tier flag, with escaped output and explicit **no verified payment claim**. No billing action is enabled.
+- Added direct escaping unit tests, SQL membership scoping tests and a real HTTP synthetic inactive-tier record fixture. The source is required by the unified release ZIP checks. Latest CI result must be verified on the current commit.
+- No approved merchant checkout, real invoice/refund, lawful age/consent process, creator publishing, cPanel/VPS acceptance or independent security certification has been completed.
+
+---
+
 ## Administrator saved page preview — 2026-11-21
 
 - Added `/admin/page/preview?id=ID` through existing `AdminController` current-user, MFA, HTTPS/loopback, license and site-settings permission gates; `SiteAdminController` accepts GET only, requires an existing saved page and emits private no-store/noindex. The preview uses `Layout::site(..., adminPreview: true)` and an explicit nonlive banner, with existing safe theme and no private image exposure.

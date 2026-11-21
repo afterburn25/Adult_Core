@@ -1,3 +1,9 @@
+## Member subscription status is read-only, not payment verification — 2026-11-21
+
+`MemberSubscriptionSummary::forMember()` must query `ac_memberships` ONLY for the member ID obtained from the authenticated member session, never from request parameters. Limit record counts; escape tier names, statuses and dates. The displayed `active` status is a database record, not verified merchant evidence, and the UI must prominently say so. Do not add create/grant/activate/charge/cancel controls or assume a displayed record satisfies age, consent, moderation or provider billing. New tier labels remain `is_active=0`. Keep real HTTP, unit, disposable MySQL and source ZIP checks; production billing gates remain open.
+
+---
+
 ## Saved public-page preview remains private — 2026-11-21
 
 `GET /admin/page/preview?id=ID` is an authenticated site-settings-manager operation handled after the global license and full admin session/MFA gate. It may render **saved drafts** using the regular escaped public layout but MUST include a clear admin preview banner, no-store/noindex headers, and must never alter `ac_pages.status` or expose unapproved decorative assets. POST/other methods cannot preview, and the public `/p/slug` handler MUST continue querying only `PageRepository::published()`. Maintain real disposable HTTP tests for unauthenticated access, XSS-safe preview, method rejection, and draft 404 on public URL. This is not permission to publish protected galleries or close the page-builder acceptance gate.
