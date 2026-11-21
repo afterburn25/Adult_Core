@@ -1,3 +1,9 @@
+## Encrypted recovery regression for m16/m17 page data — 2026-11-21
+
+The disposable MySQL/MariaDB full backup and empty-database restore test now covers the new page revision and navigation migrations. It backs up a published but unlisted page plus a versioned homepage, then checks exact restored row snapshots, migration markers and the distinction between published URLs and visible menu links. Existing creator feedback, media, license, installer and archive-integrity checks remain. This is local CI evidence, not independent real-host disaster recovery or adult-content production certification.
+
+---
+
 ## Bounded page-management pagination — development (2026-11-21)
 
 The site owner/admin public-page dashboard now uses 50-row ID keyset pages instead of silently hiding pages beyond a fixed 100-row list. The older-pages link is numeric and bound as a SQL parameter; invalid cursors receive HTTP 422 and never expose public or private content. A return-to-newest link keeps navigation simple. The underlying public website still serves only explicitly published, escaped plain-text pages; hiding a menu link does not unpublish a page. Existing shared-host Lite and VPS Pro software distribution and license selection are unchanged.

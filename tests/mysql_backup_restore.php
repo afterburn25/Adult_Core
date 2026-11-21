@@ -14,6 +14,9 @@ use AdultCore\Installer\InstallService;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Website\SiteSchema;
+use AdultCore\Website\PageRevisionSchema;
+use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
@@ -72,12 +75,28 @@ try{
     (new InstallService($src,$client))->install($inputs);
     unlink($src.'/install/index.php');rmdir($src.'/install');
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
+    PageRevisionSchema::migrate($pdo);
+    PageNavigationSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
     // Deliberately leave m14 unapplied until after one m13-era draft is saved.
     // This proves the additive review upgrade preserves existing private data.
     $pdo->prepare("UPDATE ac_pages SET title=?, body=?, status='published' WHERE slug='home'")
         ->execute(['Recovered creator page','Original member content preserved.']);
+    // Preserve versioned content and local navigation in a full site archive.
+    $pages=new PageRepository($pdo);
+    $homeId=(int)$pdo->query("SELECT id FROM ac_pages WHERE slug='home'")->fetchColumn();
+    $pages->save($homeId,'home','Recovered creator page',
+        'Original member content preserved.','published',1,true,15);
+    $pages->save(0,'backup-unlisted','Backup unlisted page',
+        'Public direct URL with intentionally hidden navigation.','published',
+        null,false,7);
+    $beforePageRecovery=$pdo->query("SELECT id,slug,title,body,status,revision,show_in_menu,nav_position
+        FROM ac_pages ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery(count($beforePageRecovery)===2
+        && (int)$beforePageRecovery[0]['revision']===2
+        && (int)$beforePageRecovery[1]['show_in_menu']===0,
+        'Revisioned homepage and intentionally unlisted page prepared for encrypted recovery');
     $pdo->exec("UPDATE ac_design_settings SET theme_key='velvet-plum' WHERE id=1");
     $pdo->prepare('INSERT INTO ac_users(email,password_hash,role,created_at,status) VALUES(?,?,?,UTC_TIMESTAMP(),?)')
         ->execute(['member@example.test',password_hash('member pass',PASSWORD_DEFAULT),'member','pending']);
@@ -178,6 +197,16 @@ try{
     verifyRecovery($restored===$stats,'Backup and restore counters agree');
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
     verifyRecovery($pdo->query("SELECT title FROM ac_pages WHERE slug='home'")->fetchColumn()==='Recovered creator page','Creator page retained');
+    $afterPageRecovery=$pdo->query("SELECT id,slug,title,body,status,revision,show_in_menu,nav_position
+        FROM ac_pages ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery($afterPageRecovery===$beforePageRecovery,
+        'Encrypted restore preserves every published page revision and local navigation setting');
+    $restoredPages=new PageRepository($pdo);
+    verifyRecovery($restoredPages->published('backup-unlisted')!==null
+        && !in_array('backup-unlisted',array_column($restoredPages->publishedMenu(),'slug'),true)
+        && PageRevisionSchema::installed($pdo)
+        && PageNavigationSchema::installed($pdo),
+        'Recovered unlisted page remains public by URL but absent from menu with both migration markers');
     verifyRecovery($pdo->query('SELECT theme_key FROM ac_design_settings WHERE id=1')->fetchColumn()==='velvet-plum','Selected theme retained');
     $creatorAfterRecovery=(new LocalCreators($pdo))->privatePlansForOwner($ownerId,$creatorId);
     verifyRecovery($creatorAfterRecovery===$beforeCreatorRecovery,
