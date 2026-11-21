@@ -1,3 +1,13 @@
+## Private member galleries and pending draft images — 2026-11-21
+
+Member pages `/members/library` and `/members/library/ID` must **never reveal titles, media IDs or storage keys** without independent `Entitlements::canView()` authorization. `MemberLibrary::detail()` only lists approved allowlisted MIME records, and every `/media/ID` request rechecks member identity, password generation, age, email, paid tier, moderation and complete performer consent. A missing/unauthorized gallery returns uniform 404. Never treat a local synthetic verification fixture as an actual age or consent check.
+
+Admin `/admin/moderation` may now accept only **actual HTTP-uploaded** JPEG/PNG/WebP files into **private, unpublished, unreviewed** drafts. `ModerationRepository::attachPrivateImage()` checks active moderator role and locks the draft, caps it at 40 images, stores a random private-media key, writes only a **pending** media row, audits and tries to clean up a moved blob on SQL failure. `PrivateMedia` enforces 8 MiB, max 8192×8192 and max 32 million pixels; no public URL or automatic approval is allowed. The `/admin/moderation/image/ID` preview is **GET-only, no-store, role/session/MFA-protected**, and shows only pending media for currently private unpublished draft content. After quarantine/rejection/logout, previews must fail closed.
+
+Preserve the real multipart upload, invalid CSRF, member denial, administrator preview, rejected-draft refusal, consent revocation and logout tests in `tests/mysql_http_auth.py`. Production still requires a contracted verification provider, formal consent/recordkeeping, image metadata stripping/scanning, moderation approval/publication and a real adult-appropriate billing processor. Never add an approval/publish shortcut to accommodate fixture tests.
+
+---
+
 ## Source ZIP distribution integrity (2026-11-21)
 
 Keep `scripts/build-release.php` as a **developer-only**, single Lite/Pro source ZIP builder with an output directory outside the project/public root. The ZIP must contain all runtime classes, both edition manifests and no private `config/license.php`, `app-key.php`, customer database or private media. `tests/release_distribution_tests.php` in CI reopens the archive and checks a generated `.sha256` checksum. This checksum is **not a digital signature** and does not authorize an update or claim production release acceptance. Preserve the explicit fail-closed updater and host-certification gates.
