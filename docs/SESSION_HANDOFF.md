@@ -1,3 +1,9 @@
+## Full HTTP regression for page listing beyond 50 — 2026-11-21
+
+The disposable, confirm-gated HTTP fixture now creates 51 additional unpublished pages only after complete local site setup. It verifies a real authenticated owner sees Older pages on the first slice, reaches the original saved pages on the second slice, returns to the first page, and cannot publicly retrieve a fixture draft; forged zero cursors still fail with 422. The owner page view keeps the paging metadata separate from its per-row loop variable, so the Next link cannot be lost after rendering the table. No adult publishing or real hosted services are enabled.
+
+---
+
 ## Unified source archive covers page editing migrations — 2026-11-21
 
 The Lite/Pro source ZIP required-file inventory and reopened-archive regression now require PageRepository, PageRevisionSchema and PageNavigationSchema. A developer cannot build a seemingly complete release ZIP if either new additive page migration or the underlying page repository is absent. The archive still contains both edition descriptors, does not package customer secrets, and is not a signed production update or proof of deployment acceptance.

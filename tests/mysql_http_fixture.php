@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -46,6 +46,28 @@ if ($action === 'seed-moderator') {
         VALUES ('moderator@example.test',?,'moderator','active',UTC_TIMESTAMP())");
     $q->execute([password_hash('strong-example-moderator-password',PASSWORD_DEFAULT)]);
     echo 'Disposable moderator provisioned.';
+    exit;
+}
+if ($action === 'seed-pages') {
+    // Strictly disposable test-only site pages; never a production mutation
+    // API, and never creates published/unverified membership content.
+    foreach ([
+        \AdultCore\Website\SiteSchema::VERSION,
+        \AdultCore\Website\PageRevisionSchema::VERSION,
+        \AdultCore\Website\PageNavigationSchema::VERSION,
+    ] as $version) {
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([$version]);
+        if ((int)$q->fetchColumn()!==1) {
+            throw new RuntimeException('Bulk page fixture requires complete site setup.');
+        }
+    }
+    $pages=new \AdultCore\Website\PageRepository($pdo);
+    for ($i=0;$i<51;$i++) {
+        $pages->save(0,sprintf('bulk-fixture-%02d',$i),
+            'Bulk fixture page '.sprintf('%02d',$i),'Nonpublic synthetic page list test','draft');
+    }
+    echo 'Disposable private page fixtures prepared.';
     exit;
 }
 if ($action === 'issue-email') {

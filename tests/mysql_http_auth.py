@@ -1500,6 +1500,26 @@ def main():
             code, dashboard=req('/admin')
             ensure('Dashboard recovered after disabling MFA',code==200)
 
+            # End-to-end navigation of >50 pages using the actual authenticated
+            # owner UI; no fixture draft is published or available publicly.
+            subprocess.check_output(php_fixture+['seed-pages'],cwd=root)
+            code, first_pages=req('/admin/pages')
+            older_link=re.search(r'href="/admin/pages\?before=(\d+)"',first_pages)
+            ensure('Owner page dashboard exposes next-page link with 51 private drafts',
+                   code==200 and older_link is not None
+                   and 'Bulk fixture page 50' in first_pages)
+            code, older_pages=req('/admin/pages?before='+older_link.group(1))
+            ensure('Owner can reach older saved pages and return to newest',
+                   code==200 and 'Back to newest pages' in older_pages
+                   and 'Welcome' in older_pages
+                   and 'Bulk fixture page 00' in older_pages)
+            code, still_draft=req('/p/bulk-fixture-00')
+            ensure('Paginated private synthetic page remains unpublished',
+                   code==404)
+            code, bad_cursor=req('/admin/pages?before=0')
+            ensure('Zero numeric page cursor refused without browsing content',
+                   code==422 and 'Invalid page list cursor' in bad_cursor)
+
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
             csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', body)
