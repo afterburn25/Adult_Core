@@ -115,17 +115,78 @@ final class CreatorDraftReview
         }
     }
 
-    /** @return list<array<string,mixed>> Pending local planning text only. */
+    /** @return list<array<string,mixed>> Backward-compatible first page. */
     public function queue(int $moderatorId): array
     {
+        return $this->queuePage($moderatorId,null)['drafts'];
+    }
+
+    /**
+     * Authenticated keyset paging for the local submitted-text queue.
+     *
+     * Cursor encodes only the previous review timestamp + draft ID.
+     * It is NOT an authorization token: requireModerator checks the live
+     * database role on every page request, and SQL binds all cursor fields.
+     *
+     * @return array{drafts:list<array<string,mixed>>,next:?string}
+     */
+    public function queuePage(int $moderatorId,?string $after=null): array
+    {
         $this->requireModerator($moderatorId,false);
-        $q=$this->pdo->query("SELECT d.id,d.creator_id,d.title,d.summary,d.status,
+        $cutoff=self::parseQueueCursor($after);
+        $sql="SELECT d.id,d.creator_id,d.title,d.summary,d.status,
             d.revision,d.updated_at,c.display_name,c.status AS creator_status
             FROM ac_creator_drafts d
             JOIN ac_creator_profiles c ON c.id=d.creator_id
-            WHERE d.status='submitted'
-            ORDER BY d.updated_at ASC,d.id ASC LIMIT 50");
-        return $q->fetchAll(PDO::FETCH_ASSOC);
+            WHERE d.status='submitted'";
+        $values=[];
+        if ($cutoff!==null) {
+            $sql.=' AND (d.updated_at>? OR (d.updated_at=? AND d.id>?))';
+            $values=[$cutoff['stamp'],$cutoff['stamp'],$cutoff['id']];
+        }
+        $q=$this->pdo->prepare($sql.' ORDER BY d.updated_at ASC,d.id ASC LIMIT 51');
+        $q->execute($values);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $hasMore=count($rows)>50;
+        if ($hasMore) array_pop($rows);
+        $next=null;
+        if ($hasMore && $rows!==[]) {
+            $last=end($rows);
+            // DB-provided values only, never an arbitrary user path.
+            $next=rtrim(strtr(base64_encode((string)$last['updated_at'].'|'.(int)$last['id']),
+                '+/','-_'),'=');
+        }
+        return ['drafts'=>$rows,'next'=>$next];
+    }
+
+    /**
+     * Decode bounded cursor without trusting the browser's timestamp or ID.
+     * Invalid/altered cursors fail closed without ever altering review state.
+     *
+     * @return array{stamp:string,id:int}|null
+     */
+    private static function parseQueueCursor(?string $cursor): ?array
+    {
+        if ($cursor===null) return null;
+        if (strlen($cursor)<2 || strlen($cursor)>100
+            || preg_match('/^[A-Za-z0-9_-]+$/D',$cursor)!==1) {
+            throw new RuntimeException('Invalid private review queue cursor.');
+        }
+        $b64=strtr($cursor,'-_','+/');
+        $decoded=base64_decode($b64.str_repeat('=',(4-strlen($b64)%4)%4),true);
+        if (!is_string($decoded)
+            || preg_match('/^([0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})\|([1-9][0-9]{0,17})$/D',
+                $decoded,$match)!==1) {
+            throw new RuntimeException('Invalid private review queue cursor.');
+        }
+        $date=\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$match[1],
+            new \DateTimeZone('UTC'));
+        if ($date===false || $date->format('Y-m-d H:i:s')!==$match[1]) {
+            throw new RuntimeException('Invalid private review queue cursor.');
+        }
+        $id=filter_var($match[2],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+        if ($id===false) throw new RuntimeException('Invalid private review queue cursor.');
+        return ['stamp'=>$match[1],'id'=>(int)$id];
     }
 
     /**
