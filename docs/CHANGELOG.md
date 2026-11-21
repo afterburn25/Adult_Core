@@ -1,3 +1,10 @@
+## Suspended administrator login/session denial — 2026-11-21
+
+- Require database account status `active` at administrator credential validation and on every authenticated admin session lookup; suspend/revoke accounts immediately lose access.
+- MFA challenge also respects the same active-account gate.
+- Add disposable MySQL and real HTTP checks for suspended owner login refusal, session revocation and fresh login after reactivation.
+- No public moderator management, service-worker execution or production signoff.
+
 ## Member subscription status overview — 2026-11-21 (development only)
 
 - Show member-scoped, read-only membership tier/state/dates in the authenticated member dashboard, with clear caveats that locally stored statuses are not authenticated payment receipts.

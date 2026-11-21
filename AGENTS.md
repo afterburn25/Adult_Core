@@ -1,3 +1,9 @@
+## Suspended privileged accounts must be denied immediately — 2026-11-21
+
+`AdminAccounts::verifyCredentials()` and `authorizedById()` must both require `ac_users.status='active'` in addition to permission/MFA/session checks. A disabled admin must not be able to sign in or retain a session after a DB status change. Keep `MfaController` challenge dependent on `authorizedById()`. Maintain disposable SQL and real HTTP regression that suspends/restores only the synthetic test administrator and verifies old sessions are NOT resurrected. Do not broaden moderator login permissions without a separate fully tested role-specific navigation/provisioning design.
+
+---
+
 ## Member subscription status is read-only, not payment verification — 2026-11-21
 
 `MemberSubscriptionSummary::forMember()` must query `ac_memberships` ONLY for the member ID obtained from the authenticated member session, never from request parameters. Limit record counts; escape tier names, statuses and dates. The displayed `active` status is a database record, not verified merchant evidence, and the UI must prominently say so. Do not add create/grant/activate/charge/cancel controls or assume a displayed record satisfies age, consent, moderation or provider billing. New tier labels remain `is_active=0`. Keep real HTTP, unit, disposable MySQL and source ZIP checks; production billing gates remain open.

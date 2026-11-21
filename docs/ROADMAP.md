@@ -1,3 +1,9 @@
+## Immediate revocation of suspended administrator accounts — 2026-11-21
+
+`AdminAccounts::verifyCredentials()` and `authorizedById()` now require `ac_users.status='active'` in addition to existing password, role, MFA and session checks. A disabled/suspended owner or admin cannot begin a new privileged session, and the next authenticated HTTP request revokes any existing session. The MFA challenge also uses `authorizedById()` and therefore refuses a suspended account rather than finishing sign-in. Disposable MySQL tests exercise both direct login and active-session authorization; the authenticated HTTP suite temporarily suspends a synthetic administrator, confirms the dashboard is denied and old session is discarded, then restores the synthetic account and requires a fresh sign-in. This does not create user-suspension admin controls or a public moderator onboarding system.
+
+---
+
 ## Read-only member subscription overview — 2026-11-21
 
 The authenticated member dashboard now renders at most 20 subscription **records belonging to the signed-in member**, with tier labels, locally recorded state, subscription dates and the tier's current entitlement-active flag. `MemberSubscriptionSummary::forMember()` uses a member-ID-bound prepared statement; the renderer escapes every database-owned string. It explicitly warns that local `active` status is not proof of a completed charge and cannot cancel, purchase, grant, verify age or publish media. New catalog tiers remain entitlement-inactive, and this view has no privilege to change them.

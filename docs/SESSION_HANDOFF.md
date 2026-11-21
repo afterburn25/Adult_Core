@@ -1,3 +1,9 @@
+## Privileged account active-state check — 2026-11-21
+
+`AdminAccounts::verifyCredentials()` and `authorizedById()` now query only `status='active'` privileged users. This prevents suspended accounts from logging in or retaining previously established admin sessions; the existing `AdminController::currentAdmin()` revokes the session when its DB-backed identity disappears, and `MfaController` uses the same authorized lookup. `tests/mysql_install.php` checks both login/current authorization, and the real HTTP suite uses disposable CLI-only `suspend-owner`/`reactivate-owner` commands to verify session invalidation and fresh login. Verify the latest CI result before claiming green. Moderator-specific login provisioning/navigation remains unimplemented: `RolePolicy` does not currently grant moderator `admin.access`, and no role widening was performed.
+
+---
+
 ## Member-scoped read-only subscription overview — 2026-11-21
 
 - Added `src/Membership/MemberSubscriptionSummary.php` to display only the logged-in member's recorded subscription rows under `/members` after the membership schema migration. The controller obtains the member ID from its protected session, not HTTP input. Rows show tier name, recorded status, dates and inactive/active tier flag, with escaped output and explicit **no verified payment claim**. No billing action is enabled.
