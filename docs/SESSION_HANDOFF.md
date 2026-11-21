@@ -1,3 +1,9 @@
+## m19 disposable database teardown ordering — 2026-11-21
+
+The first m19 MariaDB run passed the real installation and upgrade checks but exposed an integration-fixture cleanup error: the new foreign-key-bound `ac_page_history` table was still present when dropping `ac_pages`. Both disposable SQL and authenticated HTTP cleanup lists now drop page history before the parent page table. Production customer database migrations or drop procedures are not changed. Rerun complete MySQL/MariaDB CI before claiming verified success.
+
+---
+
 ## Private page revision history with draft-only restore (m19) — 2026-11-21
 
 A repeatable additive m19 schema preserves page title/body, status, slug, menu visibility/order and revision snapshots in a local `ac_page_history` table. Existing installations backfill **only the current known state**; prior overwritten revisions cannot be reconstructed. Every subsequent page create/edit and private page duplication writes the snapshot in the same DB transaction, including Design Studio homepage edits through savepoints; if the snapshot fails the edit rolls back. The owner/admin editor lists at most 20 recent version summaries and permits a CSRF-protected, revision-checked restore of an earlier title/body. **Restoration always creates a new private draft** and never restores an earlier published state, URL slug or menu flag. The owner must separately publish again.
