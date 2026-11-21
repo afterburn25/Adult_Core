@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Moderation;
 
+use AdultCore\Media\PrivateMedia;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -54,6 +55,62 @@ final class ModerationRepository
             return $id;
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Stage an actual HTTP-uploaded image in a strictly private, unpublished
+     * draft. Its DB record stays pending; no member/media route can serve it.
+     * All actor and draft checks also run for direct service callers.
+     */
+    public function attachPrivateImage(
+        int $contentId, int $actorId, string $temporaryPath,
+        bool $uploaded, PrivateMedia $storage,
+    ): int {
+        if ($contentId < 1 || !$uploaded || !is_uploaded_file($temporaryPath)
+            || !is_file($temporaryPath) || is_link($temporaryPath)) {
+            throw new RuntimeException('Invalid private draft image upload.');
+        }
+        $this->requireModerator($actorId);
+        $this->pdo->beginTransaction();
+        $storedKey=null;
+        try {
+            $q=$this->pdo->prepare('SELECT status,visibility,review_status FROM ac_content WHERE id=? FOR UPDATE');
+            $q->execute([$contentId]);
+            $content=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($content) || $content['status']!=='draft'
+                || $content['visibility']!=='private'
+                || $content['review_status']!=='pending') {
+                throw new RuntimeException('Only private, unreviewed drafts accept images.');
+            }
+            $count=$this->pdo->prepare('SELECT COUNT(*) FROM ac_media WHERE content_id=?');
+            $count->execute([$contentId]);
+            if ((int)$count->fetchColumn()>=40) {
+                throw new RuntimeException('Private draft image limit reached.');
+            }
+            $mime=(new \finfo(FILEINFO_MIME_TYPE))->file($temporaryPath);
+            if (!is_string($mime) || !PrivateMedia::validMime($mime)) {
+                throw new RuntimeException('Image type not allowed.');
+            }
+            $storedKey=$storage->storeVerifiedImage($temporaryPath, $uploaded);
+            $q=$this->pdo->prepare("INSERT INTO ac_media
+                (content_id,private_storage_key,mime_type,review_status)
+                VALUES (?,?,?,'pending')");
+            $q->execute([$contentId,$storedKey,$mime]);
+            $id=(int)$this->pdo->lastInsertId();
+            $this->audit($contentId,null,$actorId,'image_staged',
+                'Private image stored for review; upload did not approve or publish content.');
+            $this->pdo->commit();
+            return $id;
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            // If the DB/audit write failed after moving the upload, remove
+            // its unreferenced private blob whenever safe to do so.
+            if ($storedKey!==null) {
+                $file=$storage->locate($storedKey);
+                if ($file!==null) @unlink($file['path']);
+            }
             throw $e;
         }
     }
