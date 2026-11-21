@@ -1,3 +1,9 @@
+## Authenticated member password rotation integration — 2026-11-21
+
+A separate real HTTP member cookie jar now tests `/members/password`: profile link and signed-in access, member-specific CSRF denial, incorrect-current-password denial, same-password rejection, successful own-account credential rotation, current-cookie logout, replay of a copied pre-change cookie, old password rejection, re-login using the new password, and unchanged pending/paid-content-blocked account status. All browser tests operate on one disposable locally registered fixture member and never call an external provider. The site owner browser's CSRF/cookie remains separate. This complements direct MySQL/MariaDB transaction/epoch tests and unified Lite/Pro ZIP source checks; live production compliance remains blocked.
+
+---
+
 ## m21 member-safety encrypted disaster recovery parity — 2026-11-21
 
 The disposable full-site encrypted `.acfull` backup test now installs m21 after member recovery, performs a local owner suspension and pending-only restore of a confirmed member, records both private actor/reason/status audit rows and the two incremented session generations, then verifies exact parity after an empty-database restore. The existing local creator draft/feedback/plan and member email confirmation snapshots remain intact and no protected media or paid access is granted. Repeating m21 must remain idempotent; live cPanel/VPS offsite restoration and retention obligations still require operator testing and external acceptance.

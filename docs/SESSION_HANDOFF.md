@@ -1,3 +1,9 @@
+## Authenticated member password rotation integration — 2026-11-21
+
+A separate real HTTP member cookie jar now tests `/members/password`: profile link and signed-in access, member-specific CSRF denial, incorrect-current-password denial, same-password rejection, successful own-account credential rotation, current-cookie logout, replay of a copied pre-change cookie, old password rejection, re-login using the new password, and unchanged pending/paid-content-blocked account status. All browser tests operate on one disposable locally registered fixture member and never call an external provider. The site owner browser's CSRF/cookie remains separate. This complements direct MySQL/MariaDB transaction/epoch tests and unified Lite/Pro ZIP source checks; live production compliance remains blocked.
+
+---
+
 ## Self-service member password rotation with transactional session invalidation — 2026-11-21
 
 Added a local signed-in member `/members/password` form linked from `/members`, requiring current password, 12–72-byte new password plus confirmation, member CSRF and rate-limited credential verification. `MemberPasswordChange` performs a row-locked transactional update of only the member password hash, increments the same m10 password-recovery `session_generation` used by every member session, revokes old reset/unconfirmed-email tokens and signs out the current browser on success. Old cookies cannot revive even if the redirect is interrupted; the old password fails verification, and reusing an identical password or targeting an administrator/other member is refused. No new schema is needed. Site-local account status, independent age/consent evidence, member tier/merchant entitlements and adult media permissions are unchanged. Added direct unit/MySQL/MariaDB security and unified Lite/Pro source ZIP checks; authenticated HTTP checks follow. Independent production acceptance remains open.

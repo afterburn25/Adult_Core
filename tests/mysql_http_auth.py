@@ -1939,6 +1939,90 @@ def main():
             ensure('Invalid local member safety audit cursor denied',
                    code==422 and 'Invalid member safety audit cursor' in denied_audit)
 
+            # Signed-in members can rotate their own password; neither site
+            # ownership nor age/payment entitlement is inferred by signing in.
+            code, rotated_login=independent_member_req('/members/login')
+            rotated_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',rotated_login)
+            ensure('Restored pending member can sign in anew using own credentials',
+                   code==200 and rotated_login_csrf is not None)
+            code, _=independent_member_req('/members/login',{
+                'csrf':rotated_login_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-fixture-long-password'
+            })
+            ensure('Restored member must authenticate again after suspended cookie revocation',
+                   code==303)
+            code, personal_account=independent_member_req('/members')
+            ensure('Local member profile offers password security without entitlement grant',
+                   code==200 and 'href="/members/password"' in personal_account
+                   and 'Account status: <strong>pending</strong>' in personal_account)
+            old_rotation_jar=http.cookiejar.CookieJar()
+            for session_cookie_before_rotation in member_test_jar:
+                old_rotation_jar.set_cookie(session_cookie_before_rotation)
+            old_rotation_browser=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(old_rotation_jar))
+            code, password_form=independent_member_req('/members/password')
+            password_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',password_form)
+            ensure('Self-service password form requires signed-in member session',
+                   code==200 and password_csrf is not None
+                   and 'name="current_password"' in password_form
+                   and 'name="confirm_password"' in password_form)
+            code, _=independent_member_req('/members/password',{
+                'csrf':'invalid','current_password':'disposable-fixture-long-password',
+                'new_password':'disposable-member-rotated-password',
+                'confirm_password':'disposable-member-rotated-password'
+            })
+            ensure('Member password security refuses missing CSRF',code==403)
+            code, denied_rotation=independent_member_req('/members/password',{
+                'csrf':password_csrf.group(1),
+                'current_password':'incorrect-member-password',
+                'new_password':'disposable-member-rotated-password',
+                'confirm_password':'disposable-member-rotated-password'
+            })
+            ensure('Member cannot rotate password without knowing current credentials',
+                   code==422 and 'Current member password is incorrect.' in denied_rotation)
+            code, same_rotation=independent_member_req('/members/password',{
+                'csrf':password_csrf.group(1),
+                'current_password':'disposable-fixture-long-password',
+                'new_password':'disposable-fixture-long-password',
+                'confirm_password':'disposable-fixture-long-password'
+            })
+            ensure('Reusing exact member password is refused',
+                   code==422 and 'Choose a different member password.' in same_rotation)
+            code, _=independent_member_req('/members/password',{
+                'csrf':password_csrf.group(1),
+                'current_password':'disposable-fixture-long-password',
+                'new_password':'disposable-member-rotated-password',
+                'confirm_password':'disposable-member-rotated-password'
+            })
+            ensure('Own-account password rotation signs out all prior sessions',
+                   code==303)
+            code, signed_out=independent_member_req('/members')
+            ensure('Successful member password change revokes current cookie',code==303)
+            code, stale_password_session=independent_member_req(
+                '/members',browser=old_rotation_browser)
+            ensure('Old member cookie cannot revive after password rotation',code==303)
+            code, new_login=independent_member_req('/members/login')
+            new_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',new_login)
+            ensure('New member sign-in token available after password rotation',
+                   code==200 and new_login_csrf is not None)
+            code, old_password_denied=independent_member_req('/members/login',{
+                'csrf':new_login_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-fixture-long-password'
+            })
+            ensure('Old member credential is rejected after rotation',code==400)
+            code, _=independent_member_req('/members/login',{
+                'csrf':new_login_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-member-rotated-password'
+            })
+            ensure('New credential authenticates same pending local member',code==303)
+            code, updated_member=independent_member_req('/members')
+            ensure('Self-service rotation does not grant verified/paid adult access',
+                   code==200 and 'Account status: <strong>pending</strong>' in updated_member
+                   and 'Private content and paid access remain unavailable' in updated_member)
+
             subprocess.check_output(php_fixture+['seed-content-queue'],cwd=root)
             code, content_first=req('/admin/moderation')
             content_next=re.search(r'href="/admin/moderation\?before_content=(\d+)"',content_first)
