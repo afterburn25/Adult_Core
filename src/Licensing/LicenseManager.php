@@ -63,6 +63,11 @@ final class LicenseManager
         if ($fp === false) throw new RuntimeException('License update lock unavailable.');
         try {
             if (!flock($fp, LOCK_EX)) throw new RuntimeException('License update lock unavailable.');
+            // Validate both destinations before touching either one. A broken,
+            // unwritable or symlinked cache must never leave the new license
+            // config paired with an old receipt after a partial replacement.
+            $this->assertPrivateReplaceable($this->root . '/config/license.php');
+            $this->assertPrivateReplaceable($this->root . '/storage/license-cache.json');
             $this->replacePrivate($this->root . '/config/license.php', $this->configCode($record));
             $this->replacePrivate($this->root . '/storage/license-cache.json', LicenseState::encode(
                 $record['license_key'], $record['domain'], $appKey, 'valid', time(), time(), $record['sku']
@@ -190,12 +195,19 @@ final class LicenseManager
         return "<?php\n// Cajun Web Pro license (private; NEVER commit, display or log this key).\nreturn " . var_export($record, true) . ";\n";
     }
 
-    private function replacePrivate(string $path, string $contents): void
+    private function assertPrivateReplaceable(string $path): void
     {
         $dir = dirname($path);
-        if (!is_dir($dir) || !is_writable($dir) || is_link($path) || (file_exists($path) && !is_file($path))) {
+        if (!is_dir($dir) || !is_writable($dir) || is_link($path)
+            || (file_exists($path) && !is_file($path))) {
             throw new RuntimeException('Private licensing storage unavailable.');
         }
+    }
+
+    private function replacePrivate(string $path, string $contents): void
+    {
+        $this->assertPrivateReplaceable($path);
+        $dir = dirname($path);
         $temp = tempnam($dir, '.license-');
         if ($temp === false) throw new RuntimeException('Private licensing storage unavailable.');
         try {
