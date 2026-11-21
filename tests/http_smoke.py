@@ -78,6 +78,34 @@ def run():
                 raise AssertionError("invalid CSRF was not blocked")
             checks += 1
 
+            # The browser's actual host is 127.0.0.1; a valid-looking
+            # unrelated licensed domain must be rejected before any issuer or
+            # database work is attempted, even with a valid installer CSRF.
+            code, wizard = request("/install/")
+            csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', wizard)
+            if code != 200 or csrf_match is None:
+                raise AssertionError("Installer CSRF form unavailable")
+            wrong_domain_form = {
+                "csrf": csrf_match.group(1),
+                "license_key": "ABCD-EF12-3456-7890",
+                "license_domain": "wrong.example.test",
+                "db_host": "localhost",
+                "db_port": "3306",
+                "db_name": "disposable_db",
+                "db_user": "disposable_user",
+                "db_password": "disposable_password",
+                "site_name": "Disposable Test Site",
+                "admin_email": "owner@example.test",
+                "admin_password": "example-long-install-password",
+                "admin_password_confirm": "example-long-install-password",
+            }
+            code, wrong_domain_page = request("/install/", wrong_domain_form)
+            if code != 200 or "installation hostname does not match" not in wrong_domain_page:
+                raise AssertionError("Browser installer accepted mismatched licensed hostname")
+            if (root / "config" / "license.php").exists() or (root / "storage" / "install-state.json").exists():
+                raise AssertionError("Mismatched hostname created private installation state")
+            checks += 2
+
             # Create synthetic fixture using trusted test helper, never manually
             # forging an unsigned state or writing to the actual repository.
             state = root / "storage" / "install-state.json"
