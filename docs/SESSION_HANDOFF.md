@@ -1,3 +1,11 @@
+## Owner-only numeric text-review history and setup guard — 2026-11-21
+
+- `LocalCreators::privatePlansForOwner()` now returns the most recent 100 `ac_creator_draft_events` for the local creator through a foreign-key-bound query. `CreatorAdminController::drafts()` renders a bounded, escaped, no-store/noindex owner-only table with local actor/draft IDs, action and UTC timestamp; review feedback is not duplicated in the action log.
+- The owner plan detail now explicitly checks m14 `CreatorReviewSchema::VERSION` and prompts the administrator to apply Site setup before attempting the review-event query. Existing owner/manager role enforcement stays intact and moderator access remains denied.
+- Test assertions cover numeric event history (four-event revision/rejection sequence), owner visibility and duplicate-text avoidance. Full independent provider and real-host release acceptance is still open.
+
+---
+
 ## Local creator text-plan withdrawal — 2026-11-21
 
 - Added `CreatorDraftReview::withdraw(memberId,draftId,expectedRevision)` for currently `submitted` plans only. It locks the active site-local creator identity and owned draft, verifies matching optimistic revision, returns status to `private`, increments revision, clears obsolete feedback, and logs a numeric `withdrawn` event without deleting review history. Rejected or already-reviewed plans cannot be withdrawn and no owner/moderator can withdraw on behalf of another member through the member route.

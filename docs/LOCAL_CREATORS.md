@@ -1,3 +1,9 @@
+## Owner-only text-review event history
+
+The owner-only read-only private plans screen now shows the **latest 100 numeric text-review events** for that creator (draft reference, local actor reference, action and UTC timestamp). Feedback and private plan text stay exclusively in their protected draft records, not the event log. Moderators still cannot access this owner-only screen; they see only submitted text in the restricted queue. The owner screen requires the additive text-review migration and fails closed with a setup prompt until it is applied. These are records of local draft workflow actions, not legal content/identity clearance.
+
+---
+
 ## Withdrawing a pending text plan — 2026-11-21
 
 Creators can now **Withdraw submitted text plan** while the local moderator has not made a decision. Withdrawal reopens their own plan as a private editable draft and records a numeric-only `withdrawn` event. The action checks member authentication, CSRF, the active local creator permission, draft ownership, submitted status, and expected revision in a transaction. It cannot undo requested changes or a rejection, withdraw another creator's work, bypass age/consent checks, or publish media.

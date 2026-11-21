@@ -1,3 +1,8 @@
+## Local owner text-review audit display — 2026-11-21
+
+- Show up to 100 owner-only per-creator review events as numeric draft/actor/action/timestamp metadata in the protected read-only plans view, without duplicating private feedback text.
+- Require the additive creator text-review schema before accessing this history. Moderator and ordinary member sessions cannot enter the owner-only route.
+
 ## Creator pending-submission withdrawal — 2026-11-21
 
 - Allow the locally authorized creator to withdraw a submitted, undecided text-only plan, returning it to private editing with a revision increment and numeric-only audit.
