@@ -1,3 +1,9 @@
+## Member catalog private keyset scan — 2026-11-21
+
+`MemberLibrary::visible()` must not expose unentitled titles/IDs, even through pagination or cursor counts. Scan published approved candidates in bounded descending-ID batches, applying `Entitlements::canView()` **before** adding rows to the response, so newer unauthorized content does not hide an authorized older gallery. Current work limits per request to 5,000 candidates and 50 authorized results. Maintain disposable MySQL regression with >250 unauthorized newer rows; future public pagination must preserve neutral privacy and complete account-age/consent/payment gates.
+
+---
+
 ## Pro job receipt authenticated metadata — 2026-11-21
 
 Keep `JobInbox::receiptMac()` bound to the entire `received_at/job/signature/status` record using the separate `adult-core-pro-receipt-v1` HMAC domain. Idempotent retries must reject tampered status or timestamps, changed jobs/signatures, corrupted or unsigned legacy receipts; never auto-delete legal/incident-sensitive job records. Future production workers MUST provide a separately reviewed atomic receipt state transition and supervision/authorization model, not direct writes that bypass MAC verification. Existing `JobEnvelope` expiry and allowlisted payload checks remain in force. The current inbox NEVER executes video, shell or media delivery.

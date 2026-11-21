@@ -1,3 +1,9 @@
+## Private member-library keyset scanning — 2026-11-21
+
+`MemberLibrary::visible()` now uses a bounded (5,000 total candidates per request), descending-ID keyset scan in 250-record batches; every result remains subject to `Entitlements::canView()` before returning titles or IDs. A real disposable MySQL fixture adds 260 newer unentitled entries ahead of an older authorized item, then verifies the authorized item remains visible and cleans up the synthetic entries. This corrects the former fixed top-250 cutoff but is not complete member-library pagination/large-site performance acceptance. Pending authentic age/performer consent/payment remain fail-closed. Check CI for the latest commit.
+
+---
+
 ## Pro receipt status/timestamp integrity — 2026-11-21
 
 `JobInbox` persists `mac` over the complete receipt using a domain-separated HMAC keyed by the already validated job secret. Existing signed original envelopes remain unchanged; receipt status, `received_at`, payload, envelope signature and their serialized field ordering must match the stored HMAC on idempotent reacceptance. Tampering, missing receipt MACs and legacy unsealed records fail closed; **do not silently delete old receipts or mark jobs completed**, and future worker status transitions require an authenticated atomic update contract. `tests/pro_release_tests.php` adds status/timestamp/missing-seal regressions. Verify the latest GitHub Actions result before claiming green. This does not run FFmpeg or close Pro hosting/streaming release gates.

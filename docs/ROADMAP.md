@@ -1,3 +1,9 @@
+## Private library bounded keyset scan — 2026-11-21
+
+`MemberLibrary::visible()` now fetches published/approved candidate records in stable descending-ID batches of 250 until the requested authorized limit is satisfied or a 5,000-candidate safety budget is exhausted. Every candidate still passes `Entitlements::canView()` before its title or ID reaches the member UI. This fixes older entitled galleries disappearing solely because the newest 250 records belong to other tiers or lack performer evidence. Disposable MySQL tests insert 260 newer unentitled galleries and verify the older approved fixture remains listed. Full cursor-based multi-page member browsing, large-library performance and production consent/payment acceptance remain unfinished.
+
+---
+
 ## HMAC-authenticated Pro job receipts — 2026-11-21
 
 Accepted signed Pro job receipts now include an additional domain-separated HMAC over the complete stored `received_at`, original signed `job`, `signature` and `status` fields. Replaying an identical signed envelope requires a matching stored receipt MAC; changed status/timestamps, missing MACs and corrupt fields fail closed instead of being treated as a valid duplicate. This is an internal receipt integrity safeguard, not job execution, background supervision, video transcoding, streaming, idempotent processing or deployment readiness. Legacy unsigned receipts need controlled operator review, not automatic deletion. No production Pro worker has been deployed.

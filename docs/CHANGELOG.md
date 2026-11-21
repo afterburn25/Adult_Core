@@ -1,3 +1,9 @@
+## Member library entitled scan correctness — 2026-11-21
+
+- Replace the fixed top-250 candidate cutoff with bounded, descending-ID keyset batches so newer unauthorized records cannot hide older entitled content.
+- Preserve per-candidate age/consent/moderation/payment authorization and private title/ID nondisclosure.
+- Add real disposable MySQL regression with 260 newer unauthorized candidates; pagination and high-volume performance remain future work.
+
 ## Pro receipt integrity MAC — 2026-11-21
 
 - Seal receipt status and timestamp as well as original job/signature with a domain-separated SHA-256 HMAC.
