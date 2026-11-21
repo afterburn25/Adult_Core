@@ -42,7 +42,7 @@ try {
     $pdo->exec('CREATE TABLE ac_media (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         private_storage_key VARCHAR(190) NOT NULL UNIQUE,
-        mime_type VARCHAR(70) NOT NULL DEFAULT 'image/png'
+        mime_type VARCHAR(70) NOT NULL DEFAULT \'image/png\'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     $insert=$pdo->prepare('INSERT INTO ac_media (private_storage_key) VALUES (?)');
     $insert->execute([$first]);
