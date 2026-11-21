@@ -1767,6 +1767,9 @@ def main():
                    code==200 and 'bulk-member-50@example.test' in exact_member
                    and 'bulk-member-49@example.test' not in exact_member
                    and 'Back to all local members' in exact_member)
+            code, default_member_search=req('/admin/members?status=all&member_id=')
+            ensure('Submitting empty optional account ID keeps all-member directory usable',
+                   code==200 and 'bulk-member-50@example.test' in default_member_search)
             code, wrong_local_status=req('/admin/members?member_id='+sample_id.group(1)
                                          +'&status=suspended')
             ensure('Exact local ID search respects status filter',

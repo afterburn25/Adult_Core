@@ -642,7 +642,7 @@ final class SiteAdminController
             return;
         }
         $rawMemberId=$_GET['member_id']??null;
-        $memberId=$rawMemberId===null?null:(is_string($rawMemberId)
+        $memberId=($rawMemberId===null || $rawMemberId==='')?null:(is_string($rawMemberId)
             ? filter_var($rawMemberId,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
         if ($memberId===false || ($memberId!==null && $before!==null)) {
             $this->render(422,'Invalid numeric member lookup',

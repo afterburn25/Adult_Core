@@ -1,3 +1,9 @@
+## Empty optional member-ID form field is not an invalid lookup — 2026-11-21
+
+The Admin → Members GET filter form always submits its optional numeric account ID field even when empty. Explicit blank `member_id=` is now interpreted as *no lookup* rather than a 422, preserving normal status-only filtering. Nonempty malformed IDs remain rejected and exact-ID/cursor mixing stays prohibited. Added real HTTP regression for the ordinary empty-input form submission.
+
+---
+
 ## Exact numeric local member lookup without exposing emails in URLs — 2026-11-21
 
 The authenticated Admin → Members directory now allows an exact **positive numeric account ID** lookup, optionally combined with an allowlisted local status filter, instead of forcing the owner to page through hundreds of records to find a known account. IDs are prepared SQL parameters, and a lookup cannot be combined with an older-page cursor. Malformed/zero IDs receive 422. The feature deliberately avoids searching by email in GET parameters, so email addresses are not copied into URL history or proxy access logs. Returned fields remain limited to local ID, escaped email/status and date; there are no password hashes, age/consent/provider evidence, billing records, account changes or access grants. Direct MySQL/MariaDB and authenticated browser tests cover precise matches, status mismatch, invalid cursors and no unintended private account disclosure.
