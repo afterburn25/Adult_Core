@@ -33,6 +33,7 @@ try {
         'src/Billing/WebhookInbox.php','src/Pro/JobInbox.php',
         'src/Media/PrivateMediaAudit.php','scripts/audit-private-media.php',
         'src/Verification/VerificationRegistry.php','src/Installer/InstallService.php',
+        'src/Capability/PublicRootSafety.php','public/.htaccess',
         'docs/WORKSTREAM_ACCEPTANCE.md','config/editions/lite.json',
         'config/editions/pro.json','VERSION',
     ] as $required) {
