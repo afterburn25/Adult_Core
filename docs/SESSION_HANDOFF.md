@@ -1,3 +1,13 @@
+## Latest installer licensing/hostname guard checkpoint — 2026-11-20
+
+- The one-package installer still derives Lite/Pro **exclusively** from the Cajun Web Pro product-bound license key, never from the host or a posted edition.
+- Browser `install/index.php` and the underlying `InstallService::install()` now independently reject a licensed-domain versus HTTP Host mismatch (including deceptive hostnames and invalid ports) **before** any vendor validation or MySQL schema write. CLI-only disposable integration fixtures have no HTTP host and remain separate.
+- `tests/installer_service_http.py` starts a real local PHP HTTP server with a direct service-call fixture and mock-denying issuer. It verifies the wrong hostname is rejected without contacting the issuer or writing private installation state, while a matching hostname reaches the mock issuer but its denial still blocks installation. The test is mandatory in `.github/workflows/php-tests.yml`.
+- GitHub Actions [run 44871138011](https://github.com/afterburn25/Adult_Core/actions/runs/44871138011) **passed** on commit [`38966381`](https://github.com/afterburn25/Adult_Core/commit/38966381e9a5a81b2be7a04bffde687a6b789a06), including the direct-service HTTP test, existing browser HTTP tests, disposable MySQL installation checks and licensing contract tests.
+- This is **not** a real Cajun Web Pro key, a merchant sandbox, cPanel acceptance, or live Pro VPS certification. Real owner-controlled SKU setup, staging issuance/renewal, and Lite/Pro host deployment remain the unresolved release prerequisites tracked in `afterburn25/Cajun_Web#399`.
+
+---
+
 ## Current staging-host HTTPS acceptance — 0.8.12-host-https-audit-dev (2026-11-20)
 
 `src/Capability/DeploymentPreflight.php` remains local-only and the new `scripts/staging-host-audit.py` adds opt-in **remote HTTPS read-only** checks. It rejects private/IP targets and pins a verified public DNS answer; no redirect, response-body read, license key or payment calls. It compares preinstall/installed gate routes, public stylesheet, security headers and 10 private URL paths. `tests/staging_host_audit_tests.py` tests negative URL/DNS controls, invalid responses and a *local PHP HTTP* preinstall fixture (not live HTTPS certification). CI must run this in addition to the existing gates. Owner must still perform real shared-host and Pro VPS staging, Cajun Web Pro licensed activation/renewals and production compliance review. See `docs/STAGING_HOST_HTTP_ACCEPTANCE.md`.
