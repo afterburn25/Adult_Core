@@ -198,6 +198,28 @@ try{
     } else {
         throw new RuntimeException('Could not prepare private cache replacement fixture.');
     }
+    // The configuration destination itself must also be a regular private
+    // file; a symlink there cannot redirect a purchased key to another file.
+    $licensePath = $root.'/config/license.php';
+    $licenseBackup = $root.'/config/license-before-replace.php';
+    $cachedBefore = file_get_contents($cachePath);
+    if (!rename($licensePath, $licenseBackup)) {
+        throw new RuntimeException('Could not prepare private license replacement fixture.');
+    }
+    try {
+        if (!@symlink($licenseBackup, $licensePath)) {
+            throw new RuntimeException('Could not create local symlink security fixture.');
+        }
+        $attempted = new LicenseManager($root,$made(CajunWebClient::SKU_LITE_ONCE));
+        try { $attempted->replaceLicense($key,$domain); $blocked = false; }
+        catch (RuntimeException) { $blocked = true; }
+        $check('Symlinked license configuration blocks replacement', $blocked);
+        $check('Failed configuration preflight preserves signed license cache',
+            file_get_contents($cachePath) === $cachedBefore);
+    } finally {
+        if (is_link($licensePath)) unlink($licensePath);
+        rename($licenseBackup, $licensePath);
+    }
     $old=LicenseState::encode($key,$domain,$secret,'valid',time()-LicenseManager::REFRESH_SECONDS-2,time()-LicenseManager::REFRESH_SECONDS-2,CajunWebClient::SKU_LITE_MONTH);
     file_put_contents($root.'/storage/license-cache.json',$old);
     $transient=new LicenseManager($root,new CajunWebClient(static fn(string $body):array=>['status'=>503,'body'=>'{}']));
