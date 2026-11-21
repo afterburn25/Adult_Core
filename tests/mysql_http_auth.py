@@ -465,7 +465,7 @@ def main():
             ensure('Different unused recovery code signs in',code==303)
             code, security=req('/admin/security')
             security_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',security).group(1)
-            ensure('Recovery use is reported without exposing codes',code==200 and 'Remaining recovery codes:' in security and '>8<' in security)
+            ensure('Recovery use is reported without exposing codes',code==200 and 'Remaining recovery codes:</strong> 8' in security)
             code, _=req('/admin/security',{'csrf':security_csrf,'action':'disable','password':'wrong-password','factor':codes[2]})
             ensure('MFA cannot be disabled with wrong password',code==422)
             code, _=req('/admin/security',{'csrf':security_csrf,'action':'disable','password':'strong-example-admin-password','factor':codes[2]})
