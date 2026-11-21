@@ -98,6 +98,13 @@ if ($action === 'stage-gallery') {
         (content_id,private_storage_key,mime_type,review_status)
         VALUES (?,?,'image/png','approved')")->execute([$contentId,$key]);
     $mediaId=(int)$pdo->lastInsertId();
+    // Separate synthetic, inactive tier and active record: dashboard can
+    // display the locally stored status, but entitlement remains denied.
+    $pdo->exec("INSERT INTO ac_membership_tiers (name,is_active) VALUES ('Staged fixture membership',0)");
+    $fixtureTier=(int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO ac_memberships (user_id,tier_id,status,starts_at,expires_at)
+        VALUES (?,?,'active',DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY),
+                    DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))")->execute([$member,$fixtureTier]);
     echo $contentId.':'.$mediaId;
     exit;
 }

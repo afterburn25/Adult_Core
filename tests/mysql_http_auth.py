@@ -658,6 +658,9 @@ def main():
             ensure('Email confirmation state visible', code == 200 and 'Confirmed' in email_page)
             code, portal = req('/members')
             ensure('Member portal reveals pending status only', code == 200 and 'pending' in portal and 'Private content' in portal)
+            ensure('Member portal has only this account subscription records',
+                   'Membership records' in portal
+                   and 'No membership records are linked to this account.' in portal)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.
             code, recovery_form = req('/members/recover')
             recover_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', recovery_form)
@@ -827,6 +830,11 @@ def main():
             gallery_ids = re.fullmatch(r'([1-9][0-9]*):([1-9][0-9]*)', gallery_fixture)
             ensure('Disposable entitled gallery fixture created', gallery_ids is not None)
             gallery_id, media_id = gallery_ids.groups()
+            code, member_records = req('/members')
+            ensure('Member can view their own synthetic subscription record without payment claim',
+                   code == 200 and 'Staged fixture membership' in member_records
+                   and 'Disabled for access' in member_records
+                   and 'not proof of a completed payment' in member_records)
             code, approved_catalog = req('/members/library')
             ensure('Authorized member sees only approved gallery title',
                    code == 200 and 'Approved local fixture album' in approved_catalog

@@ -31,6 +31,7 @@ use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
 use AdultCore\Membership\MemberLibrary;
 use AdultCore\Membership\TierCatalog;
+use AdultCore\Membership\MemberSubscriptionSummary;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
 use AdultCore\Verification\VerificationRegistry;
@@ -588,6 +589,18 @@ try {
                 DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))")->execute([$member['id'],$newTierId]);
     if ($policy->canView((int)$member['id'],$disabledContent)) {
         throw new RuntimeException('Inactive staged catalog tier unlocked paid content.');
+    }
+    $summary=new MemberSubscriptionSummary($pdo);
+    $memberRecords=$summary->forMember((int)$member['id']);
+    if (count($memberRecords)!==1 || $memberRecords[0]['name']!=='Founders preview'
+        || $memberRecords[0]['is_active']!==0
+        || $summary->forMember(9999999)!==[]) {
+        throw new RuntimeException('Read-only membership summary leaked or omitted member-scoped records.');
+    }
+    $statusHtml=MemberSubscriptionSummary::render($memberRecords);
+    if (!str_contains($statusHtml,'Disabled for access')
+        || !str_contains($statusHtml,'not proof of a completed payment')) {
+        throw new RuntimeException('Member subscription view implied a verified charge.');
     }
     $pdo->exec("INSERT INTO ac_membership_tiers (name,is_active) VALUES ('Disposable Test Tier',1)");
     $paidTier=(int)$pdo->lastInsertId();
