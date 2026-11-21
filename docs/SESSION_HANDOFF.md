@@ -1,3 +1,9 @@
+## Pro signed job inbox storage-path guard — 2026-11-21
+
+`JobInbox::accept()` now checks the private `storage/` parent as well as `storage/pro-jobs/` for unsafe symlinks before creating a signed receipt. `tests/pro_release_tests.php` verifies a valid signed job cannot be redirected through a linked parent. No media worker, FFmpeg execution or streaming capability has been deployed; production Pro acceptance remains pending. **Verify the CI result on the latest commit.**
+
+---
+
 ## Legacy media delivery safety and opt-in metadata audit — 2026-11-21
 
 - `PrivateMedia::safeToServe()`, `DesignImages::safeToServe()` now recheck MIME, size and metadata policy on delivery; protected member media and moderator preview call the former after their independent authorization checks, and Design Studio asset serving calls the latter. Previously accepted unsafe legacy files cannot be served solely due to a positive DB status. The disposable synthetic gallery fixture was updated to a correctly encoded PNG.

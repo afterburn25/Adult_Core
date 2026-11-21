@@ -1,3 +1,9 @@
+## Pro job inbox private path guard — 2026-11-21
+
+`JobInbox::accept()` must reject a symlinked/missing `storage/` parent and symlinked `pro-jobs/` before creating signed receipts. A valid HMAC job cannot authorize private filesystem redirection. Preserve `tests/pro_release_tests.php` linked-parent negative control. This inbox only records signed jobs, it never executes shell, FFmpeg or publishes video; the production VPS worker and streaming gate remain open.
+
+---
+
 ## Legacy image serving and optional operator metadata audit — 2026-11-21
 
 Approved database status does not override byte-level privacy checks. `PrivateMedia::safeToServe()` is required after member entitlement and moderator role/draft checks on **both** `/media/ID` and `/admin/moderation/image/ID`. `DesignImages::safeToServe()` similarly gates public and administrator decorative images. Mismatched/metadata-bearing legacy bytes return 404, never media headers. Rechecking is conservative and not a substitute for safe transcoding or malware scanning.

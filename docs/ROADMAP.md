@@ -1,3 +1,9 @@
+## Pro job receipt storage ancestry — 2026-11-21
+
+`JobInbox::accept()` now refuses a symlinked or absent `storage/` ancestor before creating `storage/pro-jobs`. Disposable tests assert that a valid signed Pro envelope cannot redirect a private receipt into a linked destination. This extends existing replay/corruption checks **without executing a job or starting a worker**. Real VPS service provisioning, durable queue processing, FFmpeg isolation, signed HLS and load/recovery acceptance remain open.
+
+---
+
 ## Opt-in bounded legacy image metadata audit — 2026-11-21
 
 `php scripts/audit-private-media.php --metadata [--json]` now performs a read-only metadata inspection of registered private images, in addition to existing reference/path/size checks. It examines **at most 100 files and 64 MiB** per invocation, reports `metadata_checked`, `metadata_rejected` and `metadata_truncated` aggregate values, and exits nonzero when legacy image metadata/unsupported structures are found or the inspection budget is exceeded. Default audit remains a fast file/reference scan. No output contains storage keys, filenames, evidence, user identities or file content, and no file is modified or deleted. Disposable MySQL tests exercise clean/metadata-bearing rows and truncation. **A passing bounded result does not certify antivirus protection, media rights, production hosting or external security/compliance release.**

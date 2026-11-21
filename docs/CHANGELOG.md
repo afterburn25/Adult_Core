@@ -1,3 +1,9 @@
+## Pro receipt private-path guard — 2026-11-21
+
+- Reject symlinked `storage/` before creating any signed Pro job receipt; reject symlinked `pro-jobs/` as before.
+- Add local synthetic signed-envelope and symlink redirection regression to the Pro/release suite.
+- No Pro worker, video execution, streaming, live agent certification or commercial launch.
+
 ## Legacy gallery delivery and bounded operator metadata audit — 2026-11-21 (development only)
 
 - Recheck stored image MIME, byte count and metadata policy before serving a protected member gallery, private moderator preview or public/administrator decorative asset. This also denies unsafe legacy files predating the new upload guard.
