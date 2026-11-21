@@ -9,6 +9,7 @@ use AdultCore\Website\SiteIdentity;
 use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\UI\Layout;
 use AdultCore\Member\MemberAccounts;
+use AdultCore\Member\MemberDirectory;
 use AdultCore\Membership\MemberLibrary;
 use AdultCore\Member\MemberSession;
 use AdultCore\Member\EmailDelivery;
@@ -62,6 +63,13 @@ foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }
 }
 MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true,'Valid member details');
+$memberDirectorySource=(string)file_get_contents(dirname(__DIR__).'/src/Member/MemberDirectory.php');
+claim(str_contains($memberDirectorySource,"WHERE role='member'")
+    && str_contains($memberDirectorySource,'ORDER BY id DESC LIMIT 51')
+    && !str_contains($memberDirectorySource,'password_hash')
+    && !str_contains($memberDirectorySource,'ac_age_verifications')
+    && !str_contains($memberDirectorySource,'ac_memberships'),
+    'Read-only member directory returns no credentials or entitlement records');
 $emptyLibrary=MemberLibrary::render([]);
 claim(str_contains($emptyLibrary,'No content is currently available')
     && !str_contains($emptyLibrary,'<img'), 'Unverified member library is neutral and text-only');

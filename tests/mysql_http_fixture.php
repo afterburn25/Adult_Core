@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -69,6 +69,23 @@ if ($action === 'seed-pages') {
             'Bulk fixture page '.sprintf('%02d',$i),'Nonpublic synthetic page list test','draft');
     }
     echo 'Disposable private page fixtures prepared.';
+    exit;
+}
+if ($action === 'seed-members') {
+    // Disposable test-only accounts. Never grants age approval, billing,
+    // content publication or access. No production mutation route exists.
+    $check=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+    $check->execute([\AdultCore\Member\MemberSchema::VERSION]);
+    if ((int)$check->fetchColumn()!==1) throw new RuntimeException('Member fixture requires site setup.');
+    $q=$pdo->prepare("INSERT INTO ac_users
+        (email,password_hash,role,status,created_at)
+        VALUES (?,?,'member',?,UTC_TIMESTAMP())");
+    $hash=password_hash('disposable-fixture-long-password',PASSWORD_DEFAULT);
+    for ($n=0;$n<51;$n++) {
+        $q->execute([sprintf('bulk-member-%02d@example.test',$n),$hash,
+            $n%2===0?'pending':'suspended']);
+    }
+    echo 'Disposable unverified member accounts prepared.';
     exit;
 }
 if ($action === 'issue-email') {

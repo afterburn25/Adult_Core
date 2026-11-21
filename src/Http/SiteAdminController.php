@@ -20,6 +20,7 @@ use AdultCore\Website\SiteSchema;
 use AdultCore\Website\SiteIdentity;
 use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberDirectory;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Membership\MembershipSchema;
@@ -566,15 +567,67 @@ final class SiteAdminController
 
     private function members(PDO $pdo): void
     {
-        $q = $pdo->query("SELECT id,email,role,status,created_at FROM ac_users WHERE role='member' ORDER BY id DESC LIMIT 100");
-        $html = '<p class="intro">Registered members are pending until appropriate identity/age verification and consent workflows are implemented. Administrators cannot bypass verification here.</p>'
-            . '<section class="panel"><table class="page-table"><thead><tr><th>ID</th><th>Email</th><th>Status</th><th>Created</th></tr></thead><tbody>';
-        foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $html .= '<tr><td>' . (int) $row['id'] . '</td><td>' . self::e((string)$row['email'])
-                . '</td><td>' . self::e((string)$row['status']) . '</td><td>' . self::e((string)$row['created_at']) . '</td></tr>';
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([MemberSchema::VERSION]);
+        if ((int)$q->fetchColumn()!==1) {
+            $this->render(503,'Member directory setup required',
+                '<p>Back up the database, then apply local member setup under <a href="/admin/setup">Site setup</a>.</p>');
+            return;
         }
-        $html .= '</tbody></table></section>';
-        $this->render(200, 'Registered members', $html);
+        $raw=$_GET['before']??null;
+        $before=$raw===null?null:(is_string($raw)
+            ? filter_var($raw,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+        if ($before===false) {
+            $this->render(422,'Invalid directory cursor',
+                '<p role="alert">Invalid member page link. <a href="/admin/members">Return to newest members</a>.</p>');
+            return;
+        }
+        $filter=$_GET['status']??'all';
+        if (!is_string($filter)
+            || !in_array($filter,['all','pending','active','suspended'],true)) {
+            $this->render(422,'Invalid member filter',
+                '<p role="alert">Choose a supported local account status.</p>');
+            return;
+        }
+        $page=(new MemberDirectory($pdo))->page($before,$filter==='all'?null:$filter);
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        $html='<p class="intro">Read-only local accounts. A stored account status does not prove '
+            .'age, identity, performer consent, payment or permission to access private media. '
+            .'Administrators cannot enable adult access here.</p>'
+            .'<form method="get" action="/admin/members" class="install-form">'
+            .'<label for="member-status-filter">Account status</label>'
+            .'<select id="member-status-filter" name="status">';
+        foreach (['all'=>'All members','pending'=>'Pending',
+            'active'=>'Active (locally recorded)','suspended'=>'Suspended'] as $value=>$label) {
+            $html.='<option value="'.$value.'"'
+                .($filter===$value?' selected':'').'>'.self::e($label).'</option>';
+        }
+        $html.='</select><button class="button-secondary" type="submit">Filter members</button></form>'
+            .'<section class="panel"><h2>Registered members</h2>'
+            .'<table class="page-table"><thead><tr>'
+            .'<th>ID</th><th>Email</th><th>Status</th><th>Created (UTC)</th>'
+            .'</tr></thead><tbody>';
+        foreach ($page['members'] as $row) {
+            $html.='<tr><td>'.$row['id'].'</td><td>'.self::e($row['email'])
+                .'</td><td>'.self::e($row['status'])
+                .'</td><td>'.self::e($row['created_at']).'</td></tr>';
+        }
+        $html.='</tbody></table>';
+        if ($page['members']===[]) $html.='<p>No local member accounts match this filter.</p>';
+        if ($page['next']!==null) {
+            $html.='<p><a href="/admin/members?before='.$page['next']
+                .($filter==='all'?'':'&amp;status='.rawurlencode($filter))
+                .'">Older members</a></p>';
+        }
+        if ($before!==null) {
+            $html.='<p><a href="/admin/members'
+                .($filter==='all'?'':'?status='.rawurlencode($filter))
+                .'">Back to newest members</a></p>';
+        }
+        $html.='<p class="muted">50 accounts per page. No password hashes, verification evidence, '
+            .'billing details, or account activation controls appear here.</p></section>';
+        $this->render(200,'Registered members',$html);
     }
 
     private function render(int $code, string $title, string $body): void

@@ -1,3 +1,9 @@
+## Owner-only read-only member directory pagination — 2026-11-21
+
+Admin → Members no longer silently truncates at 100 local accounts. A new `MemberDirectory` class reads 50 rows per page by numeric ID cursor with allowlisted `pending`, `active`, `suspended` filters, and never selects password hashes, age/identity evidence, billing, entitlement or private media. Site-level existing license, MFA, authenticated owner/admin role and CSRF gates remain authoritative. The controller returns no-store/noindex pages and rejects malformed cursors or fictitious 'verified' account filters with 422; `active` remains a *locally recorded* status, not certification. A disposable confirmation-gated HTTP fixture creates 51 non-authorized member accounts to verify older pages, filters and private data exclusion. One Lite/Pro source ZIP requires the new repository. No creator SaaS, self-certification or membership activation is added.
+
+---
+
 ## Unsaved, client-only plain-text page editor preview — 2026-11-21
 
 The authenticated Pages editor now displays a small same-screen *unsaved* title/body preview, including when creating a page. An audited static `/assets/page-editor.js` script projects both inputs with `textContent` only, preserving line breaks with a CSS rule; no innerHTML, AJAX, local storage, auto-saving, publication, media endpoint or added third-party dependency is involved. The initial saved text is HTML-escaped server-side, and the preview explicitly states it is not the published website. Real HTTP and UI/source tests cover safe form inclusion, escaped stored drafts, inert JS and source ZIP inclusion. Server-side owner/MFA/CSRF/revision/publication controls remain unchanged.

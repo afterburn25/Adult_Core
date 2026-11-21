@@ -1,3 +1,7 @@
+## Read-only member directory (development)
+
+**Admin → Members** uses bounded 50-row pages and a local account-status filter. Owner/admin sessions can view locally recorded membership accounts without exposing credentials or granting age verification, billing entitlements, or private media access.
+
 ## Unsaved page editing preview (development)
 
 **Admin → Pages → Edit** now shows an immediate, browser-only plain-text preview of the headline and body while typing. It never saves, uploads, grants access or publishes a page; click **Save page** and use the protected saved preview when ready. HTML is treated as plain text.

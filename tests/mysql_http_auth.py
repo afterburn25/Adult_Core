@@ -1714,6 +1714,28 @@ def main():
             ensure('Control characters in local page search are refused',
                    code==422 and 'Invalid page search' in invalid_search)
 
+            subprocess.check_output(php_fixture+['seed-members'],cwd=root)
+            code, member_list=req('/admin/members')
+            older_members=re.search(r'href="/admin/members\?before=(\d+)"',member_list)
+            ensure('Owner can paginate read-only directory beyond 50 member accounts',
+                   code==200 and older_members is not None
+                   and 'bulk-member-50@example.test' in member_list
+                   and 'password_hash' not in member_list)
+            code, older_list=req('/admin/members?before='+older_members.group(1))
+            ensure('Owner reaches older local members via numeric cursor',
+                   code==200 and 'bulk-member-00@example.test' in older_list
+                   and 'Back to newest members' in older_list)
+            code, suspended_list=req('/admin/members?status=suspended')
+            ensure('Owner status filter includes locally suspended accounts only',
+                   code==200 and 'bulk-member-49@example.test' in suspended_list
+                   and 'bulk-member-50@example.test' not in suspended_list)
+            code, bad_member_cursor=req('/admin/members?before=0')
+            ensure('Invalid member cursor rejected',code==422
+                   and 'Invalid directory cursor' in bad_member_cursor)
+            code, bad_member_filter=req('/admin/members?status=verified')
+            ensure('Unverified account cannot be represented as certified member',
+                   code==422 and 'Invalid member filter' in bad_member_filter)
+
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
             csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', body)
