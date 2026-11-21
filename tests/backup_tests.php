@@ -60,7 +60,7 @@ try {
         backupAssert(SiteBackup::safePath($candidate),'Allowed private path: '.$candidate);
     }
     foreach(['../../public/index.php','config/database.php','config/../public/index.php','storage/sessions/secret',
-        'storage/member-sessions/cookie','storage/.license-update.lock','storage/.edition-upgrade-pending','storage/install-audit.jsonl',
+        'storage/member-sessions/cookie','storage/.license-update.lock','storage/.license-update-pending','storage/.edition-upgrade-pending','storage/install-audit.jsonl',
         'config/trusted-publishers/../app-key.php','storage//empty','storage/private-media/a\\b'] as $candidate){
         backupAssert(!SiteBackup::safePath($candidate),'Blocked path: '.$candidate);
     }
