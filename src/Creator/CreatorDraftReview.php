@@ -54,7 +54,7 @@ final class CreatorDraftReview
                 WHERE id=? AND creator_id=? FOR UPDATE');
             $q->execute([$draftId,$creatorId]);
             $draft=$q->fetch(PDO::FETCH_ASSOC);
-            if (!is_array($draft) || !in_array($draft['status'],['private','changes'],true)) {
+            if (!is_array($draft) || $draft['status']!=='private') {
                 throw new RuntimeException('Only editable private plans can be submitted.');
             }
             if ((int)$draft['revision']!==$expectedRevision) {
