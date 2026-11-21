@@ -102,6 +102,38 @@ try {
     verifyPackageTest('Validated module enables on Lite', $store->isRunnable('module', 'base-module', 'lite', $caps));
     verifyPackageTest('Runtime fails closed on missing capability', !$store->isRunnable('module', 'base-module', 'lite', []));
     expectRefusal('Repeated module install refused', fn () => $store->install($baseZip, 'lite', $caps));
+    $updateZip=$fixtureDir.'/base-update.zip';
+    $updateManifest=manifestFixture('base-module');
+    $updateManifest['version']='1.1.0';
+    packageFixture($updateZip,$updateManifest,['readme.txt'=>'Signed newer version'], $privateKey);
+    expectRefusal('Signed update preflight refuses an enabled module',
+        fn()=> $store->previewUpdate($updateZip,'lite',$caps));
+    $store->changeStatus('module','base-module',false,'lite',$caps);
+    $beforeUpdateRegistry=file_get_contents($root.'/storage/packages/registry.json');
+    $beforeUpdatePayload=file_get_contents($root.'/storage/packages/modules/base-module/payload/readme.txt');
+    $updatePreview=$store->previewUpdate($updateZip,'lite',$caps);
+    verifyPackageTest('Compatible signed update preview reports exact old/new identities',
+        $updatePreview['id']==='base-module'
+        && $updatePreview['current_version']==='1.0.0'
+        && $updatePreview['proposed_version']==='1.1.0');
+    verifyPackageTest('Signed update preview cannot mutate installed package or registry',
+        file_get_contents($root.'/storage/packages/registry.json')===$beforeUpdateRegistry
+        && file_get_contents($root.'/storage/packages/modules/base-module/payload/readme.txt')===$beforeUpdatePayload);
+    $downgradeManifest=manifestFixture('base-module');
+    $downgradeManifest['version']='0.9.0';
+    $downgradeZip=$fixtureDir.'/base-downgrade.zip';
+    packageFixture($downgradeZip,$downgradeManifest,['readme.txt'=>'Not a newer version'], $privateKey);
+    expectRefusal('Downgrade rejected before package update can be applied',
+        fn()=> $store->previewUpdate($downgradeZip,'lite',$caps));
+    $proUpdateManifest=manifestFixture('base-module','module',['pro']);
+    $proUpdateManifest['version']='1.2.0';
+    $proUpdateZip=$fixtureDir.'/base-pro-update.zip';
+    packageFixture($proUpdateZip,$proUpdateManifest,['readme.txt'=>'Pro-only update'], $privateKey);
+    expectRefusal('Incompatible Pro-only update rejected on Lite',
+        fn()=> $store->previewUpdate($proUpdateZip,'lite',$caps));
+    $store->changeStatus('module','base-module',true,'lite',$caps);
+    verifyPackageTest('Signed update preview leaves original module executable state intact',
+        $store->isRunnable('module','base-module','lite',$caps));
 
     $proZip = $fixtureDir . '/pro-only.zip';
     packageFixture($proZip, manifestFixture('pro-only', 'module', ['pro']), ['readme.txt' => 'pro'], $privateKey);
