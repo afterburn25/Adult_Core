@@ -1,3 +1,11 @@
+## Real Apache container preinstall smoke (not actual cPanel) — 2026-11-21
+
+- `public/.htaccess` now denies unexpected direct PHP/script resources at the Apache layer, including nested `assets/index.php`, while preserving root `public/index.php` and existing rewrite/private-file guards. This prevents accidental public executable files from running even before installation.
+- New `tests/apache_preinstall_smoke.py` creates a disposable copy of the source and runs it under official `php:8.3-apache` with `AllowOverride All`, `mod_rewrite` and a host-loopback ephemeral port. It checks installer GET, safe CSS, private path routing and refusal to execute synthetic test-only PHP scripts. The GitHub Actions job includes the test, which requires Docker on the runner. **Check the latest Actions run** before claiming success; the prior parent main was green at [run 44930838879](https://github.com/afterburn25/Adult_Core/actions/runs/44930838879).
+- No actual cPanel/VPS, TLS or production Pro worker is claimed; all ten workstreams remain open.
+
+---
+
 ## Private member-library keyset scanning — 2026-11-21
 
 `MemberLibrary::visible()` now uses a bounded (5,000 total candidates per request), descending-ID keyset scan in 250-record batches; every result remains subject to `Entitlements::canView()` before returning titles or IDs. A real disposable MySQL fixture adds 260 newer unentitled entries ahead of an older authorized item, then verifies the authorized item remains visible and cleans up the synthetic entries. This corrects the former fixed top-250 cutoff but is not complete member-library pagination/large-site performance acceptance. Pending authentic age/performer consent/payment remain fail-closed. Check CI for the latest commit.

@@ -1,3 +1,9 @@
+## Apache direct script denial and non-production HTTP smoke — 2026-11-21
+
+Keep `public/.htaccess` denying unexpected executable paths through its rewrite rule (exact root `index.php` remains the only Apache PHP entrypoint) and defense-in-depth `FilesMatch`. Never allow `public/router.php` or nested `assets/index.php` as Apache entrypoints, and keep source `src/config/storage/install/tests/scripts` above the document root. `tests/apache_preinstall_smoke.py` exercises an **isolated** official Apache container over a loopback ephemeral port with synthetic test-only unexpected PHP files. No customer data, license key or production payment system is involved. This test is not HTTPS/cPanel/VPS certification, and it never authorizes publishing adult content or bypassing release gates.
+
+---
+
 ## Member catalog private keyset scan — 2026-11-21
 
 `MemberLibrary::visible()` must not expose unentitled titles/IDs, even through pagination or cursor counts. Scan published approved candidates in bounded descending-ID batches, applying `Entitlements::canView()` **before** adding rows to the response, so newer unauthorized content does not hide an authorized older gallery. Current work limits per request to 5,000 candidates and 50 authorized results. Maintain disposable MySQL regression with >250 unauthorized newer rows; future public pagination must preserve neutral privacy and complete account-age/consent/payment gates.

@@ -1,3 +1,11 @@
+## Disposable real Apache preinstall route check — 2026-11-21
+
+The bundled `public/.htaccess` now rejects direct execution of unexpected PHP/script filenames (including a nested `assets/index.php`) while keeping the root `public/index.php` as the only Apache PHP entrypoint. New `tests/apache_preinstall_smoke.py` runs the preinstall application through a disposable official PHP 8.3/Apache container with `mod_rewrite` enabled, host-ephemeral loopback port and a temporary synthetic source copy. It checks the installer route and static CSS, confirms private paths remain behind the setup gate and verifies that deliberately injected executable files are **403** rather than executed. This does not use real licenses, production files, a customer database, HTTPS or external hosts.
+
+**Still open:** actual customer-style cPanel hosting and Pro VPS deployments, real DNS/TLS and PHP extension compatibility, standalone Pro worker, customer lifecycle, independent security and commercial release acceptance. The local Apache container is supplementary test evidence, not cPanel certification.
+
+---
+
 ## Private library bounded keyset scan — 2026-11-21
 
 `MemberLibrary::visible()` now fetches published/approved candidate records in stable descending-ID batches of 250 until the requested authorized limit is satisfied or a 5,000-candidate safety budget is exhausted. Every candidate still passes `Entitlements::canView()` before its title or ID reaches the member UI. This fixes older entitled galleries disappearing solely because the newest 250 records belong to other tiers or lack performer evidence. Disposable MySQL tests insert 260 newer unentitled galleries and verify the older approved fixture remains listed. Full cursor-based multi-page member browsing, large-library performance and production consent/payment acceptance remain unfinished.

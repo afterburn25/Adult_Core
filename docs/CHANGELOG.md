@@ -1,3 +1,9 @@
+## Apache HTTP preinstall and direct-script denial — 2026-11-21 (development only)
+
+- Deny unexpected executable files in `public/` at the Apache routing layer, with root `index.php` as the only public PHP entrypoint; refuse unexpected scripts independently of the installer's file preflight.
+- Add disposable Docker Apache/PHP 8.3 loopback HTTP smoke verifying the setup route, static assets, private path gating and 403 denial of synthetic nested PHP scripts.
+- CI checks this independently from the PHP built-in server; real cPanel/Pro VPS/TLS acceptance remains outstanding.
+
 ## Member library entitled scan correctness — 2026-11-21
 
 - Replace the fixed top-250 candidate cutoff with bounded, descending-ID keyset batches so newer unauthorized records cannot hide older entitled content.

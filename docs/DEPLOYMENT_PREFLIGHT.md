@@ -1,3 +1,11 @@
+## Apache routing hardening and disposable container verification (2026-11-21)
+
+The bundled `public/.htaccess` now denies all unexpected direct PHP/script files, including `public/router.php` (which is only for PHP's development server) and `assets/index.php`; root `public/index.php` is the Apache front controller. A disposable `php:8.3-apache` container CI test checks these web-server rules with `mod_rewrite` and `AllowOverride All` enabled, verifies the preinstall wizard/static assets and ensures private-root URL guesses cannot bypass the installation gate. It creates no production data and uses only a loopback ephemeral port.
+
+This evidence does **not** prove the operator's actual Apache vhost configuration, customer hosting document root, cPanel PHP-FPM behavior, HTTPS certificate, module availability, or real Lite/Pro license activation. Run the full real-host staged checklist below before production acceptance.
+
+---
+
 # Lite shared-host and Pro VPS deployment preflight — 0.8.11-host-preflight-dev
 
 **Development-only, non-destructive host triage.** This check does **not** install the site, issue or discover a license key, upgrade an edition, contact Cajun Web Pro, prove the host's effective web configuration, certify Pro workers, change customer data, or approve adult-content/payments. It is a preparatory gate before independently witnessed staging tests on actual shared hosting and VPS infrastructure.
