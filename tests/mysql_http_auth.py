@@ -346,7 +346,8 @@ def main():
                              + struct.pack('>I', zlib.crc32(b'tEXtGPSComment=private') & 0xffffffff))
             privacy_png = privacy_png[:33] + privacy_chunk + privacy_png[33:]
             code, _ = upload_draft(moderation_token.group(1), privacy_png)
-            ensure('Private draft upload refuses PNG location/text metadata', code == 422)
+            ensure('Private draft upload refuses PNG location/text metadata',
+                   code == 422 and 'Image contains metadata or an unsupported image structure.' in _)
             code, _ = upload_draft(moderation_token.group(1), sample_png())
             ensure('Valid draft image is staged privately without approval', code == 303)
             code, moderation = req('/admin/moderation')

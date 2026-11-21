@@ -116,7 +116,9 @@ final class ModerationController
             $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.',
                 'Choose an uploaded JPEG, PNG or WebP image.','Invalid private draft image upload.',
                 'Only private, unreviewed drafts accept images.','Private draft image limit reached.',
-                'Invalid or oversized image upload.','Image type not allowed.','Image type or dimensions not allowed.'];
+                'Invalid or oversized image upload.','Image type not allowed.','Image type or dimensions not allowed.',
+                'Private image could not be safely inspected.','Image contains metadata or an unsupported image structure.',
+                'Private storage unavailable.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -149,7 +151,8 @@ final class ModerationController
             .'<button class="install-button">Create unpublished draft</button></form></section>';
         $html.='<section class="panel"><h2>Stage a private draft image</h2>'
             .'<p>Only JPEG, PNG or WebP (up to 8 MiB). Files remain outside the public web root and '
-            .'pending review. This action never verifies performers, approves media, or publishes a gallery.</p>'
+            .'pending review. Images containing embedded EXIF/GPS, text metadata, or unsupported image chunks are refused; '
+            .'export a metadata-free image first. This action never verifies performers, approves media, or publishes a gallery.</p>'
             .'<form method="post" action="/admin/moderation" enctype="multipart/form-data" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'">'
             .'<input type="hidden" name="action" value="upload_draft_image">'
