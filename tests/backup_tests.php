@@ -56,11 +56,13 @@ try {
     file_put_contents($tmp.'/trailing.acfull',$bytes.'INJECTION');
     backupReject(static fn()=>StreamArchive::read($tmp.'/trailing.acfull',$key,static fn(array $r)=>null),'Trailing unauthenticated bytes denied');
     foreach(['storage/private-media/photo.webp','storage/design-assets/figure.png','storage/packages/registry.json',
-        'config/app-key.php','config/trusted-publishers/owner.pem','config/pro-agent-secret.php'] as $candidate){
+        'config/app-key.php','config/trusted-publishers/owner.pem','config/pro-agent-secret.php',
+        'storage/packages/module-licenses/paid-chat.php','storage/packages/module-licenses/paid-chat.json'] as $candidate){
         backupAssert(SiteBackup::safePath($candidate),'Allowed private path: '.$candidate);
     }
     foreach(['../../public/index.php','config/database.php','config/../public/index.php','storage/sessions/secret',
         'storage/member-sessions/cookie','storage/.license-update.lock','storage/.license-update-pending','storage/.edition-upgrade-pending','storage/install-audit.jsonl',
+        'storage/packages/module-licenses/.lock','storage/packages/module-licenses/.pending-paid-chat',
         'config/trusted-publishers/../app-key.php','storage//empty','storage/private-media/a\\b'] as $candidate){
         backupAssert(!SiteBackup::safePath($candidate),'Blocked path: '.$candidate);
     }
