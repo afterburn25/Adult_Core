@@ -58,6 +58,9 @@ final class PrivateMedia
         if (!is_string($mime) || !self::validMime($mime) || !self::validDimensions($dimensions)) {
             throw new RuntimeException('Image type or dimensions not allowed.');
         }
+        // Never stage EXIF/GPS/XMP-bearing or unknown ancillary image segments.
+        // This is a conservative deny policy, not image rewriting or AV.
+        ImageMetadataPolicy::assertAllowed($temporaryPath, $mime);
         $base = $this->root . '/storage/private-media';
         if (is_link($base) || (!is_dir($base) && !mkdir($base, 0700, true))) {
             throw new RuntimeException('Private storage unavailable.');
