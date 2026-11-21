@@ -63,6 +63,28 @@ final class DesignImages
         }
     }
 
+    /**
+     * Recheck legacy decorative images before delivery: old public_ok rows can
+     * predate the upload metadata policy. A database flag never makes unsafe
+     * file bytes safe. This is a conservative runtime check, not transcoding.
+     */
+    public static function safeToServe(string $path, string $mime, int $expectedSize): bool
+    {
+        if (!in_array($mime, ['image/png','image/webp','image/jpeg'], true)
+            || !is_file($path) || is_link($path) || $expectedSize < 1
+            || $expectedSize > self::MAX_BYTES) return false;
+        clearstatcache(true, $path);
+        if (@filesize($path) !== $expectedSize) return false;
+        $actual = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        if ($actual !== $mime) return false;
+        try {
+            ImageMetadataPolicy::assertAllowed($path, $mime);
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
+    }
+
     /** Files served from private disk must match DB metadata, without filesystem traversal. */
     public function serve(array $asset): void
     {
@@ -76,7 +98,7 @@ final class DesignImages
         $dir = $storage . '/design-assets';
         $path = $dir . '/' . $filename;
         if (!is_dir($storage) || is_link($storage) || !is_dir($dir) || is_link($dir)
-            || !is_file($path) || is_link($path) || filesize($path) !== (int)($asset['byte_size'] ?? 0)) {
+            || !self::safeToServe($path, $mime, (int)($asset['byte_size'] ?? 0))) {
             http_response_code(404); return;
         }
         header('Content-Type: ' . $mime);

@@ -72,6 +72,21 @@ $chunk=pack('N',strlen($metadata)).$tag.$metadata.hex2bin(hash('crc32b',$tag.$me
 file_put_contents($test, substr($cleanPng,0,33).$chunk.substr($cleanPng,33));
 try { DesignImages::inspect($test); throw new RuntimeException('Design PNG metadata accepted.'); }
 catch (RuntimeException $e) { designCheck($e->getMessage() !== 'Design PNG metadata accepted.','Design studio refuses private PNG metadata'); }
+// Legacy assets uploaded before intake screening are blocked on HTTP delivery
+// rather than trusting an old "public safe" database flag.
+$cleanStored = tempnam(sys_get_temp_dir(), 'adult-design-delivery-');
+if ($cleanStored === false) throw new RuntimeException('Missing delivery fixture path.');
+file_put_contents($cleanStored, $cleanPng);
+designCheck(DesignImages::safeToServe($cleanStored,'image/png',strlen($cleanPng)),
+    'Metadata-free legacy PNG can still be delivered');
+designCheck(!DesignImages::safeToServe($cleanStored,'image/jpeg',strlen($cleanPng)),
+    'Legacy asset cannot be served with forged MIME');
+designCheck(!DesignImages::safeToServe($cleanStored,'image/png',strlen($cleanPng)+1),
+    'Legacy asset cannot bypass stored byte length');
+file_put_contents($cleanStored, substr($cleanPng,0,33).$chunk.substr($cleanPng,33));
+designCheck(!DesignImages::safeToServe($cleanStored,'image/png',strlen($cleanPng)+strlen($chunk)),
+    'Legacy location/text-bearing PNG is denied at serve time');
+unlink($cleanStored);
 unlink($test);
 $css=file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(is_string($css)&&str_contains($css,'.theme-rose-ivory')&&str_contains($css,'.theme-velvet-plum'),'Built-in layout CSS exists');
