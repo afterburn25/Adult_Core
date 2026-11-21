@@ -156,6 +156,18 @@ try{
     $check('Temporary failure does not replace positive receipt', $manager->status('example.test')==='valid');
 
     $check('Site remains host locked to domain',$manager->status('other.example')==='domain_mismatch');
+    foreach (['example.test:80', 'WWW.EXAMPLE.TEST:443', 'example.test:65535'] as $allowedHost) {
+        $check('Runtime license accepts normalized hostname with valid port '.$allowedHost,
+            $manager->status($allowedHost)==='valid');
+    }
+    foreach (['example.test:0','example.test:65536','example.test:99999',
+        'example.test:','example.test:-1','example.test:1:2',
+        'https://example.test','example.test/path','example.test:443@evil.test',
+        'example.test\\r\\nHost: evil.test'] as $unsafeHost) {
+        $check('Runtime license rejects malformed Host '.$unsafeHost,
+            $manager->status($unsafeHost)==='domain_mismatch');
+    }
+
     $check('Private config uses resolved edition',$manager->config()['sku']===CajunWebClient::SKU_LITE_MONTH);
     try{(new LicenseManager($root,$made(CajunWebClient::SKU_PRO_MONTH)))->replaceLicense($key,$domain);$ok=false;}catch(RuntimeException){$ok=true;}
     $check('Admin replacement cannot change Lite to Pro without migration',$ok);
