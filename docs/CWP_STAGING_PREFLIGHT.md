@@ -24,13 +24,13 @@ Replace the sample hostname, endpoint and SKU with the **real, explicitly approv
 
 ## What one run does
 
-Exactly **three** HTTP POST validation requests, no retry loop:
+Exactly **five** HTTP POST validation requests, no retry loop:
 
 1. The supplied key/hostname with its specified Lite/Pro one-time/monthly SKU must return HTTP 200 authorized:true.
-2. The same key/domain and a **different Adult_Core SKU** must be denied by HTTP 200 authorized:false.
-3. The same key/SKU and the fixed unregistered unregistered-audit-domain.invalid hostname must be denied.
+2. The same key/domain must be denied with HTTP 200 authorized:false against **each of the other three Adult_Core SKUs**. All other product grants must be checked; one negative check is insufficient.
+3. The same key/SKU and the fixed `unregistered-audit-domain.invalid` hostname must be denied.
 
-The audit must use a non-master license and the negative hostname must **never be registered** to the grant. Three requests stay within Cajun Web Pro's default ten-requests-per-minute per-IP limiter under normal conditions; nevertheless, running multiple concurrent probes may hit that limit. Any HTTP 429, malformed response, redirect, HTTP error or network failure is classified **inconclusive**, never an authoritative license denial. Output contains the SKU, edition, term, pass/fail/inconclusive checks and call count, but not the key or domain. Keys are not accepted on argv or via HTTP uploads.
+The audit must use a non-master license and the negative hostname must **never be registered** to the grant. Five requests stay within Cajun Web Pro's default ten-requests-per-minute per-IP limiter when no other validation calls are in flight; nevertheless, running multiple concurrent probes or repeating the audit within one minute may hit that limit. Any HTTP 429, malformed response, redirect, HTTP error or network failure is classified **inconclusive**, never an authoritative license denial. Output contains the SKU, edition, term, pass/fail/inconclusive checks and call count, but not the key or domain. Keys are not accepted on argv or via HTTP uploads.
 
 **Exit codes:** 0 expected answers, 1 unexpected authorization/denial, 2 any transient/inconclusive answer, 64 invalid or missing invocation. Do not interpret a successful check as evidence of paid-through renewal or financial processing: Cajun Web Pro's software-commerce billing/entitlement data and actual gateway sandbox must be tested separately, with readback and cancellation. API validation may update successful-use telemetry/rate-limit state on the issuer; it does not intentionally mutate invoices, payments or subscription status.
 
@@ -39,4 +39,4 @@ The audit must use a non-master license and the negative hostname must **never b
     php tests/cwp_staging_audit_tests.php
     python3 tests/cwp_subscription_contract.py
 
-These use synthetic keys and injected responses, with **no network to Cajun Web Pro**. The new suite checks key-file confinement/permissions, trusted endpoint policy, exact three-call negative controls, product and domain mismatch, malformed vendor replies, rate-limit/outage classification and CLI opt-in. Real HTTPS acceptance requires an authorized staging host and license, and is not executed in public GitHub Actions CI. No actual live subscription/payment should be claimed on the basis of these fixtures.
+These use synthetic keys and injected responses, with **no network to Cajun Web Pro**. The suite checks key-file confinement/permissions, trusted endpoint policy, exact five-call negative controls across all four product SKUs, cross-SKU overauthorization, product and domain mismatch, malformed vendor replies, rate-limit/outage classification and CLI opt-in. Real HTTPS acceptance requires an authorized staging host and license, and is not executed in public GitHub Actions CI. No actual live subscription/payment should be claimed on the basis of these fixtures.
