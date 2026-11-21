@@ -211,6 +211,16 @@ final class MemberController
             }
             try {
                 $action=$_POST['action']??null;
+                if ($action==='withdraw_review') {
+                    $id=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    $version=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    if (!$id || !$version) throw new RuntimeException('Invalid private draft revision.');
+                    (new CreatorDraftReview($pdo))->withdraw((int)$member['id'],(int)$id,(int)$version);
+                    $this->redirect('/members/creator?result=withdrawn');
+                    return;
+                }
                 if ($action==='submit_review') {
                     $id=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT,
                         ['options'=>['min_range'=>1]]);
@@ -250,6 +260,7 @@ final class MemberController
                     'Creator workspace unavailable.','Private draft not found.',
                     'Draft changed; reload your workspace.','Private draft limit reached.',
                     'Invalid creator review request.','Only editable private plans can be submitted.',
+                    'Only undecided submitted plans can be withdrawn.',
                 ];
                 $message=in_array($e->getMessage(),$allowed,true)
                     ? $e->getMessage():'Could not save your private draft.';
@@ -268,6 +279,9 @@ final class MemberController
         }
         if (($_GET['result']??'')==='submitted') {
             $html.='<p role="status">Your text plan was submitted for private local review. Nothing was published.</p>';
+        }
+        if (($_GET['result']??'')==='withdrawn') {
+            $html.='<p role="status">Your text plan was withdrawn before review. It is editable and still private.</p>';
         }
         $html.='<section class="panel"><h2>'.self::e((string)$profile['display_name'])
             .' — private draft planning</h2>'
@@ -317,7 +331,13 @@ final class MemberController
             } else {
                 $html.='<p>'.nl2br(self::e((string)$draft['summary'])).'</p>';
                 if ($status==='submitted') {
-                    $html.='<p>This text plan is awaiting a local moderator; editing is locked.</p>';
+                    $html.='<p>This text plan is awaiting a local moderator; editing is locked.</p>'
+                        .'<form method="post" action="/members/creator" class="install-form">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                        .'<input type="hidden" name="action" value="withdraw_review">'
+                        .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                        .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                        .'<button class="button-secondary">Withdraw submitted text plan</button></form>';
                 } elseif ($status==='rejected') {
                     $html.='<p>This text plan was rejected. The saved evidence remains private.</p>';
                 }
