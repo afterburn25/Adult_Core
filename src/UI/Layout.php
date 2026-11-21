@@ -46,7 +46,7 @@ final class Layout
     /**
      * @param list<array<string,mixed>> $menu Published, DB-backed navigation only.
      */
-    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = []): string
+    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = [], bool $adminPreview = false): string
     {
         $siteName = trim($siteName) ?: 'Adult Core';
         $nav = '<a class="' . ($homepage ? 'is-active' : '') . '" href="/"' . ($homepage ? ' aria-current="page"' : '') . '>Home</a>';
@@ -90,7 +90,11 @@ final class Layout
             . self::brand(false, $siteName) . '<nav class="site-nav" aria-label="Main navigation">' . $nav . '</nav>'
             . '<div class="header-actions"><a class="header-login" href="/members/login">Sign in</a>'
             . '<a class="site-join" href="/join">Get access <span aria-hidden="true">↗</span></a></div></div></header>'
-            . '<main id="main-content" class="site-main"><section class="site-hero site-container" aria-label="Welcome">' . $content . '</section>'
+            . '<main id="main-content" class="site-main">'
+            . ($adminPreview ? '<div class="site-container"><div class="panel" role="status">'
+                . '<strong>ADMIN PREVIEW — SAVED PAGE</strong> · This is not the live website.'
+                . ' Draft pages remain unpublished. <a href="/admin/pages">Return to pages</a></div></div>' : '')
+            . '<section class="site-hero site-container" aria-label="Welcome">' . $content . '</section>'
             . ($homepage ? '<div class="site-container">' . $secondary . '</div>' : '')
             . '</main><footer class="site-footer"><div class="site-container footer-inner"><span>© ' . date('Y')
             . ' ' . self::escape($siteName) . '</span><span>Powered by Adult Core · Self-hosted Lite / Pro</span></div></footer></div></body></html>';

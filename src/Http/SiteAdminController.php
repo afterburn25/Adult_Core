@@ -47,6 +47,15 @@ final class SiteAdminController
                 $this->render(503, 'Setup required', '<p>The site schema is not yet installed. <a href="/admin/setup">Complete site setup</a>.</p>');
                 return;
             }
+            if ($path === '/admin/page/preview') {
+                if ($method!=='GET') {
+                    header('Allow: GET');
+                    $this->render(405,'Method not allowed','<p>Preview is read-only.</p>');
+                    return;
+                }
+                $this->preview($pdo);
+                return;
+            }
             if ($path === '/admin/pages') { $this->pages($pdo); return; }
             if ($path === '/admin/page') { $this->edit($pdo, $method); return; }
             if ($path === '/admin/members') { $this->members($pdo); return; }
@@ -89,6 +98,45 @@ final class SiteAdminController
         $this->render(200, 'Site setup', $html);
     }
 
+    /**
+     * Read-only preview of a SAVED page, including unpublished drafts.
+     * This route remains under the existing admin session/MFA/role/license
+     * gates, and never changes the public page publication state.
+     */
+    private function preview(PDO $pdo): void
+    {
+        $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>1]]);
+        if ($id===false || $id===null) {
+            $this->render(404,'Preview unavailable','<p>Saved page not found.</p>');
+            return;
+        }
+        $pageRepo=new PageRepository($pdo);
+        $page=$pageRepo->byId((int)$id);
+        if (!is_array($page)) {
+            $this->render(404,'Preview unavailable','<p>Saved page not found.</p>');
+            return;
+        }
+        $siteName=(string)($pdo->query("SELECT setting_value FROM ac_settings WHERE setting_key='site_name'")->fetchColumn() ?: 'Adult Core');
+        $design=[];
+        $schema=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $schema->execute([DesignSchema::VERSION]);
+        if ((int)$schema->fetchColumn()>0) {
+            $designRepo=new \AdultCore\Design\DesignRepository($pdo);
+            $design=$designRepo->current();
+            $assetId=(int)($design['hero_asset_id']??0);
+            // Never preview unapproved decorative assets as if public.
+            if ($page['slug']==='home' && $assetId>0
+                && $designRepo->publicAsset($assetId)!==null) {
+                $design['public_asset_id']=$assetId;
+            }
+        }
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        echo Layout::site((string)$page['title'],(string)$page['body'],
+            $pageRepo->publishedMenu(),$siteName,$page['slug']==='home',$design,true);
+    }
+
     private function pages(PDO $pdo): void
     {
         $repo = new PageRepository($pdo);
@@ -100,7 +148,8 @@ final class SiteAdminController
         foreach ($repo->all() as $page) {
             $id = (int) $page['id'];
             $html .= '<tr><td>' . self::e((string) $page['title']) . '</td><td>' . self::e((string) $page['slug'])
-                . '</td><td>' . self::e((string) $page['status']) . '</td><td><a href="/admin/page?id=' . $id . '">Edit</a></td></tr>';
+                . '</td><td>' . self::e((string) $page['status']) . '</td><td><a href="/admin/page?id=' . $id . '">Edit</a>'
+                . ' · <a href="/admin/page/preview?id=' . $id . '" target="_blank" rel="noopener noreferrer">Preview saved</a></td></tr>';
         }
         $html .= '</tbody></table></section><p class="muted">Pages support escaped plain text, not user-supplied HTML or scripts.</p>';
         $this->render(200, 'Manage pages', $html);
@@ -146,7 +195,9 @@ final class SiteAdminController
             . '<p>Keep your content clear and welcoming. Pages are stored as plain text and escaped before display.</p>'
             . '<div class="editor-help-rule"></div><strong>Publishing checklist</strong>'
             . '<ul><li>Choose a memorable title</li><li>Keep the URL slug simple</li><li>Save a draft before publishing</li><li>Preview your public site</li></ul>'
-            . '<a href="/" class="button-secondary" target="_blank" rel="noopener noreferrer">Preview website ↗</a></aside></div>';
+            . '<a href="/" class="button-secondary" target="_blank" rel="noopener noreferrer">Open live website ↗</a>'
+            . ($id>0 ? '<a href="/admin/page/preview?id='.$id.'" class="button-secondary" target="_blank" rel="noopener noreferrer">Preview saved page ↗</a>' : '')
+            . '</aside></div>';
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }
 
