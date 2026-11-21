@@ -1,3 +1,11 @@
+## Moderator staff lifecycle and credential revocation — 2026-11-21 (development)
+
+- Add `/admin/staff` manager-only moderator creation, suspension and restore-with-new-password, backed by role checks, manager password step-up, CSRF and rate limiting.
+- Add additive private staff action audit with numeric IDs and an account session revocation epoch, preserving legitimate evidence rather than deleting user records.
+- Add restricted moderator self-password rotation in `/admin/security`, revoking all previous sessions without disabling existing MFA.
+- Bind moderator MFA pending challenges to the credential-verification epoch to prevent restoration from reactivating an old password step.
+- Add disposable MySQL/MariaDB and real HTTP safety tests plus packaging and permission checks. No automatic email, admin promotion or external provider activation.
+
 ## MariaDB 10.11 host compatibility CI — 2026-11-21 (development only)
 
 - Add a separate disposable MariaDB 10.11 GitHub Actions job with PHP 8.3.

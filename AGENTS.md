@@ -1,3 +1,13 @@
+## Moderation staff lifecycle and revocable sessions — 2026-11-21
+
+`/admin/staff` is manager-only (`members.manage` and an ACTIVE database-backed manager), every write requires current manager password step-up, CSRF and bounded attempts. `StaffRepository` may create ONLY `role='moderator'` accounts and may suspend/restore ONLY moderator IDs; no role promotion, member changes, license/edition or billing controls. Require strong unique passwords, no raw password/email in private action logs, and keep audit history under `ac_staff_actions`. Never delete staff or protected evidence as part of suspension.
+
+On staff suspension, restoration WITH a new password and moderator-initiated password change, atomically increment `staff_session_epoch`. Every active moderator session must compare its login-bound epoch to the current database value, including after restoration. Moderator MFA pending sessions MUST capture the epoch during the password step and check it again BEFORE consuming any factor; never bind a newly current epoch to an old password challenge. `StaffSchema` must run AFTER the member status migration; preserve pre-migration first-admin login via the existing compatibility path. Keep MySQL 8, MariaDB 10.11, HTTP, role, CSRF and source ZIP regressions.
+
+Staff email invitation/verification is not implemented. Never imply production staff compliance or adult-content release authorization. See `docs/STAFF_MODERATION.md`.
+
+---
+
 ## Disposable MariaDB compatibility regression — 2026-11-21
 
 `.github/workflows/php-tests.yml` now contains a separate `mariadb_compat` job running PHP 8.3 and MariaDB 10.11, in addition to existing MySQL 8 and real Apache tests. Maintain the disposable-schema confirmation environment for all SQL mutating scripts and never target a customer/staging database. This job is SQL-dialect coverage only, not an actual Lite cPanel install, live Pro VPS service test, or commercial acceptance. Keep external real-host and provider signoffs explicitly open.

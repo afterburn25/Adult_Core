@@ -1,3 +1,7 @@
+## Staff and moderation-team accounts — development
+
+Administrators can now manage restricted moderators under `/admin/staff` with password re-verification, suspension/credential rotation and protected audit trails. Moderators can change their initial password in `/admin/security`; old session cookies and pending MFA challenges are invalidated by staff status/credential changes. **No automated staff-email identity checks or public adult-content approvals are provided.** See [staff setup and safety runbook](docs/STAFF_MODERATION.md).
+
 ## HTTPS staging host acceptance — 0.8.12 development
 
 Run the new **read-only remote HTTPS probe** only on an operator-controlled staging host, before and after installation. It checks TLS-verified public routing, installer cleanup, security headers and private-path disclosure, with explicit opt-in and protections against private/loopback DNS targets. It never reads private response bodies or handles licenses/payment credentials. `python3 tests/staging_host_audit_tests.py` verifies its safety rules and a real local PHP preinstall route round trip. This **does not certify** actual cPanel/VPS hosting or monthly billing. See [`docs/STAGING_HOST_HTTP_ACCEPTANCE.md`](docs/STAGING_HOST_HTTP_ACCEPTANCE.md).

@@ -1,3 +1,11 @@
+## Restricted staff provisioning and session revocation — local development only
+
+After `/admin/setup` additive migration, a manager can create only a restricted `moderator` identity on `/admin/staff`, suspend it and restore it with a fresh password. Every write requires manager password re-verification and CSRF, is attempt-limited and produces a numeric-only private audit record. A moderator can change their own password using the same active session/MFA gate. Session epochs increment on suspension, restore and password change, preventing the resurrection of old authenticated cookies or MFA challenges. The UI cannot promote staff, edit member status, alter license editions, publish media or grant paid entitlements.
+
+This **does not** close staff identity verification, approved notification/delivery, end-to-end production permissions, vendor-verification, legal privacy or real-host security acceptance. The full creator safety and release workstreams remain open.
+
+---
+
 ## Role-guarded private draft detail — development only
 
 The moderation workspace now links unpublished, private content to `/admin/moderation/draft/ID`, a read-only, noindex/no-store protected detail view. It displays only a bounded queue of numeric pending/rejected image references, consent/identity *status cues*, and escaped private audit notes; it does not deliver private keys or original performer evidence. Individual pending-image preview remains restricted to a still-pending private draft and rechecks permission per byte request. This does not add a moderation approval/publish path or verify lawful consent; workstreams #3, #5 and #10 remain open.

@@ -1,3 +1,13 @@
+## Restricted staff account provisioning, suspension, restoration and password rotation — 2026-11-21
+
+The administrator-only `/admin/staff` page now provisions **moderators only**, with fresh manager password step-up, IP-bounded request attempts, CSRF, immutable role restrictions and transactional private action history. Staff passwords are always hashed and never logged. Active moderators can rotate their own credential at `/admin/security` after proving the existing password. Suspension, reactivation with a new credential and self-password rotation each increment `ac_users.staff_session_epoch`; existing moderator sessions reject mismatched epochs, including a browser that never contacted the site during suspension. Password-verified MFA challenges store the epoch and cannot be completed after account rotation.
+
+`StaffSchema::migrate()` adds an audit table and epoch column after the member status migration. It is additive, repeatable and shipped in the unified Lite/Pro package. Local unit, disposable MySQL 8 and MariaDB 10.11, and real authenticated HTTP tests cover denied manager CSRF/step-up, staff role boundaries, suspension, restoration, stale-session denial, password rotation and audit logs. See [staff account runbook](STAFF_MODERATION.md).
+
+**Still open:** self-service verified-email invitations and delivery, independent security/privacy review, real-host validation, adult content identity/consent/legal checks, merchant billing, Pro worker and complete creator lifecycle. The staff workflow is a development increment, not production authorization.
+
+---
+
 ## Disposable MariaDB shared-host compatibility CI — 2026-11-21
 
 The PHP checks workflow now includes a separate MariaDB 10.11 service job on PHP 8.3, exercising fresh Lite installation, real HTTP authentication/member/moderation flows, private media integrity, verified-event billing inbox replay, and encrypted backup/empty-database restore against a **disposable** MariaDB schema. This supplements—not replaces—the existing MySQL 8, real Apache container, and PHP development-server checks, and is intended to catch common shared-host SQL incompatibilities. Every destructive test requires the exact disposable-DB confirmation flag. **It does not deploy to a real cPanel host, configure HTTPS, activate live licenses, connect approved merchant/identity providers, or certify Pro VPS workers.**

@@ -1,3 +1,13 @@
+## Administrator-managed moderator accounts — 2026-11-21
+
+- New `StaffSchema` adds `ac_staff_actions` and `ac_users.staff_session_epoch` via repeatable `/admin/setup` migration. `StaffRepository` permits manager-only create/suspend/restore of **moderator** accounts with private audit, plus moderator-only self-password rotation (requires current password). There is no manager role grant, account deletion or automatic invitation email.
+- New `StaffController` at `/admin/staff` checks `members.manage`, CSRF, password step-up via existing `AdminAccounts`, bounded per-IP attempts, and never echoes credentials. Its sidebar is manager-only; moderators still see only Moderation and Account security. `MfaController::security()` supports a moderator changing their own password and then signs out. 
+- Suspension, restoration and self-rotation all increment the epoch; `AdminController::currentAdmin()` denies pre-rotation moderator sessions even after restoration. `AdminSession::beginMfa()` stores the epoch at the password step and `MfaController::challenge()` checks it before consuming a factor, blocking stale MFA after restoration.
+- Expanded unit/MySQL 8/MariaDB 10.11/browser integration tests, source ZIP mandatory-class inventory and cleanup; check latest CI on `main` before stating all green. See `docs/STAFF_MODERATION.md`.
+- No email identity assertion, external age/performer consent, merchant billing, production creator publishing, actual cPanel/VPS deployment or independent release review has been completed.
+
+---
+
 ## Disposable MariaDB 10.11 CI coverage — 2026-11-21
 
 Added `mariadb_compat` to `.github/workflows/php-tests.yml` using the official MariaDB 10.11 service, PHP 8.3 and a temporary port 3307. It runs private media/billing replay, fresh Lite MySQL-style installation, real localhost authenticated HTTP, and encrypted backup/restore suites against a **disposable** MariaDB database. The existing MySQL 8 + Apache container job is unchanged. This may expose SQL incompatibilities; **check both workflow jobs on latest Actions before declaring success**. Actual cPanel and Pro VPS deployment, DNS/TLS, software license issuer acceptance, independent adult-content verification/payment and security release gates remain incomplete.
