@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Media\ImageMetadataPolicy;
+use AdultCore\Media\PrivateMedia;
 
 $checks = 0;
 $check = static function (bool $ok, string $message) use (&$checks): void {
@@ -71,7 +72,45 @@ try {
     $reject($metadataWebp, 'image/webp', 'WebP EXIF chunk denied');
     $reject(substr($webp, 0, -1), 'image/webp', 'Truncated WebP denied');
     $reject($png, 'application/octet-stream', 'Unsupported MIME denied');
-    echo "Passed {$checks} private image metadata screening checks.\n";
+    // Reusing or linking private media storage through a symlink must never
+    // make an opaque blob available, even when its name and byte count look valid.
+    $root = sys_get_temp_dir() . '/adult-private-path-' . bin2hex(random_bytes(6));
+    mkdir($root, 0700);
+    mkdir($root . '/storage', 0700);
+    mkdir($root . '/storage/private-media', 0700);
+    $key = str_repeat('a', 40);
+    $blob = $root . '/storage/private-media/' . $key . '.bin';
+    file_put_contents($blob, 'test bytes');
+    try {
+        $media = new PrivateMedia($root);
+        $check($media->locate($key)['bytes'] === 10, 'Normal private-media lookup works');
+        if (function_exists('symlink')) {
+            rename($root . '/storage', $root . '/real-storage');
+            if (@symlink($root . '/real-storage', $root . '/storage')) {
+                $check($media->locate($key) === null, 'Linked storage parent refuses private media lookup');
+                unlink($root . '/storage');
+            }
+            rename($root . '/real-storage', $root . '/storage');
+            rename($root . '/storage/private-media', $root . '/storage/real-private');
+            if (@symlink($root . '/storage/real-private', $root . '/storage/private-media')) {
+                $check($media->locate($key) === null, 'Linked private-media directory refuses lookup');
+                unlink($root . '/storage/private-media');
+            }
+            rename($root . '/storage/real-private', $root . '/storage/private-media');
+            rename($blob, $blob . '.safe');
+            if (@symlink($blob . '.safe', $blob)) {
+                $check($media->locate($key) === null, 'Linked private media blob refuses lookup');
+                unlink($blob);
+            }
+            rename($blob . '.safe', $blob);
+        }
+    } finally {
+        @unlink($blob);
+        @rmdir($root . '/storage/private-media');
+        @rmdir($root . '/storage');
+        @rmdir($root);
+    }
+    echo "Passed {$checks} private image metadata and storage path checks.\n";
 } finally {
     @unlink($path);
 }

@@ -37,8 +37,10 @@ final class PrivateMedia
     public function locate(string $key): ?array
     {
         if (!self::validKey($key)) return null;
-        $base = $this->root . '/storage/private-media';
-        if (!is_dir($base) || is_link($base)) return null;
+        $storage = $this->root . '/storage';
+        $base = $storage . '/private-media';
+        if (!is_dir($storage) || is_link($storage)
+            || !is_dir($base) || is_link($base)) return null;
         $filename = $base . '/' . $key . '.bin';
         if (!is_file($filename) || is_link($filename)) return null;
         $bytes = filesize($filename);
@@ -61,8 +63,10 @@ final class PrivateMedia
         // Never stage EXIF/GPS/XMP-bearing or unknown ancillary image segments.
         // This is a conservative deny policy, not image rewriting or AV.
         ImageMetadataPolicy::assertAllowed($temporaryPath, $mime);
-        $base = $this->root . '/storage/private-media';
-        if (is_link($base) || (!is_dir($base) && !mkdir($base, 0700, true))) {
+        $storage = $this->root . '/storage';
+        $base = $storage . '/private-media';
+        if (!is_dir($storage) || is_link($storage)
+            || is_link($base) || (!is_dir($base) && !mkdir($base, 0700))) {
             throw new RuntimeException('Private storage unavailable.');
         }
         @chmod($base,0700);

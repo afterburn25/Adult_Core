@@ -43,7 +43,11 @@ final class DesignImages
             || !is_uploaded_file($upload['tmp_name'])) throw new RuntimeException('Select a valid image to upload.');
         $info = self::inspect($upload['tmp_name']);
         $filename = bin2hex(random_bytes(20)) . '.' . $info['extension'];
-        $dir = $this->root . '/storage/design-assets';
+        $storage = $this->root . '/storage';
+        if (!is_dir($storage) || is_link($storage)) {
+            throw new RuntimeException('Unsafe private image storage root.');
+        }
+        $dir = $storage . '/design-assets';
         if (!is_dir($dir) && !mkdir($dir, 0700, true) && !is_dir($dir)) throw new RuntimeException('Private image storage unavailable.');
         if (is_link($dir) || !is_dir($dir)) throw new RuntimeException('Unsafe image storage path.');
         $destination = $dir . '/' . $filename;
@@ -68,8 +72,11 @@ final class DesignImages
             || !in_array($mime, ['image/png','image/webp','image/jpeg'], true)) {
             http_response_code(404); return;
         }
-        $path = $this->root . '/storage/design-assets/' . $filename;
-        if (!is_file($path) || is_link($path) || filesize($path) !== (int)($asset['byte_size'] ?? 0)) {
+        $storage = $this->root . '/storage';
+        $dir = $storage . '/design-assets';
+        $path = $dir . '/' . $filename;
+        if (!is_dir($storage) || is_link($storage) || !is_dir($dir) || is_link($dir)
+            || !is_file($path) || is_link($path) || filesize($path) !== (int)($asset['byte_size'] ?? 0)) {
             http_response_code(404); return;
         }
         header('Content-Type: ' . $mime);
