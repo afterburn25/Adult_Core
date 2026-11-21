@@ -1,3 +1,7 @@
+## Local member safety controls (m21 development)
+
+The local account security backend supports owner-initiated member suspension and a deliberately limited restore to **pending** only. Every transition revokes previous member sessions and password-reset tokens, and retains a private audit. Apply the additive migration under **Admin → Setup** after database backup. This is not member age verification, billing fulfillment or an adult-media activation path.
+
 ## Find a local member (development)
 
 Use the numeric account ID field under **Admin → Members** for a read-only exact lookup, optionally filtered by locally recorded status. Email addresses stay out of search URLs; the lookup never changes age/consent, payment, accounts or private media permissions.

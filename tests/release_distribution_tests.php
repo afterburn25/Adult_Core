@@ -33,6 +33,7 @@ try {
         'src/Auth/StaffRepository.php','src/Auth/StaffSchema.php','src/Http/StaffController.php',
         'public/assets/page-editor.js',
         'src/Member/MemberDirectory.php',
+        'src/Member/MemberSafetySchema.php','src/Member/LocalMemberSafety.php',
         'src/Support/SiteHealth.php','src/Http/HealthController.php',
         'src/Website/PageRepository.php','src/Website/PageRevisionSchema.php',
         'src/Website/PageNavigationSchema.php','src/Website/PageHistorySchema.php',

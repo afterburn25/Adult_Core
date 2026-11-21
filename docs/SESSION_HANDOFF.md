@@ -1,3 +1,9 @@
+## Additive member safety audit and revocable local account transitions (m21) — 2026-11-21
+
+Introduced `MemberSafetySchema` m21 as an additive, repeatable append-only site-local audit table requiring existing member, email-confirmation and password-reset generations. `LocalMemberSafety::change()` is a strict active owner/admin operation: a locally registered `role=member` account may be suspended from pending/active or restored from suspended **only to pending**, NEVER to active, age-verified, consent-approved, paid or published. Each transaction locks actor+member, checks expected status, changes only the local account status, increments `ac_member_password_resets.session_generation`, clears any outstanding reset and unconfirmed-email tokens, and writes an escaped, bounded private reason/actor/status audit. Previous member cookies must fail after restoration because their signed-in generation no longer matches; identity/payment/creator/media records are retained. Replay, moderator/owner targets and malformed notes are denied. MySQL/MariaDB direct security regressions, ZIP checks, and SQL fixture cleanup are in place. The owner action UI and HTTP tests follow in the next commit; production merchant/legal/provider gates remain unapproved.
+
+---
+
 ## Exact-row history pagination assertion — 2026-11-21
 
 A 23-revision browser test incorrectly checked absence of the free-text substring `History version 1`, which also occurs within versions 10–19. The first m19 pagination build passed its underlying SQL tests but failed this imprecise HTTP assertion on both databases. The assertions now test the exact escaped HTML table cell `<td>History version 1</td>` on the older page, so shared prefixes do not cause a false failure. No user data, schema, publication state or UI functionality is changed. Rerun both CI jobs before accepting this regression.

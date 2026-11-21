@@ -26,6 +26,8 @@ use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Website\PageHistorySchema;
 use AdultCore\Website\SiteIdentity;
 use AdultCore\Website\SiteIdentitySchema;
+use AdultCore\Member\MemberSafetySchema;
+use AdultCore\Member\LocalMemberSafety;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\DesignRepository;
@@ -428,6 +430,8 @@ try {
     CreatorFeedbackSchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
+    MemberSafetySchema::migrate($pdo);
+    MemberSafetySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
     $homepage=(array)$pdo->query("SELECT id,revision FROM ac_pages WHERE slug='home'")->fetch(PDO::FETCH_ASSOC);
     $homeId=(int)($homepage['id']??0);
@@ -703,6 +707,44 @@ try {
     $accounts = new MemberAccounts($pdo);
     $accounts->register('newmember@example.test', 'long-example-passphrase');
     $member = $accounts->verify('newmember@example.test', 'long-example-passphrase');
+    $safety=new LocalMemberSafety($pdo);
+    $generationBefore=(new PasswordRecovery($pdo))->generation((int)$member['id']);
+    if ($safety->change((int)$valid['id'],(int)$member['id'],
+        'suspend','pending','Local safety suspension test note')!=='suspended'
+        || $accounts->verify('newmember@example.test','long-example-passphrase')!==null
+        || $accounts->byId((int)$member['id'])!==null
+        || (new PasswordRecovery($pdo))->generation((int)$member['id'])!==$generationBefore+1) {
+        throw new RuntimeException('Local member suspension failed to revoke account access and session epoch.');
+    }
+    try {
+        $safety->change((int)$valid['id'],(int)$member['id'],
+            'suspend','pending','Stale replay should be refused');
+        throw new RuntimeException('Stale member suspension was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale member suspension was accepted.') throw $e;
+    }
+    if ($safety->change((int)$valid['id'],(int)$member['id'],
+        'restore_pending','suspended','Local member safety restoration note')!=='pending'
+        || (new PasswordRecovery($pdo))->generation((int)$member['id'])!==$generationBefore+2
+        || $accounts->byId((int)$member['id'])['status']!=='pending'
+        || count($safety->history((int)$valid['id'],(int)$member['id']))!==2) {
+        throw new RuntimeException('Local member restore was not pending or did not retain private audit.');
+    }
+    foreach ([
+        static fn()=> $safety->change($moderatorId,(int)$member['id'],
+            'suspend','pending','Moderator cannot change accounts'),
+        static fn()=> $safety->change((int)$valid['id'],(int)$valid['id'],
+            'suspend','active','Cannot suspend site manager'),
+        static fn()=> $safety->change((int)$valid['id'],(int)$member['id'],
+            'restore_pending','pending','Cannot activate a member'),
+    ] as $badMemberAction) {
+        try {
+            $badMemberAction();
+            throw new RuntimeException('Unsafe local member safety transition accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe local member safety transition accepted.') throw $e;
+        }
+    }
     $directory=new \AdultCore\Member\MemberDirectory($pdo);
     $oneMember=$directory->page(null,'pending',(int)$member['id']);
     if (count($oneMember['members'])!==1
@@ -1646,7 +1688,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_page_history','ac_creator_feedback_history','ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_member_status_actions','ac_page_history','ac_creator_feedback_history','ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');

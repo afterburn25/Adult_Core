@@ -23,6 +23,7 @@ use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberDirectory;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecoverySchema;
+use AdultCore\Member\MemberSafetySchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
@@ -195,6 +196,7 @@ final class SiteAdminController
             CreatorReviewSchema::migrate($pdo);
             CreatorFeedbackSchema::migrate($pdo);
             PasswordRecoverySchema::migrate($pdo);
+            MemberSafetySchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
             ModerationSchema::migrate($pdo);
             VerificationSchema::migrate($pdo);
@@ -221,6 +223,7 @@ final class SiteAdminController
             'Local creator text review'=>CreatorReviewSchema::VERSION,
             'Creator private feedback history'=>CreatorFeedbackSchema::VERSION,
             'Member password recovery'=>PasswordRecoverySchema::VERSION,
+            'Local member suspension audit'=>MemberSafetySchema::VERSION,
             'Membership records'=>MembershipSchema::VERSION,
             'Moderation records'=>ModerationSchema::VERSION,
             'Signed verification receipts'=>VerificationSchema::VERSION,
