@@ -43,6 +43,11 @@ ck(!PrivateMedia::validKey('../outside'),'Media traversal rejected');
 ck(PrivateMedia::validKey(str_repeat('a',40)),'Opaque image key valid');
 ck(PrivateMedia::validMime('image/jpeg'),'Image allowlist');
 ck(!PrivateMedia::validMime('application/x-php'),'Executable MIME blocked');
+ck(PrivateMedia::validDimensions([2,2]),'Small legitimate private image dimensions accepted');
+ck(PrivateMedia::validDimensions([8000,4000]),'Maximum permitted pixel count accepted');
+foreach ([[8193,1],[1,8193],[8000,5000],[0,100],[200,0],[-1,400],[],[1.2,1],['500',500],false] as $size) {
+    ck(!PrivateMedia::validDimensions($size),'Unsafe or malformed private image dimensions refused');
+}
 ck(!ReleaseReadiness::productionReady(),'Production release fails closed');
 foreach(glob($root.'/storage/pro-jobs/*')?:[] as $p)unlink($p);
 rmdir($root.'/storage/pro-jobs');rmdir($root.'/storage');rmdir($root);
