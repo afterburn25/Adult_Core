@@ -1,3 +1,13 @@
+## License recovery final hardening and backup test determinism — 2026-11-21
+
+- `src/Licensing/LicenseUpdateRecovery.php` now refuses a recovery marker readable by group/other users, because its signed snapshot contains the previous customer's license key. A bad mode, symlink, corrupt signature or incompatible edition remains locked for operator investigation and CLI recovery only. Unit tests verify owner-only permissions, unsafe-marker refusal, valid rollback and preservation of a prior **denied** license receipt.
+- `tests/http_smoke.py` verifies that `storage/.license-update-pending` blocks public, admin login, package manager and installer routes with HTTP 503. `InstallationGate::eligibleForBackup()` also refuses while pending; the `SiteBackup::safePath()` regression now explicitly excludes the snapshot from portable backups.
+- An unrelated intermittent CI failure in `tests/backup_tests.php` occurred because it blindly replaced a random ciphertext character with `0`, which occasionally made **no change**. The test now deterministically flips an actual AES-GCM ciphertext byte and separately modifies a tag byte, verifying both reject on every run. No crypto or archive acceptance policy was weakened.
+- Full GitHub Actions [run 44875312976](https://github.com/afterburn25/Adult_Core/actions/runs/44875312976) **passed** on commit [`7782eab`](https://github.com/afterburn25/Adult_Core/commit/7782eabfdb838cf5c874e54c0a3aeff48700a64c), including all new license-rollback tests, deterministic archive-integrity tests, HTTP integration and disposable MySQL.
+- **External gates remain open:** real CWP product catalog and non-master staging keys, authorized merchant sandbox payments/renewals, shared-host cPanel setup and Pro VPS installer/agent deployment. Nothing in this change accessed production or a real customer license.
+
+---
+
 ## Signed interrupted license replacement recovery — 2026-11-21
 
 - **New CLI-only recovery:** `src/Licensing/LicenseUpdateRecovery.php` and `scripts/recover-license-update.php --rollback`. Same-edition license replacement now takes both `.license-update.lock` and `.license-refresh.lock`, stores a private HMAC-signed snapshot of the previous license identity and cache at `storage/.license-update-pending` **before** rewriting either private file, and unlinks the marker only after both updates finish.
