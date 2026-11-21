@@ -1716,6 +1716,37 @@ try {
         || $accounts->byId($rotatingId)['status']!=='pending') {
         throw new RuntimeException('Member password change failed to revoke old credentials/sessions.');
     }
+    $devices=new \AdultCore\Member\MemberSessionRevocation($pdo);
+    $beforeAllDevices=(new PasswordRecovery($pdo))->generation($rotatingId);
+    foreach ([
+        static fn()=> $devices->revokeAll($rotatingId,$beforeAllDevices,'wrong-password'),
+        static fn()=> $devices->revokeAll((int)$valid['id'],0,
+            'super-secret-example-password'),
+        static fn()=> $devices->revokeAll($rotatingId,$beforeAllDevices+1,
+            'new-rotation-password'),
+    ] as $deniedDeviceRevoke) {
+        try {
+            $deniedDeviceRevoke();
+            throw new RuntimeException('Unsafe member device revocation accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe member device revocation accepted.') throw $e;
+        }
+    }
+    if ((new PasswordRecovery($pdo))->generation($rotatingId)!==$beforeAllDevices) {
+        throw new RuntimeException('Denied device revocation changed current member sessions.');
+    }
+    $devices->revokeAll($rotatingId,$beforeAllDevices,'new-rotation-password');
+    if ((new PasswordRecovery($pdo))->generation($rotatingId)!==$beforeAllDevices+1
+        || $accounts->verify('rotation@example.test','new-rotation-password')===null
+        || $accounts->byId($rotatingId)['status']!=='pending') {
+        throw new RuntimeException('Member device revocation changed credentials or failed session invalidation.');
+    }
+    try {
+        $devices->revokeAll($rotatingId,$beforeAllDevices,'new-rotation-password');
+        throw new RuntimeException('Previously authorized device session could revoke again.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Previously authorized device session could revoke again.') throw $e;
+    }
     try {
         $rotation->change($rotatingId,'new-rotation-password',
             'new-rotation-password','new-rotation-password');

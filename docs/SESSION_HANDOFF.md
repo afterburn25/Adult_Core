@@ -1,3 +1,9 @@
+## Member-authenticated all-device session revocation backend — 2026-11-21
+
+Added `MemberSessionRevocation::revokeAll()` for a currently signed-in `pending`/`active` local member who re-enters the correct current password. Its transaction locks the member and session generation rows, rechecks the browser's expected generation, increments `ac_member_password_resets.session_generation` exactly once and clears outstanding password recovery and unconfirmed-email tokens. Existing and in-flight old cookies fail the next authenticated generation check even if a browser redirect fails. The member password hash, account status, membership, provider identity/age/consent records and protected media stay untouched. Invalid passwords, staff targets and stale session generations fail closed. Unit, disposable MySQL/MariaDB and unified Lite/Pro distribution checks cover this backend. The authenticated account UI and real separate-browser HTTP tests follow; no SaaS or adult-content release approval is implied.
+
+---
+
 ## Installer privacy headers follow namespace imports — 2026-11-21
 
 The installer no-cache/noindex/nosniff directives are placed after its top-level class imports and before all form rendering or session startup. This keeps the installer source layout conventional and ensures the credentials-bearing form receives the headers before output. HTTP/Apache verification remains unchanged.

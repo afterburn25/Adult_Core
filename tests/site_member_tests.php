@@ -16,6 +16,7 @@ use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
 use AdultCore\Member\MemberPasswordChange;
+use AdultCore\Member\MemberSessionRevocation;
 use AdultCore\Member\PasswordRecoverySchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
@@ -116,6 +117,17 @@ foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@e
 claim(MemberEmailSchema::VERSION==='m9_member_email_v1','Email schema has a distinct migration version');
 claim(PasswordRecoverySchema::VERSION==='m10_member_recovery_v1','Recovery schema migration version');
 PasswordRecovery::validatePassword('new-strong-password');claim(true,'Recovery password valid');
+claim(MemberSessionRevocation::validateCurrentPassword('long-current-password')
+    ==='long-current-password','Member device revocation requires a current password');
+foreach ([null,'',str_repeat('x',73)] as $badRevocationPassword) {
+    try {
+        MemberSessionRevocation::validateCurrentPassword($badRevocationPassword);
+        throw new RuntimeException('Bad device revocation password accepted.');
+    } catch (RuntimeException $e) {
+        claim($e->getMessage()!=='Bad device revocation password accepted.',
+            'Empty/oversized device revocation passwords are rejected');
+    }
+}
 MemberPasswordChange::validateInput('current-long-password','new-long-password','new-long-password');
 claim(true,'Member self-service password fields validated before database writes');
 foreach ([

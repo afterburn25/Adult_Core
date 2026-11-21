@@ -1,3 +1,7 @@
+## Member session security (development)
+
+Member account security includes a transactional all-device session revocation capability. It requires a current password and invalidates existing member sessions without changing the member's password, age/consent, subscription or protected-media access. The protected browser form is part of the next feature increment.
+
 ## Export redacted Site Health checks (development)
 
 Owners can download a local, read-only JSON self-check report from **Admin → Site health** without revealing member or licensing secrets. The export explicitly states that it does not certify production launch or authorize adult-media release.
