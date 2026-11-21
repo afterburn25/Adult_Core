@@ -1,3 +1,9 @@
+## Unicode-safe brand monograms after m20 — 2026-11-21
+
+The public site brand emblem and decorative hero monogram now select the first UTF-8 code point of each selected name word, rather than `substr(...,0,1)` splitting accented, CJK or emoji bytes. Existing ASCII brand initials are unchanged; malformed legacy strings use safe fallbacks with escaped output. UI regression examples cover accented Latin, CJK and emoji site names. This is purely a rendering safety fix; licensed domain, site permissions, public media, age/consent and payments are unchanged.
+
+---
+
 ## Installer and owner branding validation parity — 2026-11-21
 
 Fresh installs now reject site names containing malformed UTF-8 or C0/DEL control bytes, checking the untrimmed raw value before any issuer request or database creation. This aligns the universal Lite/Pro installer input boundary with m20 owner's local branding editor; both accept 2–120 UTF-8 bytes of single-line public display text. Existing installed legacy values are still displayed escaped for correction rather than silently mutated. Disposable MySQL tests exercise leading/middle/trailing malicious control input and ordinary installer behavior. Neither license issuance nor host installation is claimed to be live-certified.

@@ -30,6 +30,15 @@ uiCheck(!str_contains($sample, '../admin'), 'Invalid slug refused');
 uiCheck(str_contains($sample, 'aria-current="page"'), 'Navigation current page indicated');
 uiCheck(str_contains($sample, 'class="site-highlights"'), 'Homepage editorial feature blocks');
 uiCheck(str_contains($sample, '<span>✧</span>S'), 'Website identity drives the decorative monogram');
+$unicodeBrand=Layout::site('Welcome','Plain text',[],'Élan 高原',true);
+uiCheck(str_contains($unicodeBrand,'É<span>✧</span>高')
+    && str_contains($unicodeBrand,'<span>É高</span>')
+    && !str_contains($unicodeBrand,'�'),
+    'UTF-8 accented and non-Latin branding initials remain intact');
+$emojiBrand=Layout::site('Welcome','Plain text',[],'🌺 Maison',true);
+uiCheck(str_contains($emojiBrand,'🌺<span>✧</span>M')
+    && !str_contains($emojiBrand,'�'),
+    'Multibyte website branding never splits emoji bytes');
 uiCheck(str_contains($sample, 'href="/theme.css"'), 'Signed CSS theme hook preserved');
 
 $secondary = Layout::site('About', 'Information', [], 'Example', false);

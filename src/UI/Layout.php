@@ -28,6 +28,17 @@ final class Layout
             . '<a class="skip-link" href="#main-content">Skip to content</a>';
     }
 
+    /**
+     * Count UTF-8 code points rather than bytes so accented and non-Latin
+     * site names do not render split characters or replacement glyphs.
+     * ASCII initials retain the same behavior on Lite and Pro.
+     */
+    private static function firstCharacter(string $word,string $fallback): string
+    {
+        if (preg_match('/^./us',$word,$match)!==1) return $fallback;
+        return strtoupper($match[0]);
+    }
+
     private static function brand(bool $admin = false, string $siteName = 'Adult Core'): string
     {
         $destination = $admin ? '/admin' : '/';
@@ -35,7 +46,8 @@ final class Layout
         $words = preg_split('/\s+/u', $name) ?: ['Adult', 'Core'];
         $first = array_shift($words) ?: 'Adult';
         $rest = implode(' ', $words);
-        $initials = strtoupper(substr($first, 0, 1) . ($rest !== '' ? substr($rest, 0, 1) : ''));
+        $initials = self::firstCharacter($first,'A')
+            . ($rest !== '' ? self::firstCharacter($rest,'') : '');
         return '<a class="brand" href="' . $destination . '" aria-label="' . self::escape($admin ? 'Adult Core administration' : $name . ' home') . '">'
             . '<span class="brand-emblem" aria-hidden="true"><span>' . self::escape($initials) . '</span></span>'
             . '<span class="brand-type"><strong>' . self::escape($first) . ($rest === '' ? '' : '<span>' . self::escape($rest) . '</span>') . '</strong><small>'
@@ -61,8 +73,8 @@ final class Layout
         }
         $intro = $homepage ? 'A space that feels entirely yours' : 'Discover more';
         $siteWords = preg_split('/\s+/u', $siteName) ?: ['Adult','Core'];
-        $siteFirst = strtoupper(substr((string) ($siteWords[0] ?? 'A'), 0, 1));
-        $siteLast = strtoupper(substr((string) ($siteWords[count($siteWords)-1] ?? 'C'), 0, 1));
+        $siteFirst = self::firstCharacter((string)($siteWords[0]??'A'),'A');
+        $siteLast = self::firstCharacter((string)($siteWords[count($siteWords)-1]??'C'),'C');
         $theme = (string)($design['theme_key'] ?? 'noir-gold');
         if (!array_key_exists($theme, \AdultCore\Design\ThemeCatalog::THEMES)) $theme = 'noir-gold';
         $side = ($design['image_side'] ?? 'right') === 'left' ? 'left' : 'right';
