@@ -1,3 +1,13 @@
+## Private draft image uploads — 2026-11-21
+
+An authenticated `owner` or `admin` with content moderation permission can now use `/admin/moderation` to select an **existing unpublished, unreviewed, private draft** and upload a JPEG, PNG or WebP image (maximum 8 MiB, or a lower PHP hosting upload limit). This uses real HTTP upload validation, binary signature/image inspection, an unguessable key, and `storage/private-media` outside `public/` with private filesystem permissions. The content is locked during the operation, only up to 40 images per draft are permitted, and the new `ac_media` record is **always pending**. The action is audited. If a database write fails after moving a file, the service attempts to remove the unreferenced private blob. No public URL or identity/performer evidence is accepted by this form.
+
+The moderator queue shows the pending image count without filenames, private storage keys or unapproved previews. Uploaded images are **not published or approved**; even a logged-in member cannot view them through `/members/library`, `/members/library/ID` or the guarded `/media/ID` endpoint. A real independent verification, review/approval, media sanitization and publication workflow remains necessary. Do not use this as a production adult-content ingestion pipeline: scanning, EXIF/geolocation metadata removal, moderation appeal/review, performer legal recordkeeping and provider/merchant contracts are outstanding.
+
+The disposable real-HTTP test uploads a test PNG through a multipart form, rejects invalid CSRF and non-images, checks the admin pending count and verifies that anonymous/unverified members cannot fetch the private image. The separate disposable gallery test creates a controlled, synthetic approved record for regression testing and then revokes consent; it is **not** the moderation UI and cannot be used as genuine verification or live publishing.
+
+---
+
 ## 0.8.2-dev addition: pending performer roster
 
 The admin moderation form may declare the number of depicted performers on an unreviewed draft and creates one pending record per performer. It does not authorize any content or collect identifying documents. Declaring a roster is one-time; corrections require a new review workflow. The private content entitlement engine now rejects `expected_performers=0` or any mismatch between expected count and complete approved records. Performer identity/consent callbacks do not mark records approved. See `docs/VERIFICATION.md`.
@@ -14,7 +24,7 @@ The admin moderation form may declare the number of depicted performers on an un
 
 ## Deliberate limitations / security review
 
-- No `approve` or `publish` handler is provided in this iteration. A moderation decision is not a substitute for age/identity verification, performer consent, or legal recordkeeping. There is no content upload or gallery-publishing UI yet.
+- No `approve` or `publish` handler is provided in this iteration. A moderation decision is not a substitute for age/identity verification, performer consent, or legal recordkeeping. The private draft **image staging** UI does not approve or publish any uploaded content; creator-controlled publication and video uploads remain unimplemented.
 - Any pending account can report a content ID; this makes it easier to surface urgent safety issues but can be abused to quarantine content. Production needs email confirmation, signup/report abuse detection, trusted moderation escalation, appeal workflows, record retention and incident response.
 - `report_id`/`content_id` values are not sensitive, but repeated missing IDs receive a generic success response to minimize enumeration. Secure uploaded evidence should eventually be stored with strong access and retention controls, never exposed in the admin HTML or logs.
 - A closed report remains in the database; admin decisions are append-only. No deletion, automated moderation, account reinstatement, independent verification provider, or provenance completeness proof is available.
