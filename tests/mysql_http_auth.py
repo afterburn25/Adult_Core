@@ -579,6 +579,9 @@ def main():
             studio_revision=re.search(r'name="page_revision" value="(\d+)"',studio)
             ensure('Studio has anti-CSRF token and homepage revision',
                    studio_csrf is not None and studio_revision is not None)
+            ensure('Owner can edit all three homepage information cards',
+                   all(f'name="highlight_{i}_title"' in studio
+                       and f'name="highlight_{i}_body"' in studio for i in (1,2,3)))
             ensure('Live drag/resize slider controls are rendered',
                    all(f'name="{field}"' in studio for field in ('cutout_x','cutout_y','cutout_width')))
             code, invalid= req('/admin/design', {
@@ -607,7 +610,13 @@ def main():
                 'image_side':'left', 'image_size':'medium', 'hero_asset':'none',
                 'cutout_x':'24','cutout_y':'70','cutout_width':'61',
                 'page_revision':studio_revision.group(1),
-                'title':'Hello <studio>', 'body':'A safe and elegant welcome'
+                'title':'Hello <studio>', 'body':'A safe and elegant welcome',
+                'highlight_1_title':'Owner <welcome>',
+                'highlight_1_body':'A & community note',
+                'highlight_2_title':'Member accounts',
+                'highlight_2_body':'Dedicated account access with privacy-first safeguards.',
+                'highlight_3_title':'Made personal',
+                'highlight_3_body':'Pages and styling curated by your site administrator.'
             })
             ensure('Valid design saves with redirect', code == 303)
             code, private_home = req('/')
@@ -635,6 +644,10 @@ def main():
             code, public_home = req('/')
             ensure('Published homepage uses selected layout and escapes text',
                    code == 200 and 'theme-rose-ivory' in public_home and 'Hello &lt;studio&gt;' in public_home and 'Hello <studio>' not in public_home)
+            ensure('Custom homepage information cards render as escaped public plain text',
+                   'Owner &lt;welcome&gt;' in public_home
+                   and 'A &amp; community note' in public_home
+                   and 'Owner <welcome>' not in public_home)
             code, stale_studio=req('/admin/design',{
                 'csrf':studio_csrf.group(1),'theme':'noir-gold','accent':'#d9ae75',
                 'image_side':'right','image_size':'large','hero_asset':'none',

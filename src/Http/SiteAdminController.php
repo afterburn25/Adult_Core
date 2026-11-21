@@ -24,6 +24,7 @@ use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
 use AdultCore\UI\Layout;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\CutoutPlacement;
 use PDO;
 use Throwable;
@@ -100,6 +101,7 @@ final class SiteAdminController
             AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
+            HighlightSchema::migrate($pdo);
             MemberSchema::migrate($pdo);
             StaffSchema::migrate($pdo);
             MemberEmailSchema::migrate($pdo);
@@ -123,6 +125,7 @@ final class SiteAdminController
             'Administrator authenticator MFA'=>AdminMfaSchema::VERSION,
             'Design Studio'=>DesignSchema::VERSION,
             'Cutout position controls'=>CutoutPlacement::VERSION,
+            'Homepage information cards'=>HighlightSchema::VERSION,
             'Member accounts'=>MemberSchema::VERSION,
             'Restricted staff accounts'=>StaffSchema::VERSION,
             'Member email confirmation'=>MemberEmailSchema::VERSION,

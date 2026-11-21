@@ -10,6 +10,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Design\DesignImages;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\CutoutPlacement;
 use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
@@ -67,6 +68,11 @@ final class DesignController
                     '<p>Back up the database, then apply the additive page editor migrations in <a href="/admin/setup">Site setup</a> before editing.</p>');
                 return;
             }
+            if (!HighlightSchema::installed($pdo)) {
+                $this->render(503,'Homepage card setup required',
+                    '<p>Back up the database, then apply the additive homepage cards migration in <a href="/admin/setup">Site setup</a> before editing.</p>');
+                return;
+            }
             $repo = new DesignRepository($pdo);
             if ($method === 'POST') {
                 if ($path === '/admin/design/upload') {
@@ -102,6 +108,20 @@ final class DesignController
             throw new RuntimeException('Invalid design settings.');
         }
         ThemeCatalog::validate($theme,$accent,$side,$size);
+        $hasCards=false;
+        $fields=0;
+        $cards=[];
+        for ($i=1;$i<=3;$i++) {
+            $cardTitle=$_POST['highlight_'.$i.'_title']??null;
+            $cardBody=$_POST['highlight_'.$i.'_body']??null;
+            if ($cardTitle!==null) ++$fields;
+            if ($cardBody!==null) ++$fields;
+            $cards[]=['title'=>$cardTitle,'body'=>$cardBody];
+        }
+        if ($fields!==0 && $fields!==6) {
+            throw new RuntimeException('Incomplete homepage cards. Reload the editor and try again.');
+        }
+        $highlights=$fields===6?HighlightSchema::validate($cards):null;
         $assetId = null;
         if ($choice !== 'none') {
             if (preg_match('/^[1-9][0-9]{0,17}$/D', $choice) !== 1) throw new RuntimeException('Invalid image selection.');
@@ -120,7 +140,7 @@ final class DesignController
         PageRepository::validate('home',$title,$body,(string)$home['status']);
         $pdo->beginTransaction();
         try {
-            $repo->save($theme,$accent,$side,$size,$assetId,$placement);
+            $repo->save($theme,$accent,$side,$size,$assetId,$placement,$highlights);
             $pageRepo->save((int)$home['id'],'home',trim($title),$body,(string)$home['status'],$expectedRevision);
             $pdo->commit();
         } catch (Throwable $e) {
@@ -197,7 +217,18 @@ final class DesignController
         }
         $html .= '</fieldset><label for="studio-title">Homepage headline</label><input id="studio-title" name="title" required maxlength="190" value="' . self::e($title) . '">'
             . '<label for="studio-body">Homepage text</label><textarea id="studio-body" name="body" maxlength="30000" rows="5">' . self::e($body) . '</textarea>'
-            . '<button class="install-button" type="submit">Save design changes</button></form>'
+            . '<fieldset class="home-info-card-editor"><legend>Homepage information cards</legend>'
+            . '<p class="muted">Customize the three public information tiles under the homepage banner. Plain text only; no HTML, performer evidence or protected media.</p>';
+        foreach (($current['highlights']??HighlightSchema::defaults()) as $index=>$card) {
+            $number=$index+1;
+            $html.='<label for="highlight-title-'.$number.'">Card '.$number.' heading</label>'
+                .'<input id="highlight-title-'.$number.'" name="highlight_'.$number.'_title" maxlength="80" required value="'
+                .self::e((string)$card['title']).'">'
+                .'<label for="highlight-body-'.$number.'">Card '.$number.' description</label>'
+                .'<textarea id="highlight-body-'.$number.'" name="highlight_'.$number.'_body" maxlength="240" rows="2" required>'
+                .self::e((string)$card['body']).'</textarea>';
+        }
+        $html .= '</fieldset><button class="install-button" type="submit">Save design changes</button></form>'
             . '<hr><h2>Upload photos & cutouts</h2><p class="muted">Transparent PNG and WebP work best. JPG is also supported. Maximum 5 MB / 4096 px. Images with EXIF, GPS, text notes or unsupported metadata are rejected; export a metadata-free image first. No automatic background removal yet.</p>'
             . '<form method="post" action="/admin/design/upload" enctype="multipart/form-data" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . $csrf . '">'

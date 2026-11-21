@@ -1,3 +1,7 @@
+## Homepage information cards (m18 development)
+
+Design Studio owners can edit the three public homepage information cards as bounded, safely escaped text. Apply the additive **Admin → Setup** migration after a verified backup. The member/media/verification/payment release gates do not change.
+
 ## Search your saved pages (development)
 
 Admin → Pages has a literal title/slug search across local saved drafts and published text pages, with bounded 50-row pages and retained filters. Searching cannot publish content or bypass site permissions.

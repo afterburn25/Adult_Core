@@ -1,3 +1,11 @@
+## Owner-editable homepage information tiles (m18) — 2026-11-21
+
+The existing three public homepage information tiles now use a site-local additive m18 Design Studio migration instead of uneditable promotional copy. Each card has a required bounded UTF-8 heading and body, validated and HTML-escaped by the public renderer. The authenticated Design Studio exposes six fields alongside the existing theme controls, with CSRF and homepage revision checks; a stale homepage save still rolls back all visual settings. Legacy programmatic saves that omit card fields preserve existing values. The original three texts migrate as defaults and one unified Lite/Pro source ZIP requires the schema.
+
+This is non-explicit **public informational text** only, not a content publish button, paid membership grant, age/performer consent assertion or permission to serve private media. Local unit, MySQL/MariaDB, ZIP and HTTP tests cover persistence, validation and escaping. Real hosting and production release certification remain pending.
+
+---
+
 ## Bounded local page search across saved drafts — development (2026-11-21)
 
 The owner-only Admin → Pages view now supports literal title/slug search across saved pages, including drafts beyond the first 50 rows. The query is retained during keyset pagination and restricted to 80 valid UTF-8 bytes without control characters. Prepared SQL substring matching does not interpret wildcard characters. Search never changes publishing, private media, license, creator or membership permissions.
