@@ -74,8 +74,9 @@ try {
         'Absent local email transport does not count as configured');
     file_put_contents($emailHealthRoot.'/config/email.php',
         "<?php return ['enabled'=>true,'from'=>'sender@example.test','base_url'=>'https://example.test'];");
-    claim(\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot),
-        'Valid local PHP mail config is recognized without sending an email');
+    claim(\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot)
+        ===function_exists('mail'),
+        'Configured mail needs host PHP mail function without sending an email');
     file_put_contents($emailHealthRoot.'/config/email.php',
         "<?php return ['enabled'=>true,'from'=>'invalid-sender','base_url'=>'http://example.test'];");
     claim(!\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot),

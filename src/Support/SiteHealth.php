@@ -66,7 +66,7 @@ final class SiteHealth
         $add('Private folders',$private,
             'Private config and storage must be real writable directories, not symlinks.');
         $add('Member email delivery configuration',self::memberEmailConfigured($this->root),
-            'A valid private PHP mail configuration is required for confirmation/recovery links. '
+            'A valid private PHP mail configuration and enabled PHP mail() are required. '
             .'Configured does not mean email delivery has been tested or accepted by a provider.');
         $expected=realpath($this->root.'/public');
         $actual=$documentRoot===null?false:realpath($documentRoot);
@@ -125,7 +125,7 @@ final class SiteHealth
     public static function memberEmailConfigured(string $root): bool
     {
         try {
-            return EmailDelivery::loadConfig($root)!==null;
+            return function_exists('mail') && EmailDelivery::loadConfig($root)!==null;
         } catch (\Throwable) {
             return false;
         }

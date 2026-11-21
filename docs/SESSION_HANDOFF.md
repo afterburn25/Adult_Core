@@ -1,3 +1,9 @@
+## PHP mail availability included in boolean transport self-check — 2026-11-21
+
+The Site Health member-email configuration result now requires both a validated enabled private config and an available PHP `mail()` function. On hosts where mail() is disabled, merely writing a configuration file cannot produce a green transport status; even a green status does **not** imply delivery or provider acceptance. The check has no side effects or outbound messages, and the unit suite is host-aware (`function_exists('mail')`) so a disabled-mail CI image remains testable. Customer email delivery and DNS/provider reputation checks still require actual host verification.
+
+---
+
 ## Server-asserted HTTPS in read-only local Site Health — 2026-11-21
 
 The owner-only Site Health screen and redacted JSON report now include a separate **HTTPS request transport** check based exclusively on PHP's server-provided `HTTPS=on|1` flag, not a client-supplied `X-Forwarded-Proto` header or a forged Host request. Local HTTP loopback CI correctly displays `Needs attention` rather than pretending to have a trusted TLS certificate. The result is only a transport self-check; it cannot prove certificate trust, cPanel/VPS origin routing or external release readiness. Unit and authenticated HTTP regressions enforce this narrow semantics. No direct HTTP routing or persistent session policy is changed.
