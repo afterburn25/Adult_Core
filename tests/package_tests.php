@@ -244,6 +244,22 @@ try {
     unlink($pendingLicenseUpdate);
     verifyPackageTest('Recovered core transition restores module runtime',
         $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    foreach ([
+        '.edition-upgrade-pending' => 'interrupted Lite-to-Pro upgrade',
+        '.backup-restore-pending' => 'interrupted backup restore',
+        '.backup-maintenance' => 'private backup maintenance',
+    ] as $pendingFile => $purpose) {
+        $pendingPath = $root.'/storage/'.$pendingFile;
+        file_put_contents($pendingPath, 'synthetic gated operation');
+        try {
+            verifyPackageTest('Paid modules stop during '.$purpose,
+                !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        } finally {
+            unlink($pendingPath);
+        }
+        verifyPackageTest('Paid modules recover after '.$purpose,
+            $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    }
     $signedInstalled = file_get_contents($installedState);
     unlink($installedState);
     verifyPackageTest('Missing signed core installation prevents paid add-on runtime',
