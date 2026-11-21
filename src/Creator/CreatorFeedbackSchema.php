@@ -35,6 +35,26 @@ final class CreatorFeedbackSchema
             FOREIGN KEY (draft_id) REFERENCES ac_creator_drafts(id),
             FOREIGN KEY (reviewer_id) REFERENCES ac_users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        // Preserve the CURRENT, provenance-backed feedback from an m14
+        // installation during upgrade. The last numeric draft event must
+        // match the draft's current review decision. Earlier overwritten
+        // notes cannot be recovered and must never be invented.
+        //
+        // The reviewed submission version is exactly the current revision
+        // minus one while the plan remains in 'changes' or 'rejected'.
+        // INSERT IGNORE + unique (draft_id,submitted_revision) makes a
+        // partially applied migration safe to retry without duplicating
+        // private feedback.
+        $pdo->exec("INSERT IGNORE INTO ac_creator_feedback_history
+            (draft_id,reviewer_id,submitted_revision,decision,feedback,reviewed_at)
+            SELECT d.id,e.actor_id,d.revision-1,d.status,d.review_note,e.created_at
+            FROM ac_creator_drafts d
+            JOIN ac_creator_draft_events e ON e.draft_id=d.id
+            WHERE d.status IN ('changes','rejected')
+                AND d.review_note <> '' AND d.revision > 1
+                AND e.action=d.status
+                AND e.id=(SELECT MAX(e2.id) FROM ac_creator_draft_events e2
+                          WHERE e2.draft_id=d.id)");
         $q=$pdo->prepare('INSERT IGNORE INTO ac_schema_migrations(version,applied_at) VALUES (?,UTC_TIMESTAMP())');
         $q->execute([self::VERSION]);
     }
