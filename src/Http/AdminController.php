@@ -426,14 +426,22 @@ final class AdminController
                 }
                 try {
                     $action = $_POST['action'] ?? null;
-                    if ($action === 'install') {
+                    if ($action === 'install' || $action === 'preview_update') {
                         $file = $_FILES['package'] ?? null;
                         if (!is_array($file) || ($file['error'] ?? null) !== UPLOAD_ERR_OK
                             || !is_string($file['tmp_name'] ?? null)
                             || !is_uploaded_file($file['tmp_name'])) {
                             throw new \RuntimeException('Choose a ZIP package within the upload limit.');
                         }
-                        $store->install($file['tmp_name'], $edition, $capabilities);
+                        if ($action === 'install') {
+                            $store->install($file['tmp_name'], $edition, $capabilities);
+                        } else {
+                            $plan = $store->previewUpdate($file['tmp_name'], $edition, $capabilities);
+                            $success = 'Signed update preflight only: '
+                                . $plan['type'] . ' ' . $plan['id'] . ' '
+                                . $plan['current_version'] . ' → ' . $plan['proposed_version']
+                                . '. Nothing was installed or changed.';
+                        }
                     } elseif ($action === 'enable' || $action === 'disable') {
                         $type = $_POST['type'] ?? null;
                         $id = $_POST['id'] ?? null;
@@ -444,8 +452,10 @@ final class AdminController
                     } else {
                         throw new \RuntimeException('Invalid package action.');
                     }
-                    $this->redirect('/admin/packages?result=saved');
-                    return;
+                    if ($action !== 'preview_update') {
+                        $this->redirect('/admin/packages?result=saved');
+                        return;
+                    }
                 } catch (\RuntimeException $e) {
                     $error = $e->getMessage();
                     http_response_code(422);
@@ -480,6 +490,15 @@ final class AdminController
             . '<label for="extension-upload">Package ZIP (max 8 MiB)</label>'
             . '<input id="extension-upload" type="file" name="package" accept=".zip,application/zip" required>'
             . '<button class="install-button" type="submit">Verify and install</button></form></section>'
+            . '<section class="panel"><h2>Check signed update compatibility</h2>'
+            . '<p>This checks a newer signed data-only ZIP against a disabled installed package. '
+            . 'It does not apply, replace or execute the update.</p>'
+            . '<form method="post" action="/admin/packages" enctype="multipart/form-data" class="install-form">'
+            . '<input type="hidden" name="csrf" value="' . $csrf . '">'
+            . '<input type="hidden" name="action" value="preview_update">'
+            . '<label for="package-update-preview">Signed update ZIP (max 8 MiB)</label>'
+            . '<input id="package-update-preview" type="file" name="package" accept=".zip,application/zip" required>'
+            . '<button class="button-secondary" type="submit">Check compatibility without installing</button></form></section>'
             . '<section class="panel packages-list"><h2>Installed packages</h2>';
         if ($packages === []) {
             $out .= '<p>No packages installed yet. The example manifests in modules/ are demonstrations, not installed extensions.</p>';
