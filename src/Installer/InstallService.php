@@ -42,6 +42,10 @@ final class InstallService
                     throw new RuntimeException('Installation files already exist. Restore a backup or contact the operator.');
                 }
             }
+            // Never trust direct service callers to have run the browser form
+            // validator: reject malformed connection/admin fields before any
+            // issuer request or database write.
+            $fields = InstallInput::validateForService($fields);
             // Enforce hostname identity at the service boundary as well as in
             // the browser controller. CLI fixture installations have no HTTP
             // origin, so only actual web requests must supply a matching Host.
