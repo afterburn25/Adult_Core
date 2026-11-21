@@ -697,7 +697,9 @@ try {
     }
     $ownerAfterReview=$creators->privatePlansForOwner((int)$valid['id'],$creatorId);
     if ($ownerAfterReview['drafts'][0]['status']!=='rejected'
-        || !str_contains((string)$ownerAfterReview['drafts'][0]['review_note'],'Rejected')) {
+        || !str_contains((string)$ownerAfterReview['drafts'][0]['review_note'],'Rejected')
+        || count($ownerAfterReview['events'])!==4
+        || $ownerAfterReview['events'][0]['action']!=='rejected') {
         throw new RuntimeException('Local owner cannot inspect retained rejected text plans.');
     }
     // A creator can withdraw only an undecided submission, preserving a

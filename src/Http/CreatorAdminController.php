@@ -80,7 +80,19 @@ final class CreatorAdminController
                     .' · Last changed '.self::e((string)$draft['updated_at']).' UTC</p>'
                     .'</article>';
             }
-            $html.='</section><p><a href="/admin/creators">Return to local creators</a></p>';
+            $html.='</section><section class="panel"><h2>Text-review history</h2>'
+                .'<p>Latest 100 local text-plan actions only; numeric actor/draft references. '
+                .'No feedback notes or private content are duplicated in the event log.</p>'
+                .'<table class="page-table"><thead><tr><th>Draft</th><th>Actor</th>'
+                .'<th>Action</th><th>UTC</th></tr></thead><tbody>';
+            foreach ($data['events'] as $event) {
+                $html.='<tr><td>'.(int)$event['draft_id'].'</td>'
+                    .'<td>'.(int)$event['actor_id'].'</td>'
+                    .'<td>'.self::e((string)$event['action']).'</td>'
+                    .'<td>'.self::e((string)$event['created_at']).'</td></tr>';
+            }
+            $html.='</tbody></table></section>'
+                .'<p><a href="/admin/creators">Return to local creators</a></p>';
             $this->render(200,'Private creator plans',$html);
         } catch (Throwable) {
             $this->render(503,'Private creator plans unavailable','<p>Could not load saved plans.</p>');

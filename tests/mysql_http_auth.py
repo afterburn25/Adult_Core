@@ -1151,9 +1151,12 @@ def main():
                 'summary':'Rejected private plans should not be editable.'})
             ensure('Rejected private creator draft cannot be edited',code == 422)
             code, owner_review=req('/admin/creators/drafts/'+creator_id)
-            ensure('Owner retains text and private review feedback after rejection',
+            ensure('Owner retains text, feedback and local numeric review history after rejection',
                    code == 200 and 'Status: rejected, unpublished.' in owner_review
-                   and 'Rejected: this private plan' in owner_review)
+                   and 'Rejected: this private plan' in owner_review
+                   and '<h2>Text-review history</h2>' in owner_review
+                   and '<td>submitted</td>' in owner_review
+                   and '<td>rejected</td>' in owner_review)
             code, none_pending=mod_req('/admin/creator-review')
             ensure('Reviewed plan no longer appears in submitted queue',
                    code == 200 and 'No submitted private plans' in none_pending)

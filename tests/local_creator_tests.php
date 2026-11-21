@@ -53,6 +53,10 @@ $ok(!str_contains($source,'INSERT INTO ac_content')
     && !str_contains($source,"'published',"),
     'Creator drafts never implicitly publish, upload or verify age');
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/CreatorAdminController.php');
+$ok(str_contains($source,'ac_creator_draft_events')
+    && str_contains($controller,'Text-review history')
+    && str_contains($controller,'No feedback notes or private content'),
+    'Site owner can audit numeric review history without replicating feedback in event log');
 $ok(str_contains($controller,'privatePlansForOwner')
     && str_contains($controller,'/admin/creators/drafts/')
     && str_contains($controller,'Cache-Control: private, no-store')

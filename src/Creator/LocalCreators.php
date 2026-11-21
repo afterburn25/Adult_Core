@@ -125,7 +125,7 @@ final class LocalCreators
      * Local owner/admin can inspect only saved planning text on THIS site.
      * It does not contain original media, identity evidence, or access keys.
      *
-     * @return array{profile:array<string,mixed>,drafts:list<array<string,mixed>>}|null
+     * @return array{profile:array<string,mixed>,drafts:list<array<string,mixed>>,events:list<array<string,mixed>>}|null
      */
     public function privatePlansForOwner(int $actorId,int $creatorId): ?array
     {
@@ -142,7 +142,16 @@ final class LocalCreators
                 AND status IN ('private','submitted','changes','rejected')
             ORDER BY id DESC LIMIT 50");
         $q->execute([$creatorId]);
-        return ['profile'=>$profile,'drafts'=>$q->fetchAll(PDO::FETCH_ASSOC)];
+        $drafts=$q->fetchAll(PDO::FETCH_ASSOC);
+        // Bounded, no private note/draft text stored in this log.
+        // Fetch by creator via FK join, never by an untrusted event ID.
+        $events=$this->pdo->prepare('SELECT e.draft_id,e.actor_id,e.action,e.created_at
+            FROM ac_creator_draft_events e
+            JOIN ac_creator_drafts d ON d.id=e.draft_id
+            WHERE d.creator_id=? ORDER BY e.id DESC LIMIT 100');
+        $events->execute([$creatorId]);
+        return ['profile'=>$profile,'drafts'=>$drafts,
+            'events'=>$events->fetchAll(PDO::FETCH_ASSOC)];
     }
 
     /** @return list<array<string,mixed>> */
