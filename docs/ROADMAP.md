@@ -1,3 +1,11 @@
+## Private media storage integrity and release packaging — 2026-11-21
+
+The new `src/Media/PrivateMediaAudit.php` and CLI `scripts/audit-private-media.php [--json]` provide a **read-only** audit of `ac_media` references and `storage/private-media` files, identifying missing blobs, unreferenced/orphaned files, unexpected paths/symlinks, invalid file sizes and truncated scans. Output contains only aggregate counts; there is **no automatic deletion, exposure of storage keys, repair, media approval or permission to bypass legal retention**. The CLI requires a ready installed site and exits nonzero for anomalies. `tests/mysql_private_media_audit.php` uses a disposable database and temporary filesystem; it passed in [GitHub Actions 44895957609](https://github.com/afterburn25/Adult_Core/actions/runs/44895957609). The unified Lite/Pro source ZIP now requires both the audit class and CLI.
+
+Real server permission audits, backup retention agreements, offsite disaster recovery, lawful content deletion/appeals and independent security review remain unfinished, as do CWP payment staging and actual Lite cPanel/Pro VPS acceptance.
+
+---
+
 ## Private draft imaging and authenticated galleries — 2026-11-21
 
 The member library now links to `/members/library/CONTENT_ID`, a **GET-only** gallery detail route that independently checks current member status, verified age/email, complete performer consent, moderation, active paid tiers and safety reports. The gallery displays only approved safe image references from `ac_media`; each `/media/MEDIA_ID` request repeats authorization before returning bytes. An unauthorized or missing gallery returns a neutral 404. The responsive gallery has a report link; titles are HTML escaped and storage keys never appear in markup. Disposable MySQL tests cover roster/consent revocations and pending, cancelled, expired and renewed **test fixture** memberships. Real HTTP integration checks a temporarily authorized 1×1 PNG and immediate revocation, not a real provider or sale.
