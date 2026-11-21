@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace AdultCore\Licensing;
 
 use InvalidArgumentException;
-use RuntimeException;
 
 /** Read-only acceptance probe for an already-issued staging license; never performs commerce. */
 final class CwpStagingAudit
@@ -58,7 +57,7 @@ final class CwpStagingAudit
     }
 
     /**
-     * Three bounded read-only validations, never a card charge or customer mutation.
+     * Five bounded read-only validations, never a card charge or customer mutation.
      * Caller must ensure the negative domain is not independently licensed.
      * @return array{outcome:string,sku:string,edition:string,term:string,checks:array<string,string>,api_calls:int}
      */
@@ -69,19 +68,27 @@ final class CwpStagingAudit
         $domain = CajunWebClient::domain($domain);
         if ($domain === self::NEGATIVE_DOMAIN) throw new InvalidArgumentException('The requested domain must not be the negative-test domain.');
         $key = CajunWebClient::key($key);
-        $otherSku = array_key_first(array_filter(CajunWebClient::products(), static fn(array $p, string $other): bool => $other !== $sku, ARRAY_FILTER_USE_BOTH));
-        if (!is_string($otherSku)) throw new RuntimeException('Missing negative product control.');
-        $checks = [
-            'correct_product_domain' => $client->validate($key, $domain, $sku),
-            'other_product' => $client->validate($key, $domain, $otherSku),
-            'unregistered_domain' => $client->validate($key, self::NEGATIVE_DOMAIN, $sku),
-        ];
-        $outcome = in_array('transient', $checks, true) ? 'inconclusive'
-            : ($checks['correct_product_domain'] === 'valid' && $checks['other_product'] === 'denied'
+        // A single negative cross-product check is insufficient: the key
+        // might also be granted one of the two other Lite/Pro products.
+        // Check all four exact SKUs and the independent domain-negative control.
+        // Five bounded calls fit the issuer's ten-per-minute/IP default limit
+        // when operators avoid concurrent or repeated audit invocations.
+        $checks = ['correct_product_domain' => $client->validate($key, $domain, $sku)];
+        $otherProducts = [];
+        foreach (CajunWebClient::products() as $otherSku => $_identity) {
+            if ($otherSku === $sku) continue;
+            $otherProducts[$otherSku] = $client->validate($key, $domain, $otherSku);
+        }
+        $checks['other_products'] = $otherProducts;
+        $checks['unregistered_domain'] = $client->validate($key, self::NEGATIVE_DOMAIN, $sku);
+        $results = [$checks['correct_product_domain'], ...array_values($otherProducts), $checks['unregistered_domain']];
+        $outcome = in_array('transient', $results, true) ? 'inconclusive'
+            : ($checks['correct_product_domain'] === 'valid'
+                && !in_array('valid', $otherProducts, true)
                 && $checks['unregistered_domain'] === 'denied' ? 'passed' : 'failed');
         return [
             'outcome' => $outcome, 'sku' => $sku, 'edition' => $identity['edition'],
-            'term' => $identity['term'], 'checks' => $checks, 'api_calls' => 3,
+            'term' => $identity['term'], 'checks' => $checks, 'api_calls' => count($results),
         ];
     }
 }
