@@ -35,6 +35,8 @@ $check(str_contains($source,"'moderator','active'") && !str_contains($source,"VA
     'No user-controlled role may grant owner/admin');
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/StaffController.php');
 $check(str_contains($controller,'AdminSession::csrfValid')
+    && str_contains($controller,'AdminSession::managerVerifiedRecently')
+    && str_contains($controller,"action==='verify'")
     && str_contains($controller,'verifyCredentials')
     && str_contains($controller,'InstallRateLimiter')
     && !str_contains($controller,"action==='promote'"),

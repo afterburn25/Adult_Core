@@ -43,6 +43,8 @@ try {
     $test('MFA challenge has rotated CSRF token',!hash_equals($token,AdminSession::csrf()));
     AdminSession::authenticate(7,null,true);
     $test('MFA-completed session is fully authenticated',AdminSession::authenticatedId()===7&&AdminSession::mfaVerified());
+    $test('Password and MFA sign-in records recent manager authorization',
+        AdminSession::managerVerifiedRecently());
     $test('MFA pending state cleared by full authentication',
         AdminSession::pendingMfaId()===null && AdminSession::pendingStaffEpoch()===null);
     AdminSession::setEnrollmentSecret(7,$generated);

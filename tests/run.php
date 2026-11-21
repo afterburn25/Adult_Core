@@ -333,9 +333,24 @@ assertCheck('Admin session validates its CSRF token', AdminSession::csrfValid($c
 AdminSession::authenticate(13, 2000000000);
 assertCheck('Login rotates CSRF token', $csrfBeforeLogin !== AdminSession::csrf());
 assertCheck('Admin session retains authenticated ID', AdminSession::authenticatedId(2000000100) === 13);
-assertCheck('Admin session expires after 30 minutes idle', AdminSession::authenticatedId(2000002000) === null);
+assertCheck('Cookie survives a browser restart for a bounded seven days',
+    session_get_cookie_params()['lifetime']===AdminSession::MAX_SECONDS
+    && session_get_cookie_params()['httponly']
+    && session_get_cookie_params()['samesite']==='Strict');
+assertCheck('Fresh manager login authorizes routine staff changes without retyping password',
+    AdminSession::managerVerifiedRecently(2000000100));
+assertCheck('Manager staff authorization expires after 30 minutes',
+    !AdminSession::managerVerifiedRecently(2000001800));
+AdminSession::markManagerVerified(2000001810);
+assertCheck('Re-verifying once unlocks another bounded manager action window',
+    AdminSession::managerVerifiedRecently(2000002000));
+assertCheck('Admin session remains valid through page activity after 23 hours',
+    AdminSession::authenticatedId(2000082800)===13);
+assertCheck('Admin session expires after 24 hours idle',
+    AdminSession::authenticatedId(2000169200)===null);
 AdminSession::authenticate(14, 2000000000);
-assertCheck('Admin session expires after 12 hours absolute', AdminSession::authenticatedId(2000043200) === null);
+assertCheck('Admin session expires after 7 days absolute',
+    AdminSession::authenticatedId(2000604800)===null);
 AdminSession::authenticate(15, 2000000000);
 AdminSession::revoke();
 assertCheck('Revoked session denies access', AdminSession::authenticatedId(2000000001) === null);

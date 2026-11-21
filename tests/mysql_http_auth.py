@@ -95,6 +95,27 @@ def main():
             ensure('Failed login cannot view dashboard', code == 302)
             code, body = req('/admin/login', {'email': 'owner@example.test', 'password': 'strong-example-admin-password', 'csrf': csrf})
             ensure('Correct credentials redirect to dashboard', code == 303)
+            # PHP session ID cookie is persistent (7-day maximum), HttpOnly
+            # and SameSite=Strict. No password is ever in the cookie.
+            admin_cookies=[cookie for cookie in opener.handlers if isinstance(cookie,urllib.request.HTTPCookieProcessor)]
+            browser_cookies=list(admin_cookies[0].cookiejar) if admin_cookies else []
+            session_cookie=next((cookie for cookie in browser_cookies if cookie.name=='adultcore_admin'),None)
+            ensure('Admin session cookie survives browser restart and expires',
+                   session_cookie is not None and session_cookie.expires is not None
+                   and session_cookie.expires>int(time.time())+86400
+                   and session_cookie.has_nonstandard_attr('HttpOnly'))
+            restart_jar=http.cookiejar.CookieJar()
+            for cookie in browser_cookies:
+                restart_jar.set_cookie(cookie)
+            restart_browser=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(restart_jar))
+            try:
+                restarted=restart_browser.open(f'http://127.0.0.1:{port}/admin',timeout=4)
+            except urllib.error.HTTPError as err:
+                restarted=err
+            with restarted:
+                ensure('Recreated browser uses persistent opaque cookie without re-login',
+                       restarted.status==200 and b'PRIVATE' in restarted.read().upper())
             code, body = req('/admin')
             ensure('Dashboard loads authenticated', code == 200 and 'HTTP Fixture &lt;script&gt;alert(1)&lt;/script&gt;' in body and '<script>alert(1)</script>' not in body)
             ensure('Edition visible', 'LITE' in body)
@@ -167,23 +188,32 @@ def main():
             ensure('Owner can access CSRF-protected staff management after setup',
                    code == 200 and staff_token is not None
                    and 'Moderation team' in staff_page)
+            ensure('Initial login unlocks staff changes without another password',
+                   'name="manager_password"' not in staff_page
+                   and 'value="create"' in staff_page)
             manager_password='strong-example-admin-password'
             new_staff_email='new-staff@example.test'
             initial_staff_password='first-long-staff-password'
             next_staff_password='restored-long-staff-password'
             code, _=req('/admin/staff',{
                 'csrf':'invalid','action':'create','email':new_staff_email,
-                'new_password':initial_staff_password,'manager_password':manager_password})
+                'new_password':initial_staff_password,})
             ensure('Staff creation requires manager CSRF',code == 403)
             code, refused=req('/admin/staff',{
-                'csrf':staff_token.group(1),'action':'create','email':new_staff_email,
-                'new_password':initial_staff_password,'manager_password':'incorrect-manager-password'})
-            ensure('Manager reauthentication is required for staff changes',
+                'csrf':staff_token.group(1),'action':'verify',
+                'manager_password':'incorrect-manager-password'})
+            ensure('Optional once-per-window manager reauthentication refuses wrong password',
                    code == 422 and 'Manager password confirmation failed.' in refused)
             code, _=req('/admin/staff',{
+                'csrf':staff_token.group(1),'action':'verify',
+                })
+            ensure('Manager can renew the authorization window once',code == 303)
+            code, unlocked_page=req('/admin/staff')
+            ensure('Renewal permits routine staff changes without password fields',
+                   code == 200 and 'name="manager_password"' not in unlocked_page)
+            code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'create','email':new_staff_email,
-                'new_password':initial_staff_password,'manager_password':manager_password,
-                'role':'owner'})
+                'new_password':initial_staff_password,'role':'owner'})
             ensure('Staff can only be provisioned as a restricted moderator',code == 303)
             code, staff_page=req('/admin/staff')
             new_staff_row=re.search(
@@ -219,7 +249,7 @@ def main():
             ensure('New moderator has restricted review permission',code == 200)
             code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'suspend','staff_id':new_staff_id,
-                'manager_password':manager_password})
+                })
             ensure('Manager can suspend only a moderator',code == 303)
             code, _=staff_req('/admin/moderation')
             ensure('Suspended moderator active session is denied',code == 302)
@@ -228,7 +258,7 @@ def main():
             # here because the endpoint has a strict five-attempt rate bound.
             code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'restore','staff_id':new_staff_id,
-                'new_password':next_staff_password,'manager_password':manager_password})
+                'new_password':next_staff_password,})
             ensure('Restoring staff rotates password and session revocation epoch',code == 303)
             code, _=stale_staff_req('/admin/moderation')
             ensure('Restoration cannot resurrect pre-suspension session cookie',code == 302)
