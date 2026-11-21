@@ -613,6 +613,9 @@ try {
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');
     @rmdir($root.'/config/editions');
+    foreach (['index.php','router.php','.htaccess'] as $webFile) {
+        @unlink($root . '/public/' . $webFile);
+    }
     @rmdir($root.'/public');
     foreach (['storage', 'config'] as $directory) {
         foreach (glob($root . '/' . $directory . '/*') ?: [] as $file) {
