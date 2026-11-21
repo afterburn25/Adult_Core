@@ -113,13 +113,51 @@ final class SiteAdminController
             header('Location: /admin/pages?result=setup', true, 303);
             return;
         }
-        $status = $this->schemaReady($pdo) ? 'Installed' : 'Not installed';
-        $html = '<p class="intro">This installs additional non-destructive website and member-account tables. Back up your existing database first. No public adult content is enabled.</p>'
-            . '<p>Current website schema: <strong>' . self::e($status) . '</strong></p>'
-            . '<form method="post" action="/admin/setup" class="install-form">'
-            . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
-            . '<button class="install-button" type="submit">Apply additive migrations</button></form>';
-        $this->render(200, 'Site setup', $html);
+        // Base-site installation alone does not imply later migrations ran.
+        // Display each additive feature schema independently and read-only;
+        // only an authenticated, CSRF-protected POST applies any changes.
+        $versions=[
+            'Public page schema'=>SiteSchema::VERSION,
+            'Page revision protection'=>PageRevisionSchema::VERSION,
+            'Page navigation settings'=>PageNavigationSchema::VERSION,
+            'Administrator authenticator MFA'=>AdminMfaSchema::VERSION,
+            'Design Studio'=>DesignSchema::VERSION,
+            'Cutout position controls'=>CutoutPlacement::VERSION,
+            'Member accounts'=>MemberSchema::VERSION,
+            'Restricted staff accounts'=>StaffSchema::VERSION,
+            'Member email confirmation'=>MemberEmailSchema::VERSION,
+            'Local creator workspaces'=>CreatorSchema::VERSION,
+            'Local creator text review'=>CreatorReviewSchema::VERSION,
+            'Creator private feedback history'=>CreatorFeedbackSchema::VERSION,
+            'Member password recovery'=>PasswordRecoverySchema::VERSION,
+            'Membership records'=>MembershipSchema::VERSION,
+            'Moderation records'=>ModerationSchema::VERSION,
+            'Signed verification receipts'=>VerificationSchema::VERSION,
+        ];
+        $present=array_fill_keys($pdo->query('SELECT version FROM ac_schema_migrations')
+            ->fetchAll(PDO::FETCH_COLUMN),true);
+        $pending=0;
+        $html='<p class="intro">These are additive local database migrations for this independent '
+            .'Lite/Pro website. Back up the existing site before applying updates. '
+            .'An Installed status means only the listed schema exists, not that '
+            .'adult content, age/consent providers, billing or hosting are production-certified.</p>'
+            .'<section class="panel"><h2>Website migration status</h2>'
+            .'<table class="page-table"><thead><tr><th>Feature</th><th>Schema status</th></tr></thead><tbody>';
+        foreach ($versions as $name=>$version) {
+            $ready=isset($present[$version]);
+            if (!$ready) ++$pending;
+            $html.='<tr><td>'.self::e($name).'</td><td>'
+                .($ready?'Installed':'Pending — apply setup')
+                .'</td></tr>';
+        }
+        $html.='</tbody></table><p>'.($pending===0
+            ? 'All listed local schema migrations have been recorded.'
+            : $pending.' local schema migration(s) pending.')
+            .'</p></section>'
+            .'<form method="post" action="/admin/setup" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+            .'<button class="install-button" type="submit">Apply additive migrations</button></form>';
+        $this->render(200,'Site setup',$html);
     }
 
     /**

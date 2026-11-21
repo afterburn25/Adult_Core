@@ -175,11 +175,21 @@ def main():
 
             # Browser-driven additive migration and public page editor.
             code, setup = req('/admin/setup')
-            ensure('Authenticated setup page', code == 200 and 'Apply additive migrations' in setup)
+            ensure('Authenticated setup page shows missing migrations without claiming readiness',
+                   code == 200 and 'Apply additive migrations' in setup
+                   and 'Page revision protection' in setup
+                   and 'Page navigation settings' in setup
+                   and 'Pending' in setup)
             setup_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', setup)
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            code, migrated_setup=req('/admin/setup')
+            ensure('Site setup reports individual page migrations as installed',
+                   code==200
+                   and 'All listed local schema migrations have been recorded.' in migrated_setup
+                   and '<td>Page revision protection</td><td>Installed</td>' in migrated_setup
+                   and '<td>Page navigation settings</td><td>Installed</td>' in migrated_setup)
             # Two independent staff sessions ensure a suspended-and-restored
             # moderator's OLD cookie stays revoked even without an intervening
             # HTTP request while the database account was suspended.

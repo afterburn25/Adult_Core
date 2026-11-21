@@ -1,3 +1,9 @@
+## Per-feature additive schema status in owner Site setup — 2026-11-21
+
+The authenticated Site setup page now shows each local schema migration separately, including new page revisions and navigation, staff/MFA, creator review and feedback, member/email, design and moderation. A base page table no longer makes later migrations appear installed. GET remains read-only; the existing authenticated CSRF POST is still the only application path. A recorded schema marker is never presented as proof of age/performer consent, adult merchant approval, Pro workers or production security. Disposable HTTP checks verify missing-versus-installed display without running a real hosted update.
+
+---
+
 ## Full HTTP regression for page listing beyond 50 — 2026-11-21
 
 The disposable, confirm-gated HTTP fixture now creates 51 additional unpublished pages only after complete local site setup. It verifies a real authenticated owner sees Older pages on the first slice, reaches the original saved pages on the second slice, returns to the first page, and cannot publicly retrieve a fixture draft; forged zero cursors still fail with 422. The owner page view keeps the paging metadata separate from its per-row loop variable, so the Next link cannot be lost after rendering the table. No adult publishing or real hosted services are enabled.

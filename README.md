@@ -1,3 +1,7 @@
+## Clear owner migration checklist (development)
+
+Admin → Setup now distinguishes installed from pending additive local schemas—including page editing, creators, moderation and member account foundations—without implying production approval. Back up the website before running migrations. Real provider, hosting and security release workstreams remain open.
+
 ## Page dashboard navigation (development)
 
 Local owners with over 50 saved pages can browse all their drafts and published pages through bounded, numeric keyset pagination under **Admin → Pages**, rather than losing older records from the page editor list. No public authorization, billing or content verification rules change.
