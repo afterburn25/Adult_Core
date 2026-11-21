@@ -1,3 +1,11 @@
+## Ten-workstream production release matrix — November 21, 2026
+
+The canonical, fail-closed CLI is `php scripts/release-matrix.php --json` (machine-readable) or `php scripts/release-matrix.php` (operator-readable). Both report **all ten** currently uncompleted production acceptance workstreams and intentionally exit nonzero until verified release authorization. The existing `php scripts/release-check.php` derives its blockers from the same ten workstreams. See [WORKSTREAM_ACCEPTANCE.md](WORKSTREAM_ACCEPTANCE.md) for the concrete missing external tests and operator-owned evidence.
+
+Development work now includes a private entitlement-filtered member library, a read-only performer-evidence summary, stricter verified-billing-event replay integrity, and signed Pro job receipt tamper detection. **None** enables unverified adult uploads, member charges, user entitlement grants, production FFmpeg execution, or a claim of independent age/consent compliance. A green CI run certifies none of those external dependencies.
+
+---
+
 ## Administrator MFA milestone (0.8.7-mfa-dev)
 
 New authenticator MFA and recovery paths are implemented for review and CI, but do not certify production authentication. Audit RFC 6238 behavior, recovery and backup of private application key, real HTTPS cookie settings, manual recovery policy, device compromise, independent browser and database tests, and administrator role changes before release. Other production gates (age/identity and performer consent, permitted billing, streaming, backups and release upgrade) remain open.
