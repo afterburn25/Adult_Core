@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Licensing;
 
+use AdultCore\Installer\AtomicFile;
 use AdultCore\Installer\InstallationGate;
 use RuntimeException;
 
@@ -23,6 +24,7 @@ final class ModuleLicenseManager
         return $id;
     }
     private function directory(): string { return $this->root . '/storage/packages/module-licenses'; }
+    private function pending(string $id): string { return $this->directory().'/.pending-'.$id; }
 
     /** Never follow operator-supplied symlinks into external secret storage. */
     private function assertSafeStorage(): void
@@ -75,7 +77,10 @@ final class ModuleLicenseManager
         $dir=$this->directory();
         // Refuse known-unsafe local targets BEFORE sending the module key to
         // the issuer. Recheck under lock below before changing either file.
-        foreach ([$dir.'/.lock', $dir.'/'.$id.'.php', $dir.'/'.$id.'.json'] as $path) {
+        foreach ([$dir.'/.lock', $dir.'/'.$id.'.php', $dir.'/'.$id.'.json', $this->pending($id)] as $path) {
+            // The per-module pending marker may be a regular file left by an
+            // interrupted activation. Only an issuer-verified retry clears it.
+            if ($path === $this->pending($id) && is_file($path) && !is_link($path)) continue;
             if (is_link($path) || (file_exists($path) && !is_file($path))) {
                 throw new RuntimeException('Module license private storage is unsafe.');
             }
@@ -96,8 +101,16 @@ final class ModuleLicenseManager
             // Both destinations must be safe before writing either one.
             self::assertReplaceable($dir.'/'.$id.'.php');
             self::assertReplaceable($dir.'/'.$id.'.json');
+            $pending = $this->pending($id);
+            if (is_link($pending) || (file_exists($pending) && !is_file($pending))) {
+                throw new RuntimeException('Module activation recovery marker is unsafe.');
+            }
+            if (!is_file($pending)) AtomicFile::write($pending, "module-activation-pending\n");
+            // A failed write leaves this fail-closed marker for authenticated
+            // reactivation using a newly verified paid module license key.
             self::writePrivate($dir.'/'.$id.'.php', "<?php\nreturn ".var_export(['key'=>$key,'sku'=>$sku,'domain'=>$domain],true).";\n");
             self::writePrivate($dir.'/'.$id.'.json',LicenseState::encode($key,$domain,$secret,'valid',time(),time(),$sku));
+            if (!@unlink($pending)) throw new RuntimeException('Module activation pending marker could not be cleared.');
         } finally { flock($lock,LOCK_UN);fclose($lock); }
     }
     /** @return 'valid'|'denied'|'unavailable' */
@@ -108,6 +121,8 @@ final class ModuleLicenseManager
             $id=self::id($id);
             $this->assertSafeStorage();
             $dir=$this->directory();
+            $pending=$this->pending($id);
+            if (file_exists($pending) || is_link($pending)) return 'unavailable';
             if (is_link($dir.'/.lock') || (file_exists($dir.'/.lock') && !is_file($dir.'/.lock'))) {
                 return 'unavailable';
             }
