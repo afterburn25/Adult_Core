@@ -865,6 +865,9 @@ def main():
                    code == 200 and 'No content is currently available' in library
                    and 'Fixture gallery' not in library
                    and '<img' not in library)
+            code, no_creator = req('/members/creator')
+            ensure('Regular member has no automatic creator privileges',
+                   code == 403 and 'save_draft' not in no_creator)
             code, rejected_post = req('/members/library', {'test': 'unsafe'})
             ensure('Member library forbids mutating HTTP methods', code == 405)
             code, forbidden_detail = req(f'/members/library/{draft_id}')
@@ -907,6 +910,110 @@ def main():
             ensure('Member portal has only this account subscription records',
                    'Membership records' in portal
                    and 'No membership records are linked to this account.' in portal)
+            # Local owner controls creator tools on THIS installation.
+            # No creator application, public approval or vendor signup exists.
+            code, creator_admin = req('/admin/creators')
+            creator_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',creator_admin)
+            ensure('Local website owner sees creator controls after migration',
+                   code == 200 and creator_token is not None
+                   and 'Local creator accounts' in creator_admin
+                   and 'No central creator service' not in creator_admin
+                   and 'name="action" value="provision"' in creator_admin)
+            code, _=mod_req('/admin/creators')
+            ensure('Moderator cannot manage local creator privileges',code == 403)
+            code, _=req('/admin/creators',{
+                'csrf':'bad','action':'provision','email':'member@test.example',
+                'display_name':'Cajun <script>alert(1)</script>'})
+            ensure('Creator assignment requires administrator CSRF',code == 403)
+            code, _=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'provision',
+                'email':'member@test.example','display_name':'Cajun <script>alert(1)</script>'})
+            ensure('Local owner grants private creator tools to confirmed member',code == 303)
+            code, creator_admin = req('/admin/creators')
+            creator_row=re.search(
+                r'<tr><td>(\d+)</td><td>member@test.example</td>'
+                r'<td>Cajun &lt;script&gt;alert\(1\)&lt;/script&gt;</td>'
+                r'<td>enabled</td><td>0</td>',creator_admin)
+            ensure('Creator list escapes user-supplied names and shows local grant',
+                   code == 200 and creator_row is not None
+                   and '<script>alert(1)</script>' not in creator_admin)
+            creator_id=creator_row.group(1)
+            code, member_home=req('/members')
+            ensure('Enabled local creator sees draft workspace link',
+                   code == 200 and 'href="/members/creator"' in member_home)
+            code, creator_home=req('/members/creator')
+            creator_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',creator_home)
+            ensure('Creator workspace has only private text draft tools',
+                   code == 200 and creator_csrf is not None
+                   and 'Cajun &lt;script&gt;alert(1)&lt;/script&gt;' in creator_home
+                   and 'name="action" value="save_draft"' in creator_home
+                   and 'type="file"' not in creator_home
+                   and 'Publish' not in creator_home)
+            code, _=req('/members/creator',{
+                'csrf':'wrong','action':'save_draft','draft_id':'','revision':'',
+                'title':'Unsafe draft','summary':'A private creator planning note only.'})
+            ensure('Creator draft save requires member CSRF',code == 403)
+            draft_title='Private <b>clip</b>'
+            draft_summary='This is only a <script>alert(1)</script> private planning note.'
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':'','revision':'','title':draft_title,'summary':draft_summary})
+            ensure('Member-created content is text-only and private',code == 303)
+            code, creator_home=req('/members/creator')
+            private_id_match=re.search(r'name="draft_id" value="(\d+)"',creator_home)
+            ensure('Creator can safely view only own escaped drafts',
+                   code == 200 and private_id_match is not None
+                   and 'Private &lt;b&gt;clip&lt;/b&gt;' in creator_home
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in creator_home
+                   and '<script>alert(1)</script>' not in creator_home)
+            creator_draft_id=private_id_match.group(1)
+            code, stale=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':creator_draft_id,'revision':'999',
+                'title':'Overwritten stale draft',
+                'summary':'A stale revision must not overwrite the creator draft.'})
+            ensure('Creator updates reject stale draft revisions',
+                   code == 422 and 'Draft changed; reload your workspace.' in stale)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':creator_draft_id,'revision':'1',
+                'title':'New private title','summary':'This remains a private text-only plan.'})
+            ensure('Creator can edit the original private draft with matching revision',
+                   code == 303)
+            code, creator_admin=req('/admin/creators')
+            ensure('Owner sees only numeric private draft counts, not private text',
+                   code == 200 and re.search(
+                       r'<td>'+re.escape(creator_id)
+                       +r'</td><td>member@test.example</td>.*?<td>enabled</td><td>1</td>',
+                       creator_admin,flags=re.DOTALL) is not None
+                   and 'New private title' not in creator_admin)
+            code, _=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'suspend',
+                'creator_id':creator_id,'revision':'1'})
+            ensure('Local owner can revoke creator planning access',code == 303)
+            code, creator_denied=req('/members/creator')
+            ensure('Suspended creator loses access to saved draft text immediately',
+                   code == 403 and 'New private title' not in creator_denied)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':'','revision':'','title':'Attempt while suspended',
+                'summary':'Suspended creator cannot save another private draft.'})
+            ensure('Suspended creator cannot write new drafts',code == 403)
+            code, stale_status=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'restore',
+                'creator_id':creator_id,'revision':'1'})
+            ensure('Stale admin creator status transitions fail closed',
+                   code == 422 and 'Creator status changed' in stale_status)
+            code, _=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'restore',
+                'creator_id':creator_id,'revision':'2'})
+            ensure('Local owner can restore creator planning privileges',code == 303)
+            code, restored_creator=req('/members/creator')
+            ensure('Restoring creator does not lose private drafts or publish them',
+                   code == 200 and 'New private title' in restored_creator
+                   and 'Status: private' in restored_creator)
+            code, _=req('/p/private-clip')
+            ensure('Private creator draft has no public page route',code == 404)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.
             code, recovery_form = req('/members/recover')
             recover_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', recovery_form)
