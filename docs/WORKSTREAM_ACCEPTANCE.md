@@ -4,10 +4,10 @@
 
 Show the canonical machine-readable blockers from the project root:
 
-\`\`\`sh
+```sh
 php scripts/release-matrix.php --json
 php scripts/release-check.php
-\`\`\`
+```
 
 Both intentionally exit nonzero while production is not certified. Never bypass the checks by editing status JSON, creating fake keys or injecting an administrator approval.
 
