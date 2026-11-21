@@ -30,6 +30,7 @@ use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
 use AdultCore\Membership\MemberLibrary;
+use AdultCore\Membership\TierCatalog;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
 use AdultCore\Verification\VerificationRegistry;
@@ -272,6 +273,29 @@ try {
     }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);
+    $tiers=new TierCatalog($pdo);
+    $newTierId=$tiers->create('Founders & <Test>',(int)$valid['id']);
+    $tiers->rename($newTierId,(int)$valid['id'],'Founders & <Test>','Founders preview');
+    $tierRows=$tiers->all();
+    if (count($tierRows)!==1 || $tierRows[0]['id']!==$newTierId
+        || $tierRows[0]['name']!=='Founders preview' || $tierRows[0]['is_active']!==1) {
+        throw new RuntimeException('Private tier label catalog did not persist.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_memberships')->fetchColumn()!==0) {
+        throw new RuntimeException('Tier label creation created a paid membership.');
+    }
+    try {
+        $tiers->rename($newTierId,(int)$valid['id'],'Founders & <Test>','Stale overwrite');
+        throw new RuntimeException('Stale tier label was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale tier label was accepted.') throw $e;
+    }
+    try {
+        $tiers->create('Founders preview',(int)$valid['id']);
+        throw new RuntimeException('Duplicate tier label accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Duplicate tier label accepted.') throw $e;
+    }
     ModerationSchema::migrate($pdo);
     ModerationSchema::migrate($pdo);
     VerificationSchema::migrate($pdo);

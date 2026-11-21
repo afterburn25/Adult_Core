@@ -159,6 +159,54 @@ def main():
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            code, tier_page = req('/admin/tiers')
+            ensure('Tier catalog loads for authenticated site administrator',
+                   code == 200 and 'Create tier label' in tier_page
+                   and 'A tier label is not proof of payment' in tier_page)
+            tier_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"',tier_page)
+            ensure('Tier catalog has CSRF-protected create form',tier_csrf is not None)
+            code, _ = req('/admin/tiers', {
+                'csrf':'invalid','action':'create','name':'Unsafe tier'
+            })
+            ensure('Tier creation refuses wrong CSRF',code == 403)
+            code, _ = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'create','name':' '
+            })
+            ensure('Tier creation rejects empty name',code == 422)
+            initial_tier='Founders <script>alert(1)</script>'
+            code, _ = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'create','name':initial_tier
+            })
+            ensure('Tier label creation redirects without enabling payment',code == 303)
+            code, tier_page = req('/admin/tiers')
+            ensure('Stored tier labels are escaped in admin UI',
+                   code == 200 and 'Founders &lt;script&gt;alert(1)&lt;/script&gt;' in tier_page
+                   and initial_tier not in tier_page)
+            created_tier=re.search(r'name="tier_id" value="(\d+)"',tier_page)
+            ensure('New tier has stable numeric ID',created_tier is not None)
+            tier_id=created_tier.group(1)
+            code, duplicate_tier = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'create','name':initial_tier
+            })
+            ensure('Duplicate tier label refused',code == 422 and 'already exists' in duplicate_tier)
+            code, stale_tier = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'rename','tier_id':tier_id,
+                'expected_name':'Old label','name':'Unauthorized overwrite'
+            })
+            ensure('Stale tier label rename refused',code == 422 and 'reload the catalog' in stale_tier)
+            code, _ = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'rename','tier_id':tier_id,
+                'expected_name':initial_tier,'name':'Founders Circle'
+            })
+            ensure('Tier renamed in-place without changing stable ID',code == 303)
+            code, renamed_tier=req('/admin/tiers')
+            ensure('Renamed label displayed with original ID',
+                   code == 200 and 'Founders Circle' in renamed_tier
+                   and f'name="tier_id" value="{tier_id}"' in renamed_tier)
+            code, _ = req('/admin/tiers', {
+                'csrf':tier_csrf.group(1),'action':'deactivate','tier_id':tier_id
+            })
+            ensure('Admin tier catalog does not allow billing-affecting deactivation',code == 422)
             code, pages = req('/admin/pages')
             ensure('Pages admin lists draft homepage', code == 200 and 'Welcome' in pages)
             code, editor = req('/admin/page')
