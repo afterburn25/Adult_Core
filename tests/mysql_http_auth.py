@@ -235,6 +235,8 @@ def main():
                    and 'Public webroot isolation' in health
                    and 'Monitored additive migrations' in health
                    and 'Local license/edition consistency' in health
+                   and 'Member email delivery configuration' in health
+                   and 'Configured does not mean email delivery has been tested' in health
                    and 'Production release is still blocked' in health
                    and 'password_hash' not in health)
             code, _, health_headers, _=req_binary('/admin/health')
@@ -246,6 +248,10 @@ def main():
                    code==200 and local_report.get('schema')=='adult-core-local-health-v1'
                    and local_report.get('production_ready') is False
                    and isinstance(local_report.get('checks'),list)
+                   and any(check.get('name')=='Member email delivery configuration'
+                           and check.get('pass') is False
+                           for check in local_report.get('checks',[]))
+                   and 'sender@example.test' not in redacted_json
                    and 'password_hash' not in redacted_json
                    and 'ABCD-EF12-3456-7890' not in redacted_json
                    and 'owner@example.test' not in redacted_json)

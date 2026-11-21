@@ -1,3 +1,9 @@
+## Local email transport configuration in private health checks — 2026-11-21
+
+Admin → Site health and redacted owner JSON now include a boolean `Member email delivery configuration` result. The check validates the existing private optional PHP mail configuration's enabled sender and fixed HTTPS origin, but never sends a message, contacts a provider, or reveals the sender, URL, private files or customer details. Missing, disabled or invalid configuration returns `Needs attention`. Passing a config check does **not** prove mail delivery or adult-member verification. Real authenticated HTTP tests confirm the default disposable test site reports unconfigured without exposing secrets. Live cPanel/VPS delivery must still be tested by an operator.
+
+---
+
 ## Authenticated HTTP and moderator-denial tests for private member-email lookup — 2026-11-21
 
 Real disposable MySQL/MariaDB HTTP regressions now exercise the owner-only `/admin/members/find` POST flow: the directory advertises a CSRF-protected POST form; GET is 405; missing CSRF is 403; uppercase exact addresses resolve to the correct local member with no password hashes; unknown addresses return a neutral empty result; NUL input is rejected with 422. A signed-in moderator is independently denied the search route before any lookup. This feature never serializes email in GET URLs, modifies account status, creates age/consent/payment entitlements, or reveals private media. CI must finish before marking the flow verified.

@@ -18,6 +18,7 @@ use AdultCore\Website\PageHistorySchema;
 use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSafetySchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
@@ -61,6 +62,9 @@ final class SiteHealth
         }
         $add('Private folders',$private,
             'Private config and storage must be real writable directories, not symlinks.');
+        $add('Member email delivery configuration',self::memberEmailConfigured($this->root),
+            'A valid private PHP mail configuration is required for confirmation/recovery links. '
+            .'Configured does not mean email delivery has been tested or accepted by a provider.');
         $expected=realpath($this->root.'/public');
         $actual=$documentRoot===null?false:realpath($documentRoot);
         $safeWebroot=$expected!==false && $actual!==false && $expected===$actual
@@ -100,6 +104,19 @@ final class SiteHealth
             'The locally validated license SKU and database edition must agree. '
             .'Use the existing license/edition recovery flow if mismatched.');
         return $result;
+    }
+
+    /**
+     * Boolean-only local configuration check. Never expose sender, domain,
+     * private paths or tokens, and never actually send a test message.
+     */
+    public static function memberEmailConfigured(string $root): bool
+    {
+        try {
+            return EmailDelivery::loadConfig($root)!==null;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /** @param mixed $edition @param mixed $license */
