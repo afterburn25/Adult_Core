@@ -425,7 +425,8 @@ def main():
             code, _ = req('/admin/security', {'csrf':'bad','action':'confirm','factor':otp})
             ensure('MFA confirmation requires CSRF', code == 403)
             code, recovery_page = req('/admin/security', {'csrf':security_csrf,'action':'confirm','factor':otp})
-            codes = re.findall(r'(?m)^[A-F0-9]{16}$', recovery_page)
+            pre = re.search(r'<pre class="mfa-recovery-codes">([A-F0-9\\n]+)</pre>', recovery_page)
+            codes = pre.group(1).splitlines() if pre else []
             ensure('MFA enrollment confirms and displays ten one-time recovery codes',code==200 and len(codes)==10)
             ensure('MFA page does not expose plaintext secret after activation',secret_match.group(1) not in recovery_page)
             code, dashboard = req('/admin')
