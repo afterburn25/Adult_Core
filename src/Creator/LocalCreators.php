@@ -296,10 +296,10 @@ final class LocalCreators
                 if ((int)$draft['revision']!==$expectedRevision) {
                     throw new RuntimeException('Draft changed; reload your workspace.');
                 }
-                $this->pdo->prepare('UPDATE ac_creator_drafts
+                $this->pdo->prepare("UPDATE ac_creator_drafts
                     SET title=?,summary=?,status='private',review_note='',
                         revision=revision+1,updated_at=UTC_TIMESTAMP()
-                    WHERE id=? AND creator_id=?')->execute([$title,$summary,$draftId,$creatorId]);
+                    WHERE id=? AND creator_id=?")->execute([$title,$summary,$draftId,$creatorId]);
                 $id=$draftId;
             }
             $this->record($memberId,$creatorId,$draftId===null?'draft_created':'draft_edited');
