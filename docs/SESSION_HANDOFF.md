@@ -1,3 +1,9 @@
+## Authenticated member suspension/pending-only restoration workflow — 2026-11-21
+
+Real disposable browser regressions now exercise owner-only single-account `/admin/members/manage?id=ID`, CSRF and mismatched hidden target rejection, a once-per-30-minute bounded manager-password verification, suspension of a previously pending local member, escaped private reason, rejection of stale status transitions, and restoration **only to pending** with both decisions retained. These tests never create age verification, merchant payment, creator publishing or adult media approvals. Database regressions independently confirm each transition increments the member session generation, denying old cookies after restore. Owner list copy was also clarified. CI verification required before treating acceptance as green.
+
+---
+
 ## Restricted local member safety admin screen — 2026-11-21
 
 Added `/admin/members/manage?id=ID` as an owner/admin-only local member security screen, linked from the otherwise read-only Admin → Members listing. It lists only one existing local member's ID/email/status/registration time and 20 private audit entries, with escaped reasons, no-store/noindex and no public record URLs. A manager may suspend pending/active members or restore a suspended account **only to pending**, using POST+CSRF, optimistic expected status and server-side recent manager verification. Existing secure admin sessions remain active for routine edits; after the 30-minute manager window, the site offers a single rate-limited password recheck (`action=verify`), not password input on every change. The service invalidates old member sessions and reset tokens in the same DB transaction. Moderator/anonymous access, owner IDs and any approve/paid/age/content paths remain forbidden. Added route/navigation, setup, ZIP and UI checks; live HTTP suspension/replay and recovery tests are next. Release gates remain blocked.

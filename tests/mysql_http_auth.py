@@ -1794,6 +1794,80 @@ def main():
             code, bad_member_filter=req('/admin/members?status=verified')
             ensure('Unverified account cannot be represented as certified member',
                    code==422 and 'Invalid member filter' in bad_member_filter)
+            # Owner-manageable local member account state is NOT age, performer
+            # consent or paid entitlement. A strong manager step-up is separate
+            # from the normal long-lived encrypted administrator session.
+            member_manage='/admin/members/manage?id='+sample_id.group(1)
+            code, safety_page=req(member_manage)
+            safety_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"', safety_page)
+            ensure('Owner can review only one local member safety record',
+                   code==200 and safety_csrf is not None
+                   and 'bulk-member-50@example.test' in safety_page
+                   and 'Private safety audit' in safety_page
+                   and 'Local account status:' in safety_page
+                   and 'age/consent-approved' not in safety_page)
+            code, no_token=req(member_manage,{
+                'csrf':'bad','member_id':sample_id.group(1),
+                'action':'suspend','expected_status':'pending',
+                'reason':'Potential local account security issue'
+            })
+            ensure('Changing member safety status requires CSRF', code==403)
+            code, mismatch=req(member_manage,{
+                'csrf':safety_csrf.group(1),'member_id':'9999999',
+                'action':'suspend','expected_status':'pending',
+                'reason':'Member ID mismatch must be refused'
+            })
+            ensure('Member safety form cannot target a different member ID',code==422)
+            code, _=req(member_manage,{
+                'csrf':safety_csrf.group(1),'member_id':sample_id.group(1),
+                'action':'verify','manager_password':'strong-example-admin-password'
+            })
+            ensure('One manager password verification opens a short safety window',
+                   code==303)
+            code, unlocked=req(member_manage)
+            unlocked_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"', unlocked)
+            ensure('Manager may suspend pending local account without repeated passwords',
+                   code==200 and unlocked_csrf is not None
+                   and 'name="action" value="suspend"' in unlocked
+                   and 'name="manager_password"' not in unlocked)
+            code, _=req(member_manage,{
+                'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
+                'action':'suspend','expected_status':'pending',
+                'reason':'Policy concern <script>private()</script> pending review'
+            })
+            ensure('Owner suspension succeeds only through protected POST',code==303)
+            code, suspended=req(member_manage)
+            ensure('Owner sees escaped private suspension reason and pending-only restoration',
+                   code==200 and '&lt;script&gt;private()&lt;/script&gt;' in suspended
+                   and '<script>private()</script>' not in suspended
+                   and 'name="action" value="restore_pending"' in suspended
+                   and 'name="expected_status" value="suspended"' in suspended)
+            code, stale_member=req(member_manage,{
+                'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
+                'action':'suspend','expected_status':'pending',
+                'reason':'A stale member status cannot be overwritten'
+            })
+            ensure('Stale member safety form rejected without lost status audit',
+                   code==422 and 'Member account changed; reload before continuing.' in stale_member)
+            code, _=req(member_manage,{
+                'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
+                'action':'restore_pending','expected_status':'suspended',
+                'reason':'Restore account only to pending for follow-up'
+            })
+            ensure('Suspended local member can return only to pending state',code==303)
+            code, restored=req(member_manage)
+            ensure('Both local safety decisions remain audited without activation',
+                   code==200 and '<td>pending</td><td>suspended</td>' in restored
+                   and '<td>suspended</td><td>pending</td>' in restored
+                   and 'name="action" value="suspend"' in restored
+                   and 'name="expected_status" value="pending"' in restored)
+            code, twice=req(member_manage,{
+                'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
+                'action':'restore_pending','expected_status':'suspended',
+                'reason':'Repeated restoration should not activate member'
+            })
+            ensure('Replayed restore may not promote or alter pending member',
+                   code==422 and 'Member account changed; reload before continuing.' in twice)
 
             subprocess.check_output(php_fixture+['seed-content-queue'],cwd=root)
             code, content_first=req('/admin/moderation')

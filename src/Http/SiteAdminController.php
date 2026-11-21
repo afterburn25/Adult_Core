@@ -656,8 +656,9 @@ final class SiteAdminController
         $page=(new MemberDirectory($pdo))->page($before,$filter==='all'?null:$filter,$memberId);
         header('Cache-Control: private, no-store, max-age=0');
         header('X-Robots-Tag: noindex, nofollow');
-        $html='<p class="intro">Read-only local account listing. Safety changes require a separate '
-            .'age, identity, performer consent, payment or permission to access private media. '
+        $html='<p class="intro">Read-only local account listing. Private safety changes are handled '
+            .'separately for an individual account with a manager password step-up. '
+            .'A stored account status does not prove age, identity, performer consent, payment or permission to access private media. '
             .'Administrators cannot enable adult access here.</p>'
             .'<form method="get" action="/admin/members" class="install-form">'
             .'<label for="member-status-filter">Account status</label>'
