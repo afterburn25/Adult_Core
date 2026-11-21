@@ -301,6 +301,12 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Repeated moderator suspension succeeded.') throw $e;
     }
+    try {
+        $staff->restoreModerator((int)$valid['id'],$createdStaff,'first-unique-moderator-password');
+        throw new RuntimeException('Restoration permitted reuse of suspended moderator password.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Restoration permitted reuse of suspended moderator password.') throw $e;
+    }
     $staff->restoreModerator((int)$valid['id'],$createdStaff,'fresh-restored-staff-password');
     if ($auth->staffSessionEpoch($createdStaff)!==$firstEpoch+2
         || $auth->verifyCredentials('staff.managed@example.test','first-unique-moderator-password')!==null

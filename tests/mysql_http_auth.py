@@ -223,6 +223,9 @@ def main():
             ensure('Manager can suspend only a moderator',code == 303)
             code, _=staff_req('/admin/moderation')
             ensure('Suspended moderator active session is denied',code == 302)
+            # The same old password must NEVER count as a credential reset.
+            # Extra failed staff step-up attempts are intentionally omitted
+            # here because the endpoint has a strict five-attempt rate bound.
             code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'restore','staff_id':new_staff_id,
                 'new_password':next_staff_password,'manager_password':manager_password})

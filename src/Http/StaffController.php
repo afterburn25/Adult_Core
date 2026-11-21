@@ -89,6 +89,7 @@ final class StaffController
                 'Staff credential creation unavailable.','Moderator account limit reached.',
                 'Staff email already in use.','Invalid moderator account.','Moderator is not active.',
                 'Moderator is not suspended.','Staff management permission required.',
+                'Replacement password must differ from the previous moderator password.',
                 'Invalid staff credentials.','Choose a different password for the new moderator.',
                 'Choose a different password for the moderator.','Unsupported staff action.',
             ];

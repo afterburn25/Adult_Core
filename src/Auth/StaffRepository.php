@@ -60,11 +60,11 @@ final class StaffRepository
     {
         $email=self::validateEmail($email);
         $initialPassword=self::validatePassword($initialPassword);
-        $this->requireManager($actorId);
         $passwordHash=password_hash($initialPassword,PASSWORD_DEFAULT);
         if (!is_string($passwordHash)) throw new RuntimeException('Staff credential creation unavailable.');
         $this->pdo->beginTransaction();
         try {
+            $this->requireManager($actorId);
             if ((int)$this->pdo->query("SELECT COUNT(*) FROM ac_users WHERE role='moderator'")->fetchColumn()>=50) {
                 throw new RuntimeException('Moderator account limit reached.');
             }
@@ -94,9 +94,9 @@ final class StaffRepository
     public function suspendModerator(int $actorId,int $moderatorId): void
     {
         if ($moderatorId<1 || $actorId===$moderatorId) throw new RuntimeException('Invalid moderator account.');
-        $this->requireManager($actorId);
         $this->pdo->beginTransaction();
         try {
+            $this->requireManager($actorId);
             $target=$this->lockedModerator($moderatorId);
             if ($target['status']!=='active') throw new RuntimeException('Moderator is not active.');
             $this->pdo->prepare("UPDATE ac_users SET status='suspended',
@@ -118,13 +118,16 @@ final class StaffRepository
     {
         if ($moderatorId<1 || $actorId===$moderatorId) throw new RuntimeException('Invalid moderator account.');
         $newPassword=self::validatePassword($newPassword);
-        $this->requireManager($actorId);
         $hash=password_hash($newPassword,PASSWORD_DEFAULT);
         if (!is_string($hash)) throw new RuntimeException('Staff credential creation unavailable.');
         $this->pdo->beginTransaction();
         try {
+            $this->requireManager($actorId);
             $target=$this->lockedModerator($moderatorId);
             if ($target['status']!=='suspended') throw new RuntimeException('Moderator is not suspended.');
+            if (password_verify($newPassword,(string)$target['password_hash'])) {
+                throw new RuntimeException('Replacement password must differ from the previous moderator password.');
+            }
             $this->pdo->prepare("UPDATE ac_users SET password_hash=?,status='active',
                 staff_session_epoch=staff_session_epoch+1 WHERE id=?")
                 ->execute([$hash,$moderatorId]);
@@ -176,7 +179,7 @@ final class StaffRepository
     /** The immutable role predicate prevents using this to edit admin/member accounts. */
     private function lockedModerator(int $moderatorId): array
     {
-        $q=$this->pdo->prepare('SELECT id,status FROM ac_users WHERE id=? AND role=? FOR UPDATE');
+        $q=$this->pdo->prepare('SELECT id,status,password_hash FROM ac_users WHERE id=? AND role=? FOR UPDATE');
         $q->execute([$moderatorId,'moderator']);
         $item=$q->fetch(PDO::FETCH_ASSOC);
         if (!is_array($item)) throw new RuntimeException('Invalid moderator account.');
@@ -186,7 +189,9 @@ final class StaffRepository
     private function requireManager(int $actorId): void
     {
         if ($actorId<1) throw new RuntimeException('Staff management permission required.');
-        $q=$this->pdo->prepare("SELECT role FROM ac_users WHERE id=? AND status='active' LIMIT 1");
+        $sql="SELECT role FROM ac_users WHERE id=? AND status='active' LIMIT 1";
+        if ($this->pdo->inTransaction()) $sql.=' FOR UPDATE';
+        $q=$this->pdo->prepare($sql);
         $q->execute([$actorId]);
         if (!RolePolicy::allows((string)$q->fetchColumn(),'members.manage')) {
             throw new RuntimeException('Staff management permission required.');
