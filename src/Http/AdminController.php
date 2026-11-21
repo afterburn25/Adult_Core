@@ -119,10 +119,6 @@ final class AdminController
             (new ModerationController($this->root))->draftPage($path,$method,$admin);
             return;
         }
-        if ($path === '/admin/creators') {
-            (new CreatorReviewController($this->root))->handle($method,$admin);
-            return;
-        }
         if ($path === '/admin/staff') {
             (new StaffController($this->root))->handle($method,$admin);
             return;
