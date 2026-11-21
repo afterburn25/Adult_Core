@@ -95,11 +95,17 @@ exec apache2-foreground
             status, headers, body = request(port, "/assets/style.css")
             check("Allowlisted static CSS served directly", status == 200
                   and headers.get("content-type", "").startswith("text/css"))
-            for path in ("/config/database.php", "/storage/license-cache.json", "/AGENTS.md",
-                         "/scripts/build-release.php", "/media/999", "/design.css"):
+            for path, expected in (
+                ("/config/database.php", 403),
+                ("/scripts/build-release.php", 403),
+                ("/storage/license-cache.json", 302),
+                ("/AGENTS.md", 302),
+                ("/media/999", 302),
+                ("/design.css", 302),
+            ):
                 status, _, body = request(port, path)
-                check("Private/dynamic preinstall route uses access gate " + path,
-                      status == 302 and b"UNEXPECTED-SCRIPT-EXECUTION" not in body)
+                check("Private/dynamic route denied or setup-gated " + path,
+                      status == expected and b"UNEXPECTED-SCRIPT-EXECUTION" not in body)
             status, _, body = request(port, "/.htaccess")
             check("Apache never serves .htaccess", status in (403, 404))
             for path, marker in (("/assets/unwanted.php", b"UNEXPECTED-SCRIPT-EXECUTION"),
