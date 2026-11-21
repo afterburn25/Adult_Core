@@ -139,6 +139,69 @@ try {
     verifyPackageTest('Correct paid module key activates', $paidStore->isRunnable('module','paid-chat','lite',$caps));
     $licenseCache=$root.'/storage/packages/module-licenses/paid-chat.json';
     verifyPackageTest('Module receipt does not expose key', !str_contains((string)file_get_contents($licenseCache),'AAAA-BBBB-CCCC-DDDD'));
+    $moduleLicenses = new \AdultCore\Licensing\ModuleLicenseManager($root,$licenseClient);
+    $moduleDir = dirname($licenseCache);
+    $moduleLock = $moduleDir.'/.lock';
+    $moduleLockBackup = $moduleLock.'.original';
+    if (!rename($moduleLock, $moduleLockBackup) || !@symlink($moduleLockBackup, $moduleLock)) {
+        throw new RuntimeException('Could not create paid-module lock fixture.');
+    }
+    try {
+        verifyPackageTest('Symlinked module lock invalidates fresh signed grant',
+            !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        expectRefusal('Module activation refuses symlinked private lock',
+            fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    } finally {
+        if (is_link($moduleLock)) unlink($moduleLock);
+        rename($moduleLockBackup, $moduleLock);
+    }
+    verifyPackageTest('Restored private lock restores authorized module',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $moduleConfig = $moduleDir.'/paid-chat.php';
+    $originalModuleConfig = file_get_contents($moduleConfig);
+    $cacheBackup = $licenseCache.'.original';
+    if (!rename($licenseCache, $cacheBackup) || !@symlink($cacheBackup, $licenseCache)) {
+        throw new RuntimeException('Could not create paid-module cache fixture.');
+    }
+    try {
+        expectRefusal('Module activation preflights symlinked receipt before rewriting config',
+            fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module receipt preserves original license configuration',
+            file_get_contents($moduleConfig) === $originalModuleConfig);
+    } finally {
+        if (is_link($licenseCache)) unlink($licenseCache);
+        rename($cacheBackup, $licenseCache);
+    }
+    $moduleConfigBackup = $moduleConfig.'.original';
+    $originalModuleCache = file_get_contents($licenseCache);
+    if (!rename($moduleConfig, $moduleConfigBackup) || !@symlink($moduleConfigBackup, $moduleConfig)) {
+        throw new RuntimeException('Could not create paid-module config fixture.');
+    }
+    try {
+        expectRefusal('Module activation refuses symlinked private configuration',
+            fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module config preserves previous signed receipt',
+            file_get_contents($licenseCache) === $originalModuleCache);
+    } finally {
+        if (is_link($moduleConfig)) unlink($moduleConfig);
+        rename($moduleConfigBackup, $moduleConfig);
+    }
+    // A symlinked containing directory must never redirect addon licensing.
+    $moduleDirBackup = $moduleDir.'.original';
+    if (!rename($moduleDir, $moduleDirBackup) || !@symlink($moduleDirBackup, $moduleDir)) {
+        throw new RuntimeException('Could not create paid-module directory fixture.');
+    }
+    try {
+        verifyPackageTest('Symlinked module license directory invalidates cached grant',
+            !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        expectRefusal('Module activation refuses symlinked license directory',
+            fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    } finally {
+        if (is_link($moduleDir)) unlink($moduleDir);
+        rename($moduleDirBackup, $moduleDir);
+    }
+    verifyPackageTest('Module license restored after rejecting unsafe storage',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
     file_put_contents($licenseCache, \AdultCore\Licensing\LicenseState::encode('AAAA-BBBB-CCCC-DDDD','example.test',str_repeat('a',64),'denied',time(),time()-5,$paidSku));
     verifyPackageTest('Revoked module receipt prevents runtime', !$paidStore->isRunnable('module','paid-chat','lite',$caps));
     $paidStore->changeStatus('module','paid-chat',false,'lite',$caps);
