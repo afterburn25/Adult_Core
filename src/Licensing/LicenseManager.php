@@ -49,6 +49,10 @@ final class LicenseManager
     /** License updates require a reauthenticated administrator+CSRF in the controller. */
     public function replaceLicense(string $key, string $domain): void
     {
+        $marker = $this->root . LicenseUpdateRecovery::MARKER;
+        if (file_exists($marker) || is_link($marker)) {
+            throw new RuntimeException('Interrupted license update requires server-console rollback.');
+        }
         $record = $this->verifyForInstall($key, $domain);
         $appKey = $this->appKey();
         if ($appKey === null) throw new RuntimeException('Installation secret unavailable.');
@@ -63,15 +67,41 @@ final class LicenseManager
         if ($fp === false) throw new RuntimeException('License update lock unavailable.');
         try {
             if (!flock($fp, LOCK_EX)) throw new RuntimeException('License update lock unavailable.');
-            // Validate both destinations before touching either one. A broken,
-            // unwritable or symlinked cache must never leave the new license
-            // config paired with an old receipt after a partial replacement.
-            $this->assertPrivateReplaceable($this->root . '/config/license.php');
-            $this->assertPrivateReplaceable($this->root . '/storage/license-cache.json');
-            $this->replacePrivate($this->root . '/config/license.php', $this->configCode($record));
-            $this->replacePrivate($this->root . '/storage/license-cache.json', LicenseState::encode(
-                $record['license_key'], $record['domain'], $appKey, 'valid', time(), time(), $record['sku']
-            ));
+            if (file_exists($marker) || is_link($marker)) {
+                throw new RuntimeException('Interrupted license update requires server-console rollback.');
+            }
+            // A running refresh must not race the two-file replacement.
+            $refresh = @fopen($this->root . '/storage/.license-refresh.lock', 'c+');
+            if (!is_resource($refresh)) throw new RuntimeException('License refresh lock unavailable.');
+            try {
+                if (!flock($refresh, LOCK_EX)) throw new RuntimeException('License refresh lock unavailable.');
+                $licensePath = $this->root . '/config/license.php';
+                $cachePath = $this->root . '/storage/license-cache.json';
+                $this->assertPrivateReplaceable($licensePath);
+                $this->assertPrivateReplaceable($cachePath);
+                $previous = $this->config();
+                if ($previous === null || $previous['edition'] !== $installed) {
+                    throw new RuntimeException('Current installed license could not be verified.');
+                }
+                $oldCache = null;
+                if (is_file($cachePath)) {
+                    $oldCache = @file_get_contents($cachePath);
+                    if (!is_string($oldCache)) throw new RuntimeException('Private license cache unreadable.');
+                }
+                // Publish a signed rollback snapshot BEFORE either file changes.
+                // If interrupted, the site stays locked until CLI recovery.
+                AtomicFile::write($marker, LicenseUpdateRecovery::snapshot($previous, $oldCache, $appKey));
+                $this->replacePrivate($licensePath, $this->configCode($record));
+                $this->replacePrivate($cachePath, LicenseState::encode(
+                    $record['license_key'], $record['domain'], $appKey, 'valid', time(), time(), $record['sku']
+                ));
+                if (!@unlink($marker)) {
+                    throw new RuntimeException('License update completed but recovery marker could not be cleared.');
+                }
+            } finally {
+                flock($refresh, LOCK_UN);
+                fclose($refresh);
+            }
         } finally {
             flock($fp, LOCK_UN);
             fclose($fp);
@@ -85,6 +115,8 @@ final class LicenseManager
     public function status(?string $host = null, bool $forceRefresh = false): string
     {
         $this->lastAuthorityResponse = null;
+        $marker = $this->root . LicenseUpdateRecovery::MARKER;
+        if (file_exists($marker) || is_link($marker)) return 'unavailable';
         $record = $this->config();
         if ($record === null) return 'license_required';
         try {
