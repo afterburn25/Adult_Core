@@ -1,3 +1,10 @@
+## Private creator text-plan review and revision feedback (2026-11-21)
+
+- Add locally permissioned member submit-for-review action for private creator planning text, with status and draft-version checks.
+- Add restricted `/admin/creator-review` moderation queue with only **Request changes** and **Reject** decisions; no approve or publish action, no public asset or membership entitlement transition.
+- Render escaped private review feedback to the individual creator and local owner, keep submitted plans read-only, require an edit before resubmission and retain rejected plans privately.
+- Add additive `m14_creator_text_review_v1` schema for bounded feedback and numeric-only audit, safely applied by Site setup; expand source distribution requirements and disposable SQL/HTTP safety regressions.
+
 ## Local creator display label edits — 2026-11-21
 
 - Allow local owner/admin to update a creator's display name with CSRF and version-based concurrency checks, without repeated password prompts during normal authenticated admin operation.

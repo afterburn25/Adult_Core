@@ -1,3 +1,7 @@
+## Local creator text-plan review, without public publication
+
+Owner-provisioned creators can submit private **text-only** draft plans to the moderator of that particular self-hosted website. Moderators can request changes or reject (no approve/publish button). Creators see private feedback in their own account, make revisions and resubmit. It does not provide an adult media approval, payment, identity/age or performer consent workflow. Apply the local creator review migration under **Admin → Setup**. See [Local creator workflow](docs/LOCAL_CREATORS.md).
+
 ## Local creator planning — per installation, not SaaS
 
 Each site's owner/admin can enable private planning for an existing confirmed member at `/admin/creators`. That member then manages text-only private drafts at `/members/creator`. This does not approve creators, publish any content or share accounts between websites. [Local creator setup and permission boundaries](docs/LOCAL_CREATORS.md).

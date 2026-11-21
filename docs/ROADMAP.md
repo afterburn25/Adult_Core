@@ -1,3 +1,11 @@
+## Private local creator text-review cycle (2026-11-21, development only)
+
+Each **independently installed** Adult_Core site can now hand off creator-owned **text-only** planning drafts to its own moderation team. The creator saves a private plan, explicitly submits it, and cannot edit while submitted. Local owner/admin/moderator reviewers can request changes (with a private escaped feedback note) or reject. Changes require the creator to save a new private revision before resubmitting. Rejected plans stay private and cannot be edited. Optimistic draft revisions, active creator/member/role checks, CSRF and numeric-only draft action events block stale submissions, cross-account actions and unauthorized review.
+
+A separate, repeatable `CreatorReviewSchema` m14 migration adds `review_note` and `ac_creator_draft_events` after the owner-granted creator schema; `Site setup` applies it. This is **not** a creator application, central SaaS, public publication, media moderation approval, identity/age/consent verification or subscription grant. Unverified media, approved adult merchant/payment setup, real cPanel/VPS deployment and independent security/legal signoff remain launch blockers.
+
+---
+
 ## Owner-provisioned local creator workspace — development only (2026-11-21)
 
 Added `/admin/creators`, a manager-only UI to grant, suspend and restore private creator planning tools for an existing email-confirmed member on the **independent installed website**, with CSRF, active-role and optimistic revision checks. The corresponding `/members/creator` view lets an enabled member save or edit their own escaped text-only planning drafts (never images/videos) while remaining a normal member account. Local profile records and draft status cannot unlock media, grant paid access, create published galleries or assert age/performer consent. Creator draft rows are separate from `ac_content` and private-to-account, and owner actions are numeric-only audited. See `docs/LOCAL_CREATORS.md`.

@@ -1,3 +1,12 @@
+## Private local creator text review — 2026-11-21
+
+- Added `src/Creator/CreatorReviewSchema.php` with m14 additive `ac_creator_drafts.review_note` and `ac_creator_draft_events` (numeric actor/draft/action/timestamp only); it runs after the local creator migration in `/admin/setup`. Existing created drafts stay `status='private'`, public ac_content and media tables are unchanged.
+- Added `CreatorDraftReview::submit()` and `::decide()`, locking active creator/member and draft rows, requiring the expected revision and only private submission / requested-changes or rejection. A moderator can **never approve** or publish. Notes are bounded, validated, escaped and stored only with the private draft, not the numeric-only event log. Resubmission must follow a saved edited private version.
+- New `/admin/creator-review` under the regular role/MFA/CSRF/session gates, accessible to local owner/admin/moderator, with only submitted text in the private queue. `/members/creator` shows creator-only states and feedback, disallows submitted/rejected editing, and uses existing member CSRF. Owner read-only creator detail still shows retained text and review feedback, not a public gallery.
+- Disposable MySQL/MariaDB, real HTTP and unit/ZIP regression tests cover status transitions, stale versions, XSS, disallowed review decisions, cross-creator access and no publication. **Check the latest CI after changes**; full release blockers (real age/consent/providers, media scanning, adult payments, host acceptance, independent signoff) remain open.
+
+---
+
 ## Local creator name editing — 2026-11-21
 
 Site owner/admin may now rename a local creator's display name (including suspended profiles) using a CSRF-protected, revision-checked `/admin/creators` action and `LocalCreators::rename()`. The operation locks local manager/profile records, audits only numeric IDs/action, and never alters member credentials, draft data, status or legal access. SQL/HTTP tests verify outdated revisions and moderator denial as well as escaped updated labels in the member creator workspace. This is locally controlled self-hosted functionality, not an application or SaaS identity.

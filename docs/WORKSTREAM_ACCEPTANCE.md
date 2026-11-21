@@ -1,3 +1,9 @@
+## Private local creator text review — not publish acceptance (2026-11-21)
+
+The site-local text workflow has a private `submit → changes/rejected` moderator cycle. The enabled creator can edit only unsent or returned-for-changes plans and must save a revision before resubmission. Active local owner/admin/moderator permission, CSRF, no-store rendering, escaped feedback, optimistic concurrency and numeric-only draft action events govern the process. Critically, there is no `approved` transition, public ac_content/ac_media mutation, adult age/identity/performer-consent verification or paid access. This does **not** satisfy public creator media review/publish or commercial release gates and must not be used as certification of a creator or performer.
+
+---
+
 ## Self-hosted creator planning permission — work-in-progress
 
 An individual site owner/admin may grant private creator planning to a confirmed **member of that specific installation**. No central creator application or vendor-managed account exists. CSRF and current local permissions protect grants/suspensions; optimistic versions prevent lost status/draft edits. The creator uses the member login and sees only their own text-only private drafts, not public galleries. Audit rows contain only numeric actor/creator IDs and action types. These controls are tested in disposable MySQL/MariaDB and authenticated HTTP suites. They do not meet public creator upload, independent legal age/consent, malware/media review, publish/restore, adult payment or live-host acceptance criteria.

@@ -14,6 +14,18 @@ The same local administrator can suspend or restore a creator's private planning
 
 The owner sees private draft **counts** on the creator-management page. By selecting **View private plans**, a local owner/admin can inspect read-only saved draft titles and descriptions through an authenticated, no-store, noindex URL; suspended creators' retained plans remain available to local owners for incident review. This view cannot publish or modify drafts. One creator cannot read or edit another creator's drafts. No vendor shares this local database or issues a cross-installation account. The role capability is managed in the local MySQL/MariaDB database under an active local owner/admin session and CSRF token, **without requiring the admin password on every change**.
 
+## Submit a private plan for local text review
+
+After creating or revising a private planning draft, the locally enabled creator can choose **Submit text plan for private review**. This sets its *planning* status to `submitted` and blocks further editing while it awaits attention. It remains separate from the public content/media system and is visible to no ordinary subscriber or public guest.
+
+A signed-in **local** owner/admin/moderator uses `/admin/creator-review` to view **submitted text-only plans** and select either **Request changes** or **Reject this text plan**, supplying 10–500 bytes of feedback. There is **no approval/publishing action**. Feedback stays in the creator's private draft row; the associated numeric-only audit records do not contain the private text. The creator sees escaped feedback only in their own private workspace, and the local owner can inspect it in the protected read-only plan view.
+
+A request for changes reopens an **editable** plan, but the creator must save a new private revision before the submit button appears again. Rejected plans remain retained and cannot be edited/resubmitted from the creator account. This text-only triage does not verify the legal age or identity of anyone involved, does not verify performer consent and must not be used to publish or monetize adult content.
+
+The additive `CreatorReviewSchema` migration runs after the local creator schema and requires no central SaaS service. Deploy the updated ZIP, back up the site's DB, and apply **Admin → Setup** to enable text review. The new `ac_creator_draft_events` table has foreign keys and must be included in independent database backups and disposable-test cleanup.
+
+---
+
 ## What this does not authorize
 
 This is an early local planning workspace, **not** a creator-verification or publishing system. Email confirmation does not prove legal age, identity, performer rights or consent. Real video/image uploads, image re-encoding and malware scanning, independent age/identity/consent provider checks, content review, safe publish and takedown controls, approved adult-content payment fulfillment, signed upgrades and real cPanel/VPS deployments **remain separate release blockers**. Do not expose adult media merely because a member has creator planning tools.
