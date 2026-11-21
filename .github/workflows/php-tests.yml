@@ -60,6 +60,8 @@ jobs:
         run: php tests/tier_catalog_tests.php
       - name: Staff lifecycle policy and validation
         run: php tests/staff_tests.php
+      - name: Self-hosted local creator permissions and draft input boundaries
+        run: php tests/local_creator_tests.php
       - name: Member-scoped read-only subscription summary
         run: php tests/member_subscription_summary_tests.php
       - name: Private image metadata and malformed-container rejection

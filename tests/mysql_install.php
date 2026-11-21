@@ -24,6 +24,8 @@ use AdultCore\Design\DesignSchema;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\CutoutPlacement;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Creator\CreatorSchema;
+use AdultCore\Creator\LocalCreators;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\PasswordRecovery;
@@ -345,6 +347,8 @@ try {
     }
     MemberEmailSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
+    CreatorSchema::migrate($pdo);
+    CreatorSchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
@@ -444,6 +448,112 @@ try {
         throw new RuntimeException('Email token single-use confirmation failed.');
     }
     if ($accounts->byId((int)$member['id'])['status']!=='pending') throw new RuntimeException('Email confirmation activated pending member.');
+    // Owner-managed local creator tools: an existing confirmed member, not
+    // platform signup, may only produce private text-planning drafts.
+    $creators=new LocalCreators($pdo);
+    try {
+        $creators->provision($moderatorId,'newmember@example.test','Moderator cannot grant creators');
+        throw new RuntimeException('Moderator granted local creator permissions.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator granted local creator permissions.') throw $e;
+    }
+    try {
+        $creators->provision((int)$valid['id'],'missing@example.test','Unknown member');
+        throw new RuntimeException('Unknown member received creator permissions.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unknown member received creator permissions.') throw $e;
+    }
+    $creatorId=$creators->provision((int)$valid['id'],'NEWMEMBER@example.test','Cajun <Creator>');
+    $activeCreator=$creators->activeForMember((int)$member['id']);
+    if ($creatorId<1 || !is_array($activeCreator) ||
+        $activeCreator['display_name']!=='Cajun <Creator>' ||
+        $accounts->byId((int)$member['id'])['status']!=='pending') {
+        throw new RuntimeException('Local owner creator grant changed member status or failed to persist.');
+    }
+    try {
+        $creators->provision((int)$valid['id'],'newmember@example.test','Duplicate creator');
+        throw new RuntimeException('Duplicate creator grant accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Duplicate creator grant accepted.') throw $e;
+    }
+    $originalContentCount=(int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn();
+    $draftId=$creators->saveDraft((int)$member['id'],null,null,
+        'My private <draft>','A private text-only creator draft, never a public gallery.');
+    $drafts=$creators->ownDrafts((int)$member['id']);
+    if ($draftId<1 || count($drafts)!==1 || $drafts[0]['status']!=='private'
+        || $drafts[0]['title']!=='My private <draft>'
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$originalContentCount) {
+        throw new RuntimeException('Creator planning leaked into public moderation/media content.');
+    }
+    try {
+        $creators->saveDraft((int)$member['id'],$draftId,999,'Stale draft',
+            'A concurrent edit must not be accepted into the workspace.');
+        throw new RuntimeException('Stale creator draft edit accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale creator draft edit accepted.') throw $e;
+    }
+    $creators->saveDraft((int)$member['id'],$draftId,(int)$drafts[0]['revision'],
+        'Updated private draft','Updated private text planning, still unpublished.');
+    $accounts->register('secondcreator@example.test','long-example-second-password');
+    $secondMember=$accounts->verify('secondcreator@example.test','long-example-second-password');
+    if (!is_array($secondMember)) throw new RuntimeException('Second member fixture failed.');
+    try {
+        $creators->provision((int)$valid['id'],'secondcreator@example.test','Unconfirmed creator');
+        throw new RuntimeException('Unconfirmed email was accepted for creator access.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unconfirmed email was accepted for creator access.') throw $e;
+    }
+    $secondToken=$emailConfirmations->issue((int)$secondMember['id']);
+    if (!$emailConfirmations->confirm($secondToken)) throw new RuntimeException('Second member confirmation failed.');
+    $creators->provision((int)$valid['id'],'secondcreator@example.test','Second creator');
+    if ($creators->ownDrafts((int)$secondMember['id'])!==[]) {
+        throw new RuntimeException('One creator could read another creator\'s private drafts.');
+    }
+    try {
+        $creators->saveDraft((int)$secondMember['id'],$draftId,1,'Cross-account edit',
+            'This is an unauthorized creator draft edit attempt.');
+        throw new RuntimeException('Cross-creator draft edit accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Cross-creator draft edit accepted.') throw $e;
+    }
+    $managed=$creators->managed((int)$valid['id']);
+    if (count($managed)!==2 || (int)$managed[1]['id']!==$creatorId ||
+        (int)$managed[1]['draft_count']!==1) {
+        throw new RuntimeException('Owner local creator list and private draft counters wrong.');
+    }
+    try {
+        $creators->managed($moderatorId);
+        throw new RuntimeException('Moderator read privileged creator management table.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator read privileged creator management table.') throw $e;
+    }
+    $creators->setStatus((int)$valid['id'],$creatorId,1,'suspend');
+    if ($creators->activeForMember((int)$member['id'])!==null ||
+        $creators->ownDrafts((int)$member['id'])!==[]) {
+        throw new RuntimeException('Suspension did not revoke private creator workspace.');
+    }
+    try {
+        $creators->saveDraft((int)$member['id'],null,null,'Blocked while suspended',
+            'Suspended creators must have no access to private draft writes.');
+        throw new RuntimeException('Suspended creator wrote a private draft.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Suspended creator wrote a private draft.') throw $e;
+    }
+    try {
+        $creators->setStatus((int)$valid['id'],$creatorId,1,'restore');
+        throw new RuntimeException('Stale creator restoration accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale creator restoration accepted.') throw $e;
+    }
+    $creators->setStatus((int)$valid['id'],$creatorId,2,'restore');
+    if ($creators->activeForMember((int)$member['id'])===null ||
+        count($creators->ownDrafts((int)$member['id']))!==1 ||
+        array_column($creators->audit((int)$valid['id']),'action')[0]!=='restored') {
+        throw new RuntimeException('Local creator restoration, draft isolation or audit failed.');
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn()!==0) {
+        throw new RuntimeException('Local creator grant pretended to verify age.');
+    }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
     if ($recovery->issueForEmail('owner@example.test') !== null) throw new RuntimeException('Admin recovery exposed through member route.');
@@ -855,7 +965,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');

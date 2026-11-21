@@ -31,6 +31,8 @@ try {
         'public/index.php','src/Membership/MemberLibrary.php',
         'src/Membership/TierCatalog.php','src/Http/TierController.php',
         'src/Auth/StaffRepository.php','src/Auth/StaffSchema.php','src/Http/StaffController.php',
+        'src/Creator/CreatorSchema.php','src/Creator/LocalCreators.php',
+        'src/Http/CreatorAdminController.php',
         'src/Membership/MemberSubscriptionSummary.php',
         'src/Moderation/ModerationRepository.php',
         'src/Support/ReleaseMilestones.php','src/Support/ReleaseReadiness.php',
