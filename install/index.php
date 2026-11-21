@@ -3,11 +3,6 @@
 declare(strict_types=1);
 
 // Included ONLY by public/index.php while InstallationGate::SETUP_REQUIRED.
-// The installer carries CSRF and ultimately private database/vendor/license
-// credentials. It must never be cached by browsers or shared proxies.
-header('Cache-Control: private, no-store, max-age=0');
-header('X-Robots-Tag: noindex, nofollow');
-header('X-Content-Type-Options: nosniff');
 use AdultCore\Capability\HostInspector;
 use AdultCore\Edition\EditionSelector;
 use AdultCore\Installer\InstallInput;
@@ -15,6 +10,11 @@ use AdultCore\Installer\InstallRateLimiter;
 use AdultCore\Installer\InstallService;
 use AdultCore\Module\ModuleCompatibility;
 use AdultCore\Support\ManifestLoader;
+
+// This credential-bearing installer must not be cached or indexed.
+header('Cache-Control: private, no-store, max-age=0');
+header('X-Robots-Tag: noindex, nofollow');
+header('X-Content-Type-Options: nosniff');
 
 function html(string $value): string
 {

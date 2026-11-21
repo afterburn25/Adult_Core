@@ -1,3 +1,9 @@
+## Installer privacy headers follow namespace imports — 2026-11-21
+
+The installer no-cache/noindex/nosniff directives are placed after its top-level class imports and before all form rendering or session startup. This keeps the installer source layout conventional and ensures the credentials-bearing form receives the headers before output. HTTP/Apache verification remains unchanged.
+
+---
+
 ## Installer secrets and CSRF non-cacheable at Apache entrypoint — 2026-11-21
 
 The universal one-ZIP browser installer now emits `Cache-Control: private, no-store, max-age=0`, `X-Robots-Tag: noindex, nofollow` and `X-Content-Type-Options: nosniff` on its credentials/CSRF form, alongside previously hardened administrator and member routes. This prevents the installer screen and any safe error statuses from being cached by browsers and proxies or indexed. The actual disposable Apache 2.4/PHP 8.3 preinstall smoke test checks these response headers; no license key, issuer request, DB write, edition selection or Pro/Lite release gate is altered. Real cPanel/VPS acceptance is still outstanding.
