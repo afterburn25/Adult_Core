@@ -1857,6 +1857,39 @@ def main():
             code, audit_invalid=req(audit_path+'&audit_before=0')
             ensure('Forged moderation audit cursor is rejected',
                    code==422 and 'Invalid audit history cursor' in audit_invalid)
+            private_history_id=subprocess.check_output(php_fixture+['seed-page-history'],
+                                                       cwd=root,text=True).strip()
+            ensure('Private history test fixture returns a numeric page ID',
+                   re.fullmatch(r'[1-9][0-9]*',private_history_id) is not None)
+            history_path='/admin/page?id='+private_history_id
+            code, versions_first=req(history_path)
+            history_cursor=re.search(r'Older page revisions</a>',versions_first)
+            history_next=re.search(r'id='+private_history_id
+                                   +r'&amp;history_before=(\d+)',versions_first)
+            ensure('Private page history continues beyond its first 20 saved versions',
+                   code==200 and history_cursor is not None and history_next is not None
+                   and 'History version 23' in versions_first
+                   and 'History version 1' not in versions_first)
+            code, versions_older=req(history_path+'&history_before='+history_next.group(1))
+            ensure('Oldest editable page revision remains inspectable to owner',
+                   code==200 and 'History version 1' in versions_older
+                   and 'Back to latest page revisions' in versions_older
+                   and 'history_revision" value="1"' in versions_older)
+            code, invalid_versions=req(history_path+'&history_before=bad')
+            ensure('Invalid page history cursor is denied',
+                   code==422 and 'Invalid page history cursor' in invalid_versions)
+            code, _=req(history_path,{
+                'csrf':edit_csrf.group(1),'action':'restore',
+                'revision':'23','history_revision':'1'
+            })
+            ensure('Owner can restore oldest private text after 23 saves',code==303)
+            code, restored_history=req(history_path)
+            ensure('Oldest revision restored as a new private draft, never auto-published',
+                   code==200 and 'History version 1' in restored_history
+                   and 'name="revision" value="24"' in restored_history
+                   and 'Restore is always a new unpublished draft' in restored_history)
+            code, public_history=req('/p/long-history-fixture')
+            ensure('Restored old draft is never public',code==404)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)

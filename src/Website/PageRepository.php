@@ -188,6 +188,33 @@ final class PageRepository
     }
 
     /**
+     * Historical snapshots are never deleted, and older pages remain
+     * reachable after 20+ edits. Query only display metadata, not body.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function historyPage(int $pageId,?int $beforeRevision=null): array
+    {
+        $this->historyReady();
+        if ($pageId<1 || ($beforeRevision!==null && $beforeRevision<1)) {
+            throw new RuntimeException('Invalid page history cursor.');
+        }
+        $sql='SELECT revision,title,status,saved_at FROM ac_page_history
+            WHERE page_id=?';
+        $params=[$pageId];
+        if ($beforeRevision!==null) {
+            $sql.=' AND revision<?';
+            $params[]=$beforeRevision;
+        }
+        $q=$this->pdo->prepare($sql.' ORDER BY revision DESC LIMIT 21');
+        $q->execute($params);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>20;
+        if ($more) array_pop($rows);
+        return ['items'=>$rows,
+            'next'=>$more && $rows!==[]?(int)$rows[count($rows)-1]['revision']:null];
+    }
+
+    /**
      * Exact private revision detail, scoped by BOTH page and version.
      * No public endpoint uses this method or exposes prior draft bodies.
      * @return array<string,mixed>|null

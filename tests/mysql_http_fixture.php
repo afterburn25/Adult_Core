@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images', 'seed-audit'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images', 'seed-audit', 'seed-page-history'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -190,6 +190,23 @@ if ($action === 'seed-audit') {
         $q->execute([$content,$owner,sprintf('Disposable moderator audit %02d',$n)]);
     }
     echo $content;
+    exit;
+}
+if ($action === 'seed-page-history') {
+    // Test-only: 23 saved PRIVATE plain-text revisions, no publication or
+    // user media. Exercise history pages older than the former 20-row limit.
+    $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+    $q->execute([\AdultCore\Website\PageHistorySchema::VERSION]);
+    if ((int)$q->fetchColumn()!==1) throw new RuntimeException('Page history fixture requires m19.');
+    $repo=new \AdultCore\Website\PageRepository($pdo);
+    $repo->save(0,'long-history-fixture','History version 1','Original private saved text','draft');
+    $id=(int)$pdo->query("SELECT id FROM ac_pages WHERE slug='long-history-fixture'")->fetchColumn();
+    if ($id<1) throw new RuntimeException('Private test page not created.');
+    for ($rev=1;$rev<=22;$rev++) {
+        $repo->save($id,'long-history-fixture','History version '.($rev+1),
+            'Private saved revision '.($rev+1),'draft',$rev);
+    }
+    echo $id;
     exit;
 }
 if ($action === 'issue-email') {

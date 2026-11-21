@@ -1,3 +1,9 @@
+## Private page revision history remains accessible past 20 saves — 2026-11-21
+
+Added `PageRepository::historyPage()` to page the complete existing, immutable `ac_page_history` metadata 20 revisions at a time with a page-ID-scoped descending numeric revision cursor. The owner page editor now shows Older/Back links and explicit invalid-cursor 422, instead of silently hiding saved versions older than 20. The original `history()` and exact `historyDetail()` APIs remain for compatibility. Preview still escapes prior text, and a CSRF/optimistic-revision checked restore of any earlier snapshot still saves a NEW unpublished draft and never changes URL/menu or automatically publishes. Disposable real SQL/HTTP tests create a separate 23-revision private fixture and recover revision 1 without leaking it to public URLs. No new migration, vendor license, payment, age/consent or media-approval route is required.
+
+---
+
 ## Read-only moderation audit history beyond 50 actions — 2026-11-21
 
 Previously the moderator content history view silently returned only 50 newest actions, although the append-only local `ac_moderation_actions` table retains older actions. The new `ModerationRepository::auditTrailPage()` reads 50 bounded private actions per content ID with a prepared numeric keyset cursor. The existing `auditTrail()` method remains for private draft detail compatibility. Moderators can follow Older/Back links without changing a decision, showing evidence keys, exposing public media, granting age/consent or approving content. Forged/malformed cursors are rejected with HTTP 422. MySQL/MariaDB and real authenticated HTTP tests stage 51 synthetic private history notes on a draft and prove oldest note is still accessible. The owner must still independently verify backup retention and applicable legal recordkeeping; this is not a real-host or provider certification.

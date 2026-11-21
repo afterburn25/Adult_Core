@@ -562,12 +562,23 @@ final class SiteAdminController
                 .'<button class="button-secondary" type="submit">Create unpublished copy</button></form>' : '')
             . '</aside></div>';
         if ($id>0) {
+            $rawHistoryCursor=$_GET['history_before']??null;
+            $historyBefore=$rawHistoryCursor===null?null:(is_string($rawHistoryCursor)
+                ? filter_var($rawHistoryCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
+                : false);
+            if ($historyBefore===false) {
+                $this->render(422,'Invalid page history cursor',
+                    '<p role="alert">The history link is invalid. '
+                    .'<a href="/admin/page?id='.$id.'">View latest revisions</a>.</p>');
+                return;
+            }
+            $historyPage=$repo->historyPage($id,$historyBefore);
             $html.='<section class="panel"><h2>Private page revision history</h2>'
                 .'<p class="muted">Only saved revisions since this feature was installed are available. '
                 .'Restoring an earlier version copies its title and text into a new <strong>unpublished draft</strong>. '
                 .'It never restores the old published state, URL or navigation settings.</p>'
                 .'<table class="page-table"><thead><tr><th>Revision</th><th>Title</th><th>Saved as</th><th>Saved at (UTC)</th><th></th></tr></thead><tbody>';
-            foreach ($repo->history($id) as $snapshot) {
+            foreach ($historyPage['items'] as $snapshot) {
                 $version=(int)$snapshot['revision'];
                 $html.='<tr><td>'. $version .'</td><td>'.self::e((string)$snapshot['title'])
                     .'</td><td>'.self::e((string)$snapshot['status'])
@@ -586,7 +597,21 @@ final class SiteAdminController
                 }
                 $html.='</td></tr>';
             }
-            $html.='</tbody></table><p class="muted">Showing up to 20 most recent revisions.</p></section>';
+            $html.='</tbody></table>';
+            if ($historyPage['next']!==null) {
+                $html.='<p><a href="/admin/page?id='.$id
+                    .'&amp;history_before='.(int)$historyPage['next']
+                    .'">Older page revisions</a></p>';
+            }
+            if ($historyBefore!==null) {
+                $html.='<p><a href="/admin/page?id='.$id
+                    .'">Back to latest page revisions</a></p>';
+            }
+            if ($historyPage['items']===[]) {
+                $html.='<p>No saved versions on this page.</p>';
+            }
+            $html.='<p class="muted">Showing up to 20 private revisions per page. '
+                .'Restore is always a new unpublished draft.</p></section>';
         }
         $html.='<script defer src="/assets/page-editor.js"></script>';
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);

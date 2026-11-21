@@ -1,3 +1,7 @@
+## Page history beyond 20 edits (development)
+
+Owners can now browse older saved page revisions using **Older page revisions** in the page editor. Each version can be previewed privately; restoring text always produces a new unpublished draft, preserving history and protected-media restrictions.
+
 ## Private moderation history navigation (development)
 
 Authenticated moderators can now inspect older recorded moderation decisions 50 at a time. No approval, public publishing, external identity verification or payment entitlement is added; the audit remains private to each installed site.

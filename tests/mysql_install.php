@@ -582,6 +582,16 @@ try {
         || $repo->historyDetail($aboutId,999)!==null) {
         throw new RuntimeException('Private page history details leaked or omitted prior text.');
     }
+    $historyPage=$repo->historyPage($aboutId);
+    if (count($historyPage['items'])!==5 || $historyPage['next']!==null) {
+        throw new RuntimeException('Short private page history unexpectedly requires pagination.');
+    }
+    try {
+        $repo->historyPage($aboutId,0);
+        throw new RuntimeException('Invalid page history cursor was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Invalid page history cursor was accepted.') throw $e;
+    }
     $history=$repo->history($aboutId);
     if (count($history)!==5 || array_column($history,'revision')!==[5,4,3,2,1]
         || count($repo->history($copyId))!==1) {
