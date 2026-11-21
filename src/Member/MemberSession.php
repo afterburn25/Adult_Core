@@ -81,6 +81,19 @@ final class MemberSession
         return $wasChanged;
     }
 
+    /** One-use notice only after a successfully committed generation bump. */
+    public static function markAllDevicesSignedOut(): void
+    {
+        $_SESSION['all_devices_signed_out_notice']=true;
+    }
+
+    public static function takeAllDevicesSignedOut(): bool
+    {
+        $wasSignedOut=($_SESSION['all_devices_signed_out_notice']??false)===true;
+        unset($_SESSION['all_devices_signed_out_notice']);
+        return $wasSignedOut;
+    }
+
     public static function logout(): void
     {
         $_SESSION=[];

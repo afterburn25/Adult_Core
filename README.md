@@ -1,3 +1,7 @@
+## Sign out every member device (development)
+
+Authenticated members can use **Account → Sign out of all devices**, re-enter their existing password, and invalidate all member sessions including the current browser. The current password remains valid for a fresh sign-in; this never grants paid or age-verified access.
+
 ## Member session security (development)
 
 Member account security includes a transactional all-device session revocation capability. It requires a current password and invalidates existing member sessions without changing the member's password, age/consent, subscription or protected-media access. The protected browser form is part of the next feature increment.

@@ -17,6 +17,7 @@ use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
 use AdultCore\Member\MemberPasswordChange;
+use AdultCore\Member\MemberSessionRevocation;
 use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\EmailDelivery;
@@ -105,6 +106,10 @@ final class MemberController
                 $this->changePassword($pdo,$method,$accounts);
                 return;
             }
+            if ($path === '/members/sessions') {
+                $this->revokeDevices($pdo,$method,$accounts);
+                return;
+            }
             if ($path === '/members/creator') {
                 $this->creatorWorkspace($pdo,$method,$accounts);
                 return;
@@ -158,6 +163,7 @@ final class MemberController
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
                     . '<p><a href="/members/password">Change your password</a></p>'
+                    . '<p><a href="/members/sessions">Sign out of all devices</a></p>'
                     . ($this->creatorAccess($pdo,(int)$member['id'])
                         ? '<p><a href="/members/creator">Manage your private creator drafts</a></p>'
                         : '')
@@ -228,6 +234,59 @@ final class MemberController
             .'<button class="install-button" type="submit">Change password and sign out</button>'
             .'</form></section><p><a href="/members">Back to your account</a></p>';
         $this->view($error!==''?422:200,'Member password security',$html);
+    }
+
+    /**
+     * Current-password authenticated device-wide session revocation;
+     * membership and independent age/payment evidence remain untouched.
+     */
+    private function revokeDevices(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        $generation=MemberSession::generation();
+        if (!is_int($generation)) { $this->redirect('/members/login'); return; }
+        $error='';
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload your device security form.</p>');
+                return;
+            }
+            try {
+                (new LoginRateLimiter($this->root.'/storage','member-recovery'))
+                    ->consume((string)($_SERVER['REMOTE_ADDR']??'unknown'),$member['email']);
+                (new MemberSessionRevocation($pdo))->revokeAll(
+                    (int)$member['id'],$generation,$_POST['current_password']??null);
+                MemberSession::revoke();
+                MemberSession::markAllDevicesSignedOut();
+                $this->redirect('/members/login');
+                return;
+            } catch (RuntimeException $e) {
+                $allowed=[
+                    'Current member password is required.',
+                    'Current member password is incorrect.',
+                    'Member session changed; please sign in again.',
+                    'Too many login attempts. Please try again later.',
+                ];
+                $error=in_array($e->getMessage(),$allowed,true)
+                    ? $e->getMessage():'Unable to sign out all devices.';
+            } catch (Throwable) {
+                $error='Unable to sign out all devices.';
+            }
+        }
+        $html='<p class="intro">Sign out every browser and device currently using this local member account. '
+            .'This requires your current password and also signs out this browser. '
+            .'Your password stays the same. Outstanding reset and unconfirmed-email links are revoked. '
+            .'Your pending/active member status, payment and age/consent evidence are not changed.</p>';
+        if ($error!=='') $html.='<p role="alert" class="alert-error">'.self::e($error).'</p>';
+        $html.='<section class="panel"><h2>Sign out of all devices</h2>'
+            .'<form method="post" action="/members/sessions" class="install-form" autocomplete="off">'
+            .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+            .'<label>Current password<input name="current_password" type="password" required maxlength="72" autocomplete="current-password"></label>'
+            .'<button class="install-button" type="submit">Sign out all member sessions</button>'
+            .'</form></section><p><a href="/members">Back to your account</a></p>';
+        $this->view($error!==''?422:200,'Device security',$html);
     }
 
     private function creatorAccess(PDO $pdo,int $memberId): bool
@@ -651,8 +710,11 @@ final class MemberController
         // Only the SERVER session can set this one-use notice after a
         // successful committed rotation. A query parameter cannot forge it.
         $changedNotice=(!$register && $method==='GET' && MemberSession::takePasswordChanged());
+        $devicesNotice=(!$register && $method==='GET' && MemberSession::takeAllDevicesSignedOut());
         $html=($changedNotice
             ? '<p role="status">Your member password was updated. Sign in with the new password.</p>':'')
+            . ($devicesNotice
+                ? '<p role="status">All existing member sessions were signed out. Your password was not changed.</p>':'')
             . ($error ? '<div class="alert-error" role="alert">'.self::e($error).'</div>':'')
             . '<p class="intro">' . ($register
                 ? 'Registration is for adults only. This development version creates a pending account; it does not provide age verification or paid content access.'

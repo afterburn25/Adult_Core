@@ -1,3 +1,9 @@
+## Protected all-device member sign-out user interface — 2026-11-21
+
+Added Account → Sign out of all devices at the exact `/members/sessions` public front-controller route. A currently authenticated pending/active local member can open a no-store GET form and submit current password plus member CSRF, under the existing rate-limiter. `MemberSessionRevocation::revokeAll()` verifies the session generation under database row locks and commits a server-side revocation before the current browser signs out and redirects to login. A one-time success notice is held in the member session rather than inferred from a forgeable URL query. No password replacement, role change, age/consent certification, merchant charge or adult-content approval is added. Added route dispatch and notice safety tests. Real independently signed-in two-browser HTTP regression is next.
+
+---
+
 ## Member-authenticated all-device session revocation backend — 2026-11-21
 
 Added `MemberSessionRevocation::revokeAll()` for a currently signed-in `pending`/`active` local member who re-enters the correct current password. Its transaction locks the member and session generation rows, rechecks the browser's expected generation, increments `ac_member_password_resets.session_generation` exactly once and clears outstanding password recovery and unconfirmed-email tokens. Existing and in-flight old cookies fail the next authenticated generation check even if a browser redirect fails. The member password hash, account status, membership, provider identity/age/consent records and protected media stay untouched. Invalid passwords, staff targets and stale session generations fail closed. Unit, disposable MySQL/MariaDB and unified Lite/Pro distribution checks cover this backend. The authenticated account UI and real separate-browser HTTP tests follow; no SaaS or adult-content release approval is implied.
