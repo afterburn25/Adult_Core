@@ -291,14 +291,6 @@ try {
         || $auth->authorizedById($moderatorId)['role']!=='moderator') {
         throw new RuntimeException('Restricted moderator credentials were denied.');
     }
-    $moderatorRepo=new ModerationRepository($pdo);
-    $moderatorDraft=$moderatorRepo->createDraft('Moderator review-only draft',$moderatorId);
-    $q=$pdo->prepare('SELECT status,visibility,review_status FROM ac_content WHERE id=?');
-    $q->execute([$moderatorDraft]);$modDraftState=$q->fetch(PDO::FETCH_ASSOC);
-    if ($modDraftState['status']!=='draft' || $modDraftState['visibility']!=='private'
-        || $modDraftState['review_status']!=='pending') {
-        throw new RuntimeException('Moderator creation published private content.');
-    }
     $tiers=new TierCatalog($pdo);
     try {
         $tiers->create('Moderator cannot change paid labels',$moderatorId);
@@ -330,6 +322,14 @@ try {
     }
     ModerationSchema::migrate($pdo);
     ModerationSchema::migrate($pdo);
+    $moderatorRepo=new ModerationRepository($pdo);
+    $moderatorDraft=$moderatorRepo->createDraft('Moderator review-only draft',$moderatorId);
+    $q=$pdo->prepare('SELECT status,visibility,review_status FROM ac_content WHERE id=?');
+    $q->execute([$moderatorDraft]);$modDraftState=$q->fetch(PDO::FETCH_ASSOC);
+    if ($modDraftState['status']!=='draft' || $modDraftState['visibility']!=='private'
+        || $modDraftState['review_status']!=='pending') {
+        throw new RuntimeException('Moderator creation published private content.');
+    }
     VerificationSchema::migrate($pdo);
     VerificationSchema::migrate($pdo);
     $accounts = new MemberAccounts($pdo);
