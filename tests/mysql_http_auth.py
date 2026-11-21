@@ -332,6 +332,15 @@ def main():
             ensure('Pending media upload requires valid admin CSRF', code == 403)
             code, _ = upload_draft(moderation_token.group(1), b'<?php echo "unsafe";')
             ensure('Pending media upload rejects non-image payload bytes', code == 422)
+            # Metadata-bearing uploaded PNGs must fail before the private
+            # storage move or media-row insertion, even for an authenticated moderator.
+            privacy_png = sample_png()
+            privacy_chunk = (struct.pack('>I', len(b'GPSComment=private')) + b'tEXt'
+                             + b'GPSComment=private'
+                             + struct.pack('>I', zlib.crc32(b'tEXtGPSComment=private') & 0xffffffff))
+            privacy_png = privacy_png[:33] + privacy_chunk + privacy_png[33:]
+            code, _ = upload_draft(moderation_token.group(1), privacy_png)
+            ensure('Private draft upload refuses PNG location/text metadata', code == 422)
             code, _ = upload_draft(moderation_token.group(1), sample_png())
             ensure('Valid draft image is staged privately without approval', code == 303)
             code, moderation = req('/admin/moderation')

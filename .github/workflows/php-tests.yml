@@ -54,6 +54,8 @@ jobs:
         run: php tests/site_member_tests.php
       - name: Moderation input validation
         run: php tests/moderation_tests.php
+      - name: Private image metadata and malformed-container rejection
+        run: php tests/image_metadata_tests.php
       - name: Signed verification assertions and replay protection
         run: php tests/verification_tests.php
       - name: Release manifest and encrypted snapshot authentication
