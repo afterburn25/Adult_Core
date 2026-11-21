@@ -1,3 +1,9 @@
+## Suspended-member profile access and pending-only restoration tests — 2026-11-21
+
+The m22 name is never readable or mutable while the local member is suspended. Direct disposable SQL tests verify both `MemberProfiles::current()` and `save()/clear()` fail for a suspended account, and that a step-up-authorized restoration **only to pending** preserves the member's existing private nickname and revision. Real two-browser HTTP tests confirm the suspended member cannot reach `/members/profile` and a copied pre-suspension cookie cannot regain nickname access even after restoration. Identity/consent/payment and public-media gates remain unchanged.
+
+---
+
 ## Member-controlled private display name clearing — 2026-11-21
 
 The m22 member profile page now includes an explicit CSRF-protected **Clear private display name** form only when a name exists, plus an allowlisted `action=save|clear` handler. Clear calls the transactional `MemberProfiles::clear()` and increments revision rather than deleting the row; a stale saved form cannot silently recreate the old name, and the account shows *Not set* while the membership remains pending/active as previously recorded. The member can choose a different nickname later. Browser regression tests cover forbidden `publish`, stale clear, successful clear, UI status, stale-save denial and re-entry. No public nickname, creator verification, payments, protected media, or legal/age/consent record is changed.

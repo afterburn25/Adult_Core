@@ -773,6 +773,20 @@ try {
         || (new PasswordRecovery($pdo))->generation((int)$member['id'])!==$generationBefore+1) {
         throw new RuntimeException('Local member suspension failed to revoke account access and session epoch.');
     }
+    if ($profiles->current((int)$member['id'])!==null) {
+        throw new RuntimeException('Suspended member could read a private nickname.');
+    }
+    foreach ([
+        static fn()=> $profiles->save((int)$member['id'],4,'Suspended edit denied'),
+        static fn()=> $profiles->clear((int)$member['id'],4),
+    ] as $blockedSuspendedProfile) {
+        try {
+            $blockedSuspendedProfile();
+            throw new RuntimeException('Suspended member edited private profile.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Suspended member edited private profile.') throw $e;
+        }
+    }
     try {
         $safety->change((int)$valid['id'],(int)$member['id'],
             'suspend','pending','Stale replay should be refused');
@@ -787,6 +801,10 @@ try {
         || count($safety->history((int)$valid['id'],(int)$member['id']))!==2
         || count($safety->historyPage((int)$valid['id'],(int)$member['id'])['items'])!==2) {
         throw new RuntimeException('Local member restore was not pending or did not retain private audit.');
+    }
+    if ($profiles->current((int)$member['id'])!==[
+        'display_name'=>'Restored private nickname','revision'=>4]) {
+        throw new RuntimeException('Pending-only restore did not preserve private nickname.');
     }
     foreach ([
         static fn()=> $safety->historyPage((int)$valid['id'],(int)$member['id'],0),

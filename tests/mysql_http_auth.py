@@ -2014,6 +2014,9 @@ def main():
             code, kicked_member=independent_member_req('/members')
             ensure('Suspending member immediately invalidates authenticated member account session',
                    code==303 and 'bulk-member-50@example.test' not in kicked_member)
+            code, private_suspended=independent_member_req('/members/profile')
+            ensure('Suspended member cannot access private profile editor',
+                   code==303 and 'Private &lt;Pixie&gt; &amp; Co' not in private_suspended)
             code, stale_member=req(member_manage,{
                 'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
                 'action':'suspend','expected_status':'pending',
@@ -2037,6 +2040,10 @@ def main():
                 '/members',browser=stale_member_browser)
             ensure('Old pre-suspension cookie cannot revive after pending-only restore',
                    code==303 and 'bulk-member-50@example.test' not in old_cookie_after_restore)
+            code, restored_old_profile=independent_member_req(
+                '/members/profile',browser=stale_member_browser)
+            ensure('Restoring pending status cannot revive old private profile cookie',
+                   code==303 and 'Private &lt;Pixie&gt; &amp; Co' not in restored_old_profile)
             code, twice=req(member_manage,{
                 'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
                 'action':'restore_pending','expected_status':'suspended',
