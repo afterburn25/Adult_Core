@@ -98,11 +98,17 @@ final class LicenseUpdateRecovery
             throw new RuntimeException('Private rollback snapshot permissions are unsafe.');
         }
         $storage = $this->root . '/storage';
+        if (is_link($storage . '/.license-update.lock')) {
+            throw new RuntimeException('Unsafe license update lock file.');
+        }
         $update = @fopen($storage . '/.license-update.lock', 'c+');
         if (!is_resource($update)) throw new RuntimeException('License update lock unavailable.');
         try {
             if (!flock($update, LOCK_EX | LOCK_NB)) {
                 throw new RuntimeException('Another license update is running.');
+            }
+            if (is_link($storage . '/.license-refresh.lock')) {
+                throw new RuntimeException('Unsafe license refresh lock file.');
             }
             $refresh = @fopen($storage . '/.license-refresh.lock', 'c+');
             if (!is_resource($refresh)) throw new RuntimeException('License refresh lock unavailable.');
