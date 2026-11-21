@@ -34,8 +34,26 @@ final class JobInbox
         $path=$dir.'/'.hash('sha256',$id).'.json';
         $fp=@fopen($path,'x');
         if ($fp===false) {
-            if (is_file($path) && !is_link($path)) return false;
-            throw new RuntimeException('Cannot accept Pro job.');
+            // A job ID is idempotent only if the stored signed-job data is
+            // identical. A conflicting reissue, truncated receipt or unknown
+            // status must never be misclassified as a successful duplicate.
+            if (!is_file($path) || is_link($path) || !is_readable($path)
+                || (filesize($path) ?: 0) > 20000) {
+                throw new RuntimeException('Cannot accept Pro job.');
+            }
+            $raw = @file_get_contents($path);
+            if (!is_string($raw) || strlen($raw) < 2) {
+                throw new RuntimeException('Pro job receipt unavailable.');
+            }
+            try { $prior = json_decode($raw, true, 12, JSON_THROW_ON_ERROR); }
+            catch (\JsonException) { throw new RuntimeException('Pro job receipt corrupted.'); }
+            if (!is_array($prior) || !is_int($prior['received_at'] ?? null)
+                || !in_array($prior['status'] ?? null, ['pending','processing','done','failed'], true)
+                || !is_array($prior['job'] ?? null)
+                || $prior['job'] !== $envelope['data']) {
+                throw new RuntimeException('Conflicting or corrupted Pro job replay.');
+            }
+            return false;
         }
         try {
             $data=json_encode(['received_at'=>time(),'job'=>$envelope['data'],'status'=>'pending'],JSON_THROW_ON_ERROR);
