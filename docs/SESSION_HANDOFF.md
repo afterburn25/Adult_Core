@@ -1,3 +1,9 @@
+## Member password route registered in the public front controller — 2026-11-21
+
+The first authenticated browser test found `/members/password` was not in `public/index.php`'s exact member-route dispatch allowlist; the backend and direct SQL/unit tests had passed but the new form returned 404. The front controller now explicitly routes it to the existing HTTPS-guarded MemberController; a source regression checks this dispatch alongside the real HTTP password-rotation flow. No login, independent age/consent, license or protected media authorization rules are changed.
+
+---
+
 ## Authenticated member password rotation integration — 2026-11-21
 
 A separate real HTTP member cookie jar now tests `/members/password`: profile link and signed-in access, member-specific CSRF denial, incorrect-current-password denial, same-password rejection, successful own-account credential rotation, current-cookie logout, replay of a copied pre-change cookie, old password rejection, re-login using the new password, and unchanged pending/paid-content-blocked account status. All browser tests operate on one disposable locally registered fixture member and never call an external provider. The site owner browser's CSRF/cookie remains separate. This complements direct MySQL/MariaDB transaction/epoch tests and unified Lite/Pro ZIP source checks; live production compliance remains blocked.

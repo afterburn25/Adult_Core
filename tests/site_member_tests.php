@@ -64,6 +64,10 @@ foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }
 }
 MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true,'Valid member details');
+$publicRouter=(string)file_get_contents(dirname(__DIR__).'/public/index.php');
+claim(str_contains($publicRouter,"'/members/password'")
+    && str_contains($publicRouter,'MemberController($root)'),
+    'Member password security URL is dispatched through real public site router');
 $memberDirectorySource=(string)file_get_contents(dirname(__DIR__).'/src/Member/MemberDirectory.php');
 claim(str_contains($memberDirectorySource,"WHERE role='member'")
     && str_contains($memberDirectorySource,'ORDER BY id DESC LIMIT 51')
