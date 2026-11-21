@@ -90,6 +90,12 @@ def main():
             ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
             license_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', license_page)
             ensure('License changes require CSRF', license_csrf is not None)
+            ensure('Manual issuer check is a separate CSRF-protected POST',
+                   'name="license_action" value="check"' in license_page and 'Check license now' in license_page)
+            code, _ = req('/admin/license', {'csrf': 'invalid','license_action':'check'})
+            ensure('Manual issuer check rejects invalid CSRF without API call', code == 403)
+            code, _ = req('/admin/license', {'csrf': license_csrf.group(1),'license_action':'unknown'})
+            ensure('Unknown license mutation rejected before vendor API call', code == 422)
             code, upgrade_page = req('/admin/upgrade')
             ensure('Edition upgrade form is authenticated and identifies current Lite edition',
                    code == 200 and 'Upgrade Lite to Pro' in upgrade_page and 'LITE' in upgrade_page)

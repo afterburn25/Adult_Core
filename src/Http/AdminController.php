@@ -130,44 +130,73 @@ final class AdminController
         }
         $manager = new LicenseManager($this->root);
         $error = null;
+        $checked = null;
+        $issuerVerdict = null;
         if ($method === 'POST') {
             if (!AdminSession::csrfValid($_POST['csrf'] ?? null)) {
                 $this->error(403, 'Invalid security token', 'Reload the licensing form and try again.');
                 return;
             }
+            // Reading a dashboard must not authorize entitlement mutations.
+            if (!RolePolicy::allows($admin['role'], 'site.settings.manage')) {
+                $this->error(403, 'Access denied', 'Site management permission is required.');
+                return;
+            }
             try {
-                $key = $_POST['license_key'] ?? null;
-                $domain = $_POST['license_domain'] ?? null;
-                if (!is_string($key) || !is_string($domain)) throw new \InvalidArgumentException('Enter your key and registered domain.');
-                // Scope limiter for repeated vendor-key guesses. No key is logged.
+                $action = $_POST['license_action'] ?? 'replace';
+                if (!is_string($action) || !in_array($action, ['replace', 'check'], true)) {
+                    throw new \InvalidArgumentException('Choose a valid license action.');
+                }
+                // Limit both manual checks and license guesses. CWP also limits API calls by IP.
                 (new \AdultCore\Installer\InstallRateLimiter($this->root . '/storage'))->consume(
                     'license:' . (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown')
                 );
-                $manager->replaceLicense($key, $domain);
-                $this->redirect('/admin/license?updated=1');
-                return;
+                if ($action === 'check') {
+                    $checked = $manager->status(null, true);
+                    $issuerVerdict = $manager->lastAuthorityResponse();
+                } else {
+                    $key = $_POST['license_key'] ?? null;
+                    $domain = $_POST['license_domain'] ?? null;
+                    if (!is_string($key) || !is_string($domain)) {
+                        throw new \InvalidArgumentException('Enter your key and registered domain.');
+                    }
+                    $manager->replaceLicense($key, $domain);
+                    $this->redirect('/admin/license?updated=1');
+                    return;
+                }
             } catch (\InvalidArgumentException | \RuntimeException $exception) {
                 $error = $exception->getMessage();
                 http_response_code(422);
             } catch (Throwable) {
-                $error = 'License activation is temporarily unavailable. Try again later.';
+                $error = 'License validation is temporarily unavailable. Try again later.';
                 http_response_code(503);
             }
         }
         $saved = $manager->config();
-        $state = $manager->status();
+        $state = $checked ?? $manager->status();
         $domain = $saved['domain'] ?? '';
         $content = '<p class="eyebrow">CAJUN WEB PRO · PRODUCT LICENSING</p><h1>Adult_Core license</h1>'
             . '<p class="intro">Activation is required to install and use Adult_Core. Licenses are issued and administered by Cajun Web Pro. '
             . 'Your key is stored privately and never displayed in this workspace.</p>'
             . '<section class="panel"><p><strong>Current status:</strong> ' . self::escape($state) . '</p>'
+            . ($checked === null ? '' : '<p role="status" class="muted"><strong>Fresh validation:</strong> ' . self::escape(match ($issuerVerdict) {
+                'valid' => 'Cajun Web Pro confirmed this license is active.',
+                'denied' => 'Cajun Web Pro rejected this license; access is disabled.',
+                'transient' => 'Cajun Web Pro could not be reached. Any remaining access is temporary signed outage grace, not a new approval.',
+                default => 'No new issuer verdict was obtained. Check the registered domain or try again.',
+            }) . '</p>')
             . '<p><strong>Licensed edition:</strong> ' . self::escape(strtoupper((string)($saved['edition'] ?? 'Unknown'))) . '</p>'
             . '<p><strong>Billing term:</strong> ' . self::escape(($saved['term'] ?? '') === 'month' ? 'Monthly subscription' : 'One-time / unconfigured') . '</p>'
             . '<p><strong>Product SKU:</strong> ' . self::escape((string)($saved['sku'] ?? 'not configured')) . '</p>'
-            . '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p></section>'
+            . '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p>'
+            . '<p class="muted">The status is cached for up to one hour. Check now contacts Cajun Web Pro without displaying your key; a temporary outage is not proof of revocation.</p>'
+            . '<form method="post" action="/admin/license"><input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
+            . '<input type="hidden" name="license_action" value="check"><button type="submit" class="btn btn-outline">Check license now</button></form>'
+            . '</section>'
             . ($error !== null ? '<div class="alert-error" role="alert">' . self::escape($error) . '</div>' : '')
             . '<section class="panel"><h2>Activate or replace license</h2><form method="post" action="/admin/license" class="install-form" autocomplete="off">'
             . '<input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
+            . '<input type="hidden" name="license_action" value="replace">'
             . '<label for="license-key">License key</label><input id="license-key" name="license_key" type="password" required autocomplete="off" maxlength="255">'
             . '<label for="license-domain">Registered domain</label><input id="license-domain" name="license_domain" required maxlength="253" value="' . self::escape($domain) . '">'
             . '<button type="submit" class="install-button">Validate and save license</button></form>'
