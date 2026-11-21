@@ -73,7 +73,7 @@ final class ModerationController
             $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.',
                 'Choose an uploaded JPEG, PNG or WebP image.','Invalid private draft image upload.',
                 'Only private, unreviewed drafts accept images.','Private draft image limit reached.',
-                'Invalid or oversized image upload.','Image type not allowed.'];
+                'Invalid or oversized image upload.','Image type not allowed.','Image type or dimensions not allowed.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
