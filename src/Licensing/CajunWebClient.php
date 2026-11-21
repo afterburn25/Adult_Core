@@ -64,7 +64,12 @@ final class CajunWebClient
             if ($response['status'] !== 200) return 'transient';
             $json = json_decode($response['body'], true, 8, JSON_THROW_ON_ERROR);
             if (!is_array($json)) return 'transient';
-            if (($json['authorized'] ?? null) === true) return 'valid';
+            // The issuer's successful response has no error. Contradictory
+            // success/error payloads must not authorize a new installation.
+            if (($json['authorized'] ?? null) === true) {
+                if (array_key_exists('error', $json) && $json['error'] !== null) return 'transient';
+                return 'valid';
+            }
             if (($json['authorized'] ?? null) === false) return 'denied';
         } catch (\Throwable) { /* Don't convert networking/transient failure to revocation. */ }
         return 'transient';
