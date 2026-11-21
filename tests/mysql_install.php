@@ -522,6 +522,13 @@ try {
         || $repo->published('about-private-copy')!==null) {
         throw new RuntimeException('Page duplicate unexpectedly published or altered content.');
     }
+    $detail=$repo->historyDetail($aboutId,2);
+    if ($detail===null || $detail['body']!=='Updated welcome'
+        || (int)$detail['revision']!==2
+        || $repo->historyDetail($copyId,2)!==null
+        || $repo->historyDetail($aboutId,999)!==null) {
+        throw new RuntimeException('Private page history details leaked or omitted prior text.');
+    }
     $history=$repo->history($aboutId);
     if (count($history)!==5 || array_column($history,'revision')!==[5,4,3,2,1]
         || count($repo->history($copyId))!==1) {

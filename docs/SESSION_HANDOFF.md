@@ -1,3 +1,9 @@
+## Protected read-only page history preview — 2026-11-21
+
+Owner/admin may now preview a specific saved page revision using a read-only `/admin/page/history?id=…&revision=…` URL. The version is selected by exact page ID and revision under the existing license, session, MFA and owner role checks. Preview renders escaped plain text only, with no private media, forced publication or live theme image; replies are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex, nofollow`. Invalid/missing versions return 404, POST is 405 with valid session CSRF, and logged-out requests redirect before any private text loads. The editor links to previews beside draft-only restore forms; source snapshots remain immutable. SQL and real authenticated HTTP regressions cover these restrictions. This is not a creator publication, merchant billing or legal verification integration.
+
+---
+
 ## m19 disposable database teardown ordering — 2026-11-21
 
 The first m19 MariaDB run passed the real installation and upgrade checks but exposed an integration-fixture cleanup error: the new foreign-key-bound `ac_page_history` table was still present when dropping `ac_pages`. Both disposable SQL and authenticated HTTP cleanup lists now drop page history before the parent page table. Production customer database migrations or drop procedures are not changed. Rerun complete MySQL/MariaDB CI before claiming verified success.

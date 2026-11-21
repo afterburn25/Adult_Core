@@ -168,7 +168,7 @@ final class Layout
         }
         $nav = '';
         foreach ($links as $link) {
-            $active = $currentPath === $link['url'] || ($currentPath === '/admin/page' && $link['url'] === '/admin/pages');
+            $active = $currentPath === $link['url'] || (str_starts_with($currentPath, '/admin/page') && $link['url'] === '/admin/pages');
             $nav .= '<a class="admin-nav-link' . ($active ? ' is-current' : '') . '" href="' . $link['url'] . '"'
                 . ($active ? ' aria-current="page"' : '') . '>' . self::icon($link['icon']) . '<span>' . self::escape($link['label']) . '</span>'
                 . ($active ? '<span class="current-dot" aria-hidden="true"></span>' : '') . '</a>';

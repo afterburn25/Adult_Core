@@ -578,7 +578,22 @@ def main():
             ensure('Owner may browse private page snapshots after two saves',
                    code==200 and 'Private page revision history' in revision_form
                    and 'name="action" value="restore"' in revision_form
-                   and 'name="history_revision" value="1"' in revision_form)
+                   and 'name="history_revision" value="1"' in revision_form
+                   and 'Preview revision' in revision_form)
+            historic_url='/admin/page/history?id='+saved_draft_id+'&revision=1'
+            code, historical_text=req(historic_url)
+            ensure('Historic snapshot is privately viewable with escaped original text',
+                   code==200 and 'PRIVATE SAVED REVISION' in historical_text
+                   and 'Unpublished &lt;b&gt;preview&lt;/b&gt;' in historical_text
+                   and 'Private &lt;script&gt;not_public()&lt;/script&gt;' in historical_text
+                   and '<script>not_public()</script>' not in historical_text)
+            code, _, history_cache, _=req_binary(historic_url)
+            ensure('Historical page text is marked private and never cacheable',
+                   code==200 and 'no-store' in history_cache)
+            code, historical_missing=req('/admin/page/history?id='+saved_draft_id+'&revision=999')
+            ensure('Unknown historical versions never reveal current page text',code==404)
+            code, historical_wrong_method=req(historic_url,{'csrf':edit_csrf.group(1)})
+            ensure('Historical snapshot preview is read-only GET',code==405)
             code, _=req('/admin/page?id='+saved_draft_id,{
                 'csrf':'bad','action':'restore','revision':'2','history_revision':'1'
             })
@@ -1653,6 +1668,9 @@ def main():
             code, anonymous_page_preview = req('/admin/page/preview?id='+saved_draft_id)
             ensure('Logged-out administrator cannot view private saved drafts',
                    code == 302 and 'not_public()' not in anonymous_page_preview)
+            code, anonymous_history=req('/admin/page/history?id='+saved_draft_id+'&revision=1')
+            ensure('Logged-out historical text preview remains private',
+                   code==302 and 'not_public()' not in anonymous_history)
             code, _, _, logged_out_preview = req_binary('/admin/moderation/image/' + pending_media_id)
             ensure('Logged-out administrator cannot retrieve pending image bytes',
                    code == 302 and not logged_out_preview.startswith(b'\x89PNG'))

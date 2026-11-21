@@ -1,3 +1,9 @@
+## Protected read-only page history preview — 2026-11-21
+
+Owner/admin may now preview a specific saved page revision using a read-only `/admin/page/history?id=…&revision=…` URL. The version is selected by exact page ID and revision under the existing license, session, MFA and owner role checks. Preview renders escaped plain text only, with no private media, forced publication or live theme image; replies are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex, nofollow`. Invalid/missing versions return 404, POST is 405 with valid session CSRF, and logged-out requests redirect before any private text loads. The editor links to previews beside draft-only restore forms; source snapshots remain immutable. SQL and real authenticated HTTP regressions cover these restrictions. This is not a creator publication, merchant billing or legal verification integration.
+
+---
+
 ## Private page revision history with draft-only restore (m19) — 2026-11-21
 
 A repeatable additive m19 schema preserves page title/body, status, slug, menu visibility/order and revision snapshots in a local `ac_page_history` table. Existing installations backfill **only the current known state**; prior overwritten revisions cannot be reconstructed. Every subsequent page create/edit and private page duplication writes the snapshot in the same DB transaction, including Design Studio homepage edits through savepoints; if the snapshot fails the edit rolls back. The owner/admin editor lists at most 20 recent version summaries and permits a CSRF-protected, revision-checked restore of an earlier title/body. **Restoration always creates a new private draft** and never restores an earlier published state, URL slug or menu flag. The owner must separately publish again.

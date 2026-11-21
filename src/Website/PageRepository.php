@@ -181,6 +181,22 @@ final class PageRepository
     }
 
     /**
+     * Exact private revision detail, scoped by BOTH page and version.
+     * No public endpoint uses this method or exposes prior draft bodies.
+     * @return array<string,mixed>|null
+     */
+    public function historyDetail(int $pageId,int $revision): ?array
+    {
+        $this->historyReady();
+        if ($pageId<1 || $revision<1) return null;
+        $q=$this->pdo->prepare('SELECT revision,slug,title,body,status,saved_at
+            FROM ac_page_history WHERE page_id=? AND revision=? LIMIT 1');
+        $q->execute([$pageId,$revision]);
+        $row=$q->fetch(PDO::FETCH_ASSOC);
+        return is_array($row)?$row:null;
+    }
+
+    /**
      * Restore only the old title/body, ALWAYS as a new unpublished draft.
      * Keep the current URL and menu flags; old public status is never restored.
      * Row locking + optimistic revision prevent stale saves and replay.

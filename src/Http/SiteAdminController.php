@@ -55,7 +55,7 @@ final class SiteAdminController
                 $this->render(503, 'Setup required', '<p>The site schema is not yet installed. <a href="/admin/setup">Complete site setup</a>.</p>');
                 return;
             }
-            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview'],true)
+            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview','/admin/page/history'],true)
                 && !PageRevisionSchema::installed($pdo)) {
                 $this->render(503,'Page editor setup required',
                     '<p>Back up the database, then apply the additive page-revision migration in <a href="/admin/setup">Site setup</a>.</p>');
@@ -67,10 +67,19 @@ final class SiteAdminController
                     '<p>Back up the database and apply the additive page navigation migration in <a href="/admin/setup">Site setup</a>.</p>');
                 return;
             }
-            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview'],true)
+            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview','/admin/page/history'],true)
                 && !PageHistorySchema::installed($pdo)) {
                 $this->render(503,'Page history setup required',
                     '<p>Back up the database, then apply the additive private page history migration in <a href="/admin/setup">Site setup</a>.</p>');
+                return;
+            }
+            if ($path === '/admin/page/history') {
+                if ($method!=='GET') {
+                    header('Allow: GET');
+                    $this->render(405,'Method not allowed','<p>History preview is read-only.</p>');
+                    return;
+                }
+                $this->historicalPreview($pdo);
                 return;
             }
             if ($path === '/admin/page/preview') {
@@ -209,6 +218,39 @@ final class SiteAdminController
         header('X-Robots-Tag: noindex, nofollow');
         echo Layout::site((string)$page['title'],(string)$page['body'],
             $pageRepo->publishedMenu(),$siteName,$page['slug']==='home',$design,true,(string)$page['slug']);
+    }
+
+    /**
+     * Inspect a past snapshot before deciding to restore it. No public-site
+     * layout, active media selection, live page status or mutation is involved.
+     */
+    private function historicalPreview(PDO $pdo): void
+    {
+        $id=filter_var($_GET['id']??null,FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>1]]);
+        $revision=filter_var($_GET['revision']??null,FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>1]]);
+        if (!is_int($id) || !is_int($revision)) {
+            $this->render(404,'History unavailable','<p>Saved revision not found.</p>');
+            return;
+        }
+        $snapshot=(new PageRepository($pdo))->historyDetail($id,$revision);
+        if (!is_array($snapshot)) {
+            $this->render(404,'History unavailable','<p>Saved revision not found.</p>');
+            return;
+        }
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        $html='<p role="status"><strong>PRIVATE SAVED REVISION</strong> — Not the live website. '
+            .'This snapshot does not restore or publish anything.</p>'
+            .'<section class="panel"><h2>'.self::e((string)$snapshot['title']).'</h2>'
+            .'<p class="muted">Revision '.(int)$snapshot['revision']
+            .' · Saved state: '.self::e((string)$snapshot['status'])
+            .' · Recorded UTC: '.self::e((string)$snapshot['saved_at']).'</p>'
+            .'<div class="site-copy">'
+            .nl2br(self::e((string)$snapshot['body']),false).'</div></section>'
+            .'<p><a class="button-secondary" href="/admin/page?id='.$id.'">Back to page editor</a></p>';
+        $this->render(200,'Historical page text',$html);
     }
 
     private function pages(PDO $pdo): void
@@ -433,8 +475,10 @@ final class SiteAdminController
                 $html.='<tr><td>'. $version .'</td><td>'.self::e((string)$snapshot['title'])
                     .'</td><td>'.self::e((string)$snapshot['status'])
                     .'</td><td>'.self::e((string)$snapshot['saved_at']).'</td><td>';
+                $html.='<a href="/admin/page/history?id='.$id.'&amp;revision='.$version
+                    .'" target="_blank" rel="noopener noreferrer">Preview revision</a>';
                 if ($version<(int)$entry['revision']) {
-                    $html.='<form method="post" action="/admin/page?id='.$id.'">'
+                    $html.=' · <form method="post" action="/admin/page?id='.$id.'">'
                         .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
                         .'<input type="hidden" name="action" value="restore">'
                         .'<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">'
