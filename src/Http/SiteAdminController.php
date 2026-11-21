@@ -374,15 +374,18 @@ final class SiteAdminController
             $title = $_POST['title'] ?? null;
             $body = $_POST['body'] ?? null;
             $status = $_POST['status'] ?? null;
-            // The hidden checkbox fallback sends 0 when deliberately off;
-            // older trusted forms default to the original visible position.
-            $rawMenu=$_POST['show_in_menu']??'1';
-            $rawPosition=$_POST['nav_position']??'100';
-            $showInMenu=is_string($rawMenu) && in_array($rawMenu,['0','1'],true)
-                ? $rawMenu==='1' : null;
-            $navPosition=is_string($rawPosition)
+            // Modern forms send hidden 0 + checked 1; older open tabs may
+            // omit both fields. Preserve current nav settings on omission,
+            // never silently relist an unlisted published page.
+            $rawMenu=$_POST['show_in_menu']??null;
+            $rawPosition=$_POST['nav_position']??null;
+            $showInMenu=$rawMenu===null?null:(is_string($rawMenu)
+                && in_array($rawMenu,['0','1'],true)?$rawMenu==='1':false);
+            $validMenu=$rawMenu===null
+                || (is_string($rawMenu) && in_array($rawMenu,['0','1'],true));
+            $navPosition=$rawPosition===null?null:(is_string($rawPosition)
                 && preg_match('/^(0|[1-9][0-9]{0,2})$/D',$rawPosition)===1
-                ? (int)$rawPosition : null;
+                ? (int)$rawPosition:false);
             $rawRevision=$_POST['revision']??null;
             $revision=$id>0 && is_string($rawRevision)
                 ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
@@ -391,7 +394,7 @@ final class SiteAdminController
                 $error = 'Invalid page fields.';
             } elseif ($id>0 && !is_int($revision)) {
                 $error = 'Page revision required; reload before saving.';
-            } elseif ($showInMenu===null || $navPosition===null) {
+            } elseif (!$validMenu || $navPosition===false) {
                 $error = 'Invalid navigation settings.';
             } else {
                 try {
@@ -413,7 +416,7 @@ final class SiteAdminController
                 'body'=>is_string($body)?$body:'','status'=>is_string($status)?$status:'draft',
                 'revision'=>is_int($revision)?$revision:(int)($entry['revision']??0),
                 'show_in_menu'=>$showInMenu===null?(int)($entry['show_in_menu']??1):($showInMenu?1:0),
-                'nav_position'=>$navPosition??(int)($entry['nav_position']??100)];
+                'nav_position'=>is_int($navPosition)?$navPosition:(int)($entry['nav_position']??100)];
         }
         $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft','revision'=>0,
             'show_in_menu'=>1,'nav_position'=>100];

@@ -1,3 +1,9 @@
+## Legacy admin page-save form preserves navigation settings — 2026-11-21
+
+An administrator's older browser tab opened before m17 may submit title/body/status without the newer menu fields. The page editor now passes null optional values to the revision-safe repository, preserving existing `show_in_menu` and `nav_position` rather than silently relisting a published unlisted page. Explicit malformed menu settings still fail validation; modern forms continue sending their checked/unchecked values. The real HTTP regression saves an unlisted page with a legacy-style form and verifies its invisible nav link and stored sort order survive. Publishing, protected media, member billing and the Lite/Pro installer are unchanged.
+
+---
+
 ## Protected read-only page history preview — 2026-11-21
 
 Owner/admin may now preview a specific saved page revision using a read-only `/admin/page/history?id=…&revision=…` URL. The version is selected by exact page ID and revision under the existing license, session, MFA and owner role checks. Preview renders escaped plain text only, with no private media, forced publication or live theme image; replies are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex, nofollow`. Invalid/missing versions return 404, POST is 405 with valid session CSRF, and logged-out requests redirect before any private text loads. The editor links to previews beside draft-only restore forms; source snapshots remain immutable. SQL and real authenticated HTTP regressions cover these restrictions. This is not a creator publication, merchant billing or legal verification integration.

@@ -478,11 +478,24 @@ def main():
                                       r'<td><a href="/admin/page\?id=(\d+)"',saved_list)
             ensure('Owner can reopen the unlisted page',code==200 and unlisted_match is not None)
             unlisted_id=unlisted_match.group(1)
+            # An older open editor tab without m17 menu controls cannot
+            # silently expose an unlisted link or reset menu ordering.
+            code, legacy_edit=req('/admin/page?id='+unlisted_id,{
+                'csrf':edit_csrf.group(1),'revision':'1',
+                'slug':'unlisted','title':'Unlisted public page',
+                'body':'Still public but unlisted','status':'published'
+            })
+            ensure('Legacy page form preserves menu settings when fields are absent',
+                   code==303)
+            code, still_unlisted=req('/p/safe-page')
+            ensure('Unlisted page is not added to menu by old form',
+                   code==200 and 'href="/p/unlisted"' not in still_unlisted)
             code, unlisted_form=req('/admin/page?id='+unlisted_id)
             unlisted_revision=re.search(r'name="revision" value="(\d+)"',unlisted_form)
-            ensure('Unlisted page form retains explicit hidden navigation checkbox',
+            ensure('Unlisted page form retains explicit hidden navigation checkbox and order',
                    code==200 and unlisted_revision is not None
-                   and 'name="show_in_menu" value="0"' in unlisted_form)
+                   and 'name="show_in_menu" value="0"' in unlisted_form
+                   and 'name="nav_position" type="number" min="0" max="999" value="7"' in unlisted_form)
             code, _=req('/admin/page?id='+unlisted_id,{
                 'csrf':edit_csrf.group(1),'revision':unlisted_revision.group(1),
                 'slug':'unlisted','title':'Unlisted public page','body':'Now listed',
