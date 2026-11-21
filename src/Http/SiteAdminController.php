@@ -7,6 +7,7 @@ namespace AdultCore\Http;
 use AdultCore\Auth\AdminSession;
 use AdultCore\Auth\AdminMfaSchema;
 use AdultCore\Auth\StaffSchema;
+use AdultCore\Creator\CreatorSchema;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
@@ -84,6 +85,7 @@ final class SiteAdminController
             MemberSchema::migrate($pdo);
             StaffSchema::migrate($pdo);
             MemberEmailSchema::migrate($pdo);
+            CreatorSchema::migrate($pdo);
             PasswordRecoverySchema::migrate($pdo);
             MembershipSchema::migrate($pdo);
             ModerationSchema::migrate($pdo);

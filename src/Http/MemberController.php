@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace AdultCore\Http;
 
 use AdultCore\Auth\LoginRateLimiter;
+use AdultCore\Creator\CreatorApplications;
+use AdultCore\Creator\CreatorSchema;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
@@ -94,6 +96,10 @@ final class MemberController
                 $this->report($pdo, $method, $accounts);
                 return;
             }
+            if ($path === '/members/creator') {
+                $this->creator($pdo,$method,$accounts);
+                return;
+            }
             if (str_starts_with($path, '/members/library/')) {
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 if (preg_match('#^/members/library/([1-9][0-9]{0,17})$#D', $path, $match) !== 1) {
@@ -138,6 +144,7 @@ final class MemberController
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
+                    . '<p><a href="/members/creator">Creator interest application (private, no publishing)</a></p>'
                     . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
                 return;
@@ -149,6 +156,99 @@ final class MemberController
         } catch (Throwable) {
             $this->view(503,'Temporarily unavailable','<p>The member service is not available.</p>');
         }
+    }
+
+    /**
+     * A logged-in member may prepare text-only creator application metadata.
+     * No creator role, upload, adult age assertion or publication is conferred.
+     */
+    private function creator(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        $check=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $check->execute([CreatorSchema::VERSION]);
+        if ((int)$check->fetchColumn()!==1) {
+            $this->view(503,'Creator intake setup required',
+                '<p>Creator applications are not configured. Ask the website administrator to run Site setup.</p>');
+            return;
+        }
+        $repo=new CreatorApplications($pdo);
+        $confirmed=(new EmailConfirmations($pdo))->verified((int)$member['id']);
+        $current=$repo->forMember((int)$member['id']);
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload and try again.</p>');return;
+            }
+            try {
+                $raw=$_POST['expected_revision']??null;
+                if (!is_string($raw) || !is_string($_POST['display_name']??null)
+                    || !is_string($_POST['introduction']??null)) {
+                    throw new RuntimeException('Invalid application revision.');
+                }
+                $version=$raw===''?null:filter_var($raw,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]);
+                if ($version===false) throw new RuntimeException('Invalid application revision.');
+                (new LoginRateLimiter($this->root.'/storage','creator-intake'))->consume(
+                    (string)($_SERVER['REMOTE_ADDR']??'unknown'),(string)$member['email']);
+                $repo->submit((int)$member['id'],$_POST['display_name'],
+                    $_POST['introduction'],$version);
+                $this->redirect('/members/creator?result=saved');return;
+            } catch (RuntimeException $e) {
+                $allowed=[
+                    'Choose a creator display name of 2–80 bytes without control characters.',
+                    'Describe your creator plans in 20–500 bytes without private documents.',
+                    'Invalid application revision.','Confirm your member email before applying.',
+                    'Application changed; reload and try again.',
+                    'This application cannot be resubmitted.',
+                ];
+                $message=in_array($e->getMessage(),$allowed,true)
+                    ? $e->getMessage():'Application could not be saved.';
+                $this->view(422,'Creator application not saved',
+                    '<p role="alert">'.self::e($message).'</p>'
+                    .'<p><a href="/members/creator">Return to the private application</a></p>');
+                return;
+            }
+        }
+        $html='<p class="intro">This is a private creator interest form only. '
+            .'Do not submit identification documents, photos, explicit content, contact details, '
+            .'or another person\'s information. Email confirmation does not verify age or identity. '
+            .'No upload, membership, publishing or earning privileges are activated.</p>';
+        if (($_GET['result']??'')==='saved') $html.='<p role="status">Your private application was saved. It is not approved.</p>';
+        if ($current!==null) {
+            $html.='<section class="panel"><h2>Application status</h2>'
+                .'<p>Status: <strong>'.self::e((string)$current['status']).'</strong></p>'
+                .'<p>Review feedback: '.self::e((string)$current['review_note']).'</p>'
+                .'</section>';
+        }
+        if (!$confirmed) {
+            $html.='<section class="panel"><p>Confirm your member email address before applying. '
+                .'This is only inbox verification and never substitutes for independent adult age checks.</p>'
+                .'<p><a href="/members/email">Email confirmation settings</a></p></section>';
+        } elseif ($current!==null && $current['status']==='rejected') {
+            $html.='<section class="panel"><p>This application is closed and cannot be resubmitted on this account.'
+                .' Contact the website administrator for a separate review.</p></section>';
+        } else {
+            $html.='<section class="panel"><h2>'
+                .($current===null?'Submit creator interest':'Update creator interest')
+                .'</h2><form method="post" action="/members/creator" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                .'<input type="hidden" name="expected_revision" value="'
+                .($current===null?'':(int)$current['revision']).'">'
+                .'<label>Preferred creator display name'
+                .'<input name="display_name" minlength="2" maxlength="80" required value="'
+                .($current===null?'':self::e((string)$current['display_name'])).'"></label>'
+                .'<label>Tell us about your planned creative work (20–500 bytes, no private documents)'
+                .'<textarea name="introduction" rows="5" minlength="20" maxlength="500" required>'
+                .($current===null?'':self::e((string)$current['introduction'])).'</textarea></label>'
+                .'<button class="install-button" type="submit">'
+                .($current===null?'Send private application':'Save and resubmit for review')
+                .'</button></form></section>';
+        }
+        $this->view(200,'Creator interest',$html);
     }
 
     /** Password recovery is available without a login and never activates memberships. */
