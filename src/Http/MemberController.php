@@ -16,6 +16,7 @@ use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSession;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
+use AdultCore\Membership\MemberLibrary;
 use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
@@ -91,6 +92,18 @@ final class MemberController
                 $this->report($pdo, $method, $accounts);
                 return;
             }
+            if ($path === '/members/library') {
+                if ($method !== 'GET') { $this->denyMethod('GET'); return; }
+                $member = $this->member($accounts);
+                if ($member === null) { $this->redirect('/members/login'); return; }
+                $library = (new MemberLibrary($pdo))->visible((int)$member['id']);
+                $this->view(200, 'Private member library',
+                    '<p>Only approved content authorized for your account appears here. '
+                    . 'Unverified or unpublished content is never listed.</p>'
+                    . MemberLibrary::render($library)
+                    . '<p><a href="/members">Back to your account</a></p>');
+                return;
+            }
             if ($path === '/members') {
                 if ($method !== 'GET') { $this->denyMethod('GET'); return; }
                 $member = $this->member($accounts);
@@ -100,6 +113,7 @@ final class MemberController
                     . '<p>Account status: <strong>' . self::e($member['status']) . '</strong>.</p>'
                     . '<p>Email address: <strong>' . ($confirmed ? 'confirmed' : 'unconfirmed') . '</strong>. <a href="/members/email">Email settings</a></p>'
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
+                    . '<p><a href="/members/library">View your private library</a></p>'
                     . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
                 return;
