@@ -1,3 +1,9 @@
+## Installer safe-public-tree invariant — 2026-11-21
+
+Keep the read-only `src/Capability/PublicRootSafety.php` shared between `HostInspector` and `DeploymentPreflight`. `InstallService::install()` MUST reject missing `public_docroot` **before** contacting the CWP issuer or creating MySQL tables. The public tree must not contain linked paths, copied `install/config/storage/src/tests/scripts` directories, hidden sensitive files, unexpected executable scripts, unscannable/deep paths, or missing/invalid bundled `index.php`, `router.php`, `.htaccess` guards. Do not let an operator-selected expected edition bypass this requirement; only the verified license SKU chooses Lite/Pro. Keep the HTTP denial test, disposable MySQL installer and recovery fixtures, ZIP packaging checks and actual-host acceptance separate. This is not proof that real Apache, cPanel or VPS web routing is safe.
+
+---
+
 ## Read-only private-media integrity audit — 2026-11-21
 
 `PrivateMediaAudit::inspect()` and `scripts/audit-private-media.php [--json]` read registered `ac_media` identifiers and `storage/private-media` to report **aggregate counts only**: missing files, orphaned blobs, unsafe/symlinked paths, invalid storage rows, out-of-range sizes and truncated scans. They **never log or display storage keys, private paths, user media or verification evidence** and never modify/delete files or database rows. A completed installation is required for the CLI. Nonzero exit codes indicate anomalies or unavailable configuration. Keep `tests/mysql_private_media_audit.php` on disposable MySQL and temp storage only, and keep both the audit class and CLI in the single Lite/Pro release ZIP.

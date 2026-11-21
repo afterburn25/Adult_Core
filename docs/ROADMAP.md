@@ -1,3 +1,11 @@
+## Installer public-root guard — 2026-11-21
+
+The installer, Lite-to-Pro hosting inspection and operator deployment preflight now reuse `src/Capability/PublicRootSafety.php`. A license-valid host must have exactly the intended `public/` document root, bundled front controller/router/Apache guards, and no public symlinks, unexpected executables or copied private directories. `InstallService` rejects an unsafe public layout **before** asking Cajun Web Pro to validate a customer key and before any MySQL schema mutation. Disposable PHP and localhost HTTP tests cover these cases; the unified source ZIP explicitly requires the guard source and Apache routing file.
+
+**Still open:** real shared-host cPanel/Apache and Pro VPS installation with DNS/TLS evidence, live licensed key/domain acceptance, production Pro service supervision, offsite restore and independent legal/security certification. This local guard cannot prove that Apache/NGINX actually honors the intended routing and private-file protections.
+
+---
+
 ## Private media storage integrity and release packaging — 2026-11-21
 
 The new `src/Media/PrivateMediaAudit.php` and CLI `scripts/audit-private-media.php [--json]` provide a **read-only** audit of `ac_media` references and `storage/private-media` files, identifying missing blobs, unreferenced/orphaned files, unexpected paths/symlinks, invalid file sizes and truncated scans. Output contains only aggregate counts; there is **no automatic deletion, exposure of storage keys, repair, media approval or permission to bypass legal retention**. The CLI requires a ready installed site and exits nonzero for anomalies. `tests/mysql_private_media_audit.php` uses a disposable database and temporary filesystem; it passed in [GitHub Actions 44895957609](https://github.com/afterburn25/Adult_Core/actions/runs/44895957609). The unified Lite/Pro source ZIP now requires both the audit class and CLI.

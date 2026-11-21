@@ -1,3 +1,9 @@
+## ADR — Shared public-root safety is an installer prerequisite (2026-11-21)
+
+The exact pathname of a web document root is not sufficient to prove safe application hosting. A malicious or accidental public PHP file, symlink, copied private tree or missing Apache rule can expose private code/data even if `realpath(document_root) === realpath(public/)`. Centralize read-only source-tree checks in `PublicRootSafety`, reuse them from the deployment preflight and `HostInspector`, and make the existing Lite/Pro `public_docroot` capability conditional on those checks. Reject unsafe layouts **before transmitting the customer license key or creating the MySQL schema**, without modifying installed edition manifests or allowing Pro to downgrade. Source archive verification must require this scanner and bundled `.htaccess`. No local scan is a substitute for independent HTTPS routing and real-host acceptance.
+
+---
+
 ## ADR — Explicitly verified private backup vault and coordinated maintenance (2026-11-20)
 
 A backup copy is not trusted merely because the encrypted file exists or `fwrite()` succeeded. Independently authenticate and structurally validate complete files and signed installation state after transfer; delete only known-name old *verified* archives, after a new verified copy is durable. No filename or mount path can establish remote replication. To support shared hosting with no background service, provide optional CLI/cron entry points while refusing ordinary jobs unless the operator confirms traffic and writers are drained. Backup maintenance fails new HTTP routes closed and crash markers persist. No claim of automatic Pro-agent control, real point-in-time consistency or hosted recovery readiness follows from these controls.

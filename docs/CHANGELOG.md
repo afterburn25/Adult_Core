@@ -1,3 +1,10 @@
+## Installer layout hardening — 2026-11-21 (development only)
+
+- Shared `PublicRootSafety` scanner for installer and deployment preflight; copied private directories, public symlinks, unexpected executables and scan failures block local host eligibility.
+- The same `public_docroot` capability now also requires real bundled front controller/router and Apache rewrite/anti-index guards. `InstallService` rejects unsafe web layouts before contacting the license authority or initializing MySQL.
+- Extended disposable HTTP, host preflight, installer and backup/restore fixtures, and release ZIP source-presence checks.
+- Does not certify actual cPanel/VPS hosting, provide a production Pro worker, enable billing or change release gating.
+
 ## 0.8.12-host-https-audit-dev — 2026-11-20
 
 - Added an opt-in, read-only external HTTPS staging-host audit using a pinned, public DNS address, standard trusted TLS, no redirects or response-body reads; reports routing, private-path and security-header findings.
