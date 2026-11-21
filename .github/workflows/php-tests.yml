@@ -82,6 +82,15 @@ jobs:
         run: python3 tests/installer_service_http.py
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
+      - name: Private media orphan, missing-file and symlink audit (disposable MySQL)
+        run: php tests/mysql_private_media_audit.php
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass
+
       - name: Verified payment inbox idempotency and conflicting replay (disposable MySQL)
         run: php tests/mysql_billing_inbox.php
         env:
