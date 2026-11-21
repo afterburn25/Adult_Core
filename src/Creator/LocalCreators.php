@@ -137,7 +137,7 @@ final class LocalCreators
         $q->execute([$creatorId]);
         $profile=$q->fetch(PDO::FETCH_ASSOC);
         if (!is_array($profile)) return null;
-        $q=$this->pdo->prepare("SELECT id,title,summary,status,revision,updated_at
+        $q=$this->pdo->prepare("SELECT id,title,summary,status,review_note,revision,updated_at
             FROM ac_creator_drafts WHERE creator_id=?
                 AND status IN ('private','submitted','changes','rejected')
             ORDER BY id DESC LIMIT 50");
@@ -247,7 +247,7 @@ final class LocalCreators
     {
         $creator=$this->activeForMember($memberId);
         if ($creator===null) return [];
-        $q=$this->pdo->prepare("SELECT id,title,summary,status,revision,updated_at
+        $q=$this->pdo->prepare("SELECT id,title,summary,status,review_note,revision,updated_at
             FROM ac_creator_drafts WHERE creator_id=?
                 AND status IN ('private','submitted','changes','rejected')
             ORDER BY id DESC LIMIT 50");
