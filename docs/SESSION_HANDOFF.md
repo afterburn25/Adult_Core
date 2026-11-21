@@ -1,3 +1,9 @@
+## Installer and owner branding validation parity — 2026-11-21
+
+Fresh installs now reject site names containing malformed UTF-8 or C0/DEL control bytes, checking the untrimmed raw value before any issuer request or database creation. This aligns the universal Lite/Pro installer input boundary with m20 owner's local branding editor; both accept 2–120 UTF-8 bytes of single-line public display text. Existing installed legacy values are still displayed escaped for correction rather than silently mutated. Disposable MySQL tests exercise leading/middle/trailing malicious control input and ordinary installer behavior. Neither license issuance nor host installation is claimed to be live-certified.
+
+---
+
 ## Encrypted local branding disaster recovery test — 2026-11-21
 
 The disposable full MySQL/MariaDB encrypted `.acfull` backup and empty-database restoration fixture now migrates m20, changes the canonical site name with a revision check, and verifies the exact brand string and revision survive the restore without an issuer request or an account/password change. This covers only the local website name, not the licensed domain. All previously added creator, draft, page history, decorative media and encrypted archive assertions remain. Actual cPanel/VPS restore drills and independent launch acceptance are still required.

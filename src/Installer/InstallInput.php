@@ -60,6 +60,7 @@ final class InstallInput
         $dbName = $take('db_name');
         $dbUser = $take('db_user');
         $dbPassword = $fields['db_password'] ?? null;
+        $rawSiteName=$fields['site_name']??null;
         $siteName = $take('site_name');
         $email = strtolower($take('admin_email'));
         $password = $fields['admin_password'] ?? null;
@@ -73,6 +74,9 @@ final class InstallInput
             || preg_match('/^[a-zA-Z0-9_]{1,64}$/D', $dbName) !== 1
             || preg_match('/^[a-zA-Z0-9_@.\-]{1,128}$/D', $dbUser) !== 1
             || !is_string($dbPassword) || strlen($dbPassword) > 1024
+            || !is_string($rawSiteName) || strlen($rawSiteName)>120
+            || preg_match('//u',$rawSiteName)!==1
+            || preg_match('/[\x00-\x1f\x7f]/',$rawSiteName)===1
             || strlen($siteName) < 2 || strlen($siteName) > 120
             || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 190
             || !is_string($password) || strlen($password) < 12 || strlen($password) > 72

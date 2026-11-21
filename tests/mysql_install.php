@@ -17,6 +17,7 @@ use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\StaffSchema;
 use AdultCore\Auth\StaffRepository;
 use AdultCore\Installer\InstallService;
+use AdultCore\Installer\InstallInput;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
@@ -91,6 +92,18 @@ $inputs = [
     'admin_password' => 'super-secret-example-password',
 ];
 try {
+    // The same single-line UTF-8 name policy applies to fresh installation,
+    // BEFORE transmitting any paid key or opening the installation database.
+    foreach (["Bad\x00Name","Line\nBreak",'Trailing name'."\0"] as $invalidName) {
+        $candidate=$inputs;
+        $candidate['site_name']=$invalidName;
+        try {
+            InstallInput::validateForService($candidate);
+            throw new RuntimeException('Invalid installer brand was accepted.');
+        } catch (\InvalidArgumentException $e) {
+            if ($e->getMessage()==='Invalid installer brand was accepted.') throw $e;
+        }
+    }
     // Explicit rejection must occur before MySQL schema creation.
     try {
         (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
