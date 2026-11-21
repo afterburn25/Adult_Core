@@ -227,6 +227,7 @@ def main():
                    code==200 and 'Local checks:' in health
                    and 'Public webroot isolation' in health
                    and 'Monitored additive migrations' in health
+                   and 'Local license/edition consistency' in health
                    and 'Production release is still blocked' in health
                    and 'password_hash' not in health)
             code, _, health_headers, _=req_binary('/admin/health')

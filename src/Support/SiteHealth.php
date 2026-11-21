@@ -6,6 +6,11 @@ namespace AdultCore\Support;
 
 use AdultCore\Capability\PublicRootSafety;
 use AdultCore\Installer\InstallationGate;
+use AdultCore\Licensing\LicenseManager;
+use AdultCore\Auth\AdminMfaSchema;
+use AdultCore\Auth\StaffSchema;
+use AdultCore\Member\PasswordRecoverySchema;
+use AdultCore\Design\CutoutPlacement;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
@@ -67,10 +72,12 @@ final class SiteHealth
             SiteSchema::VERSION,PageRevisionSchema::VERSION,
             PageNavigationSchema::VERSION,PageHistorySchema::VERSION,
             SiteIdentitySchema::VERSION,MemberSchema::VERSION,
-            MemberEmailSchema::VERSION,MembershipSchema::VERSION,
-            ModerationSchema::VERSION,CreatorSchema::VERSION,
-            CreatorReviewSchema::VERSION,CreatorFeedbackSchema::VERSION,
-            DesignSchema::VERSION,HighlightSchema::VERSION,
+            MemberEmailSchema::VERSION,PasswordRecoverySchema::VERSION,
+            MembershipSchema::VERSION,ModerationSchema::VERSION,
+            CreatorSchema::VERSION,CreatorReviewSchema::VERSION,
+            CreatorFeedbackSchema::VERSION,DesignSchema::VERSION,
+            CutoutPlacement::VERSION,HighlightSchema::VERSION,
+            AdminMfaSchema::VERSION,StaffSchema::VERSION,
             VerificationSchema::VERSION,
         ];
         $versions=$this->pdo->query('SELECT version FROM ac_schema_migrations')
@@ -82,8 +89,24 @@ final class SiteHealth
                 $pending.' monitored schema change(s) pending; back up before running Admin → Setup.');
         $edition=$this->pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn();
         $add('Local edition marker',in_array($edition,['lite','pro'],true),
-            'Installed database edition must be Lite or Pro; licensing is verified independently.');
+            'Installed database edition must be Lite or Pro.');
+        // Read validated site-local config only; do not call the paid vendor,
+        // show its domain/key, or turn this into a license refresh operation.
+        $license=(new LicenseManager($this->root))->config();
+        $add('Local license/edition consistency',
+            self::editionMatches($edition,$license),
+            'The locally validated license SKU and database edition must agree. '
+            .'Use the existing license/edition recovery flow if mismatched.');
         return $result;
+    }
+
+    /** @param mixed $edition @param mixed $license */
+    public static function editionMatches(mixed $edition,mixed $license): bool
+    {
+        return in_array($edition,['lite','pro'],true)
+            && is_array($license)
+            && is_string($license['edition']??null)
+            && hash_equals($edition,$license['edition']);
     }
 
     public static function allLocalChecksPass(array $checks): bool

@@ -1,3 +1,9 @@
+## Complete monitored migrations and local edition consistency — 2026-11-21
+
+The new Site Health screen now monitors all 19 migration markers from Admin → Setup via the actual schema class VERSION constants, avoiding stale copied version strings. It also compares the installed Lite/Pro database edition to the **locally validated and signed-identity-aware** license config without making any vendor request or rendering the key/domain. Mismatched editions, invalid config or missing local markers are `Needs attention`, never green or auto-repaired. Unit and authenticated HTTP tests check wrong/absent editions and visibility. A local Pass still never certifies actual hosts, merchant billing, independent age/consent providers or production security.
+
+---
+
 ## Owner-only local Site Health diagnostics — 2026-11-21
 
 The authenticated GET-only `/admin/health` screen lists local signed-install readiness, PHP/extension prerequisites, private writable directory properties, safe public webroot isolation, monitored additive schema markers and local Lite/Pro edition marker. Only local aggregate pass/fail and fixed requirement labels are displayed; no credentials, private filenames, customer records, vendor traffic or protected images. `site.settings.manage` protects it, moderators see 403, and all replies carry no-store/noindex. A Pass is **not** production certification, licensed payment/age/consent authorization or a reason to enable adult media. Unit, real HTTP/role and signed unified source ZIP inclusion checks cover it. Real cPanel/VPS, external providers, Pro video, backup drills and independent release acceptance remain pending.

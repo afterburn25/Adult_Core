@@ -59,6 +59,12 @@ uiCheck(!\AdultCore\Support\SiteHealth::allLocalChecksPass([])
     && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>'true']])
     && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>true],['pass'=>false]]),
     'Local health aggregation must fail closed on empty, malformed or failed checks');
+uiCheck(\AdultCore\Support\SiteHealth::editionMatches('lite',['edition'=>'lite'])
+    && \AdultCore\Support\SiteHealth::editionMatches('pro',['edition'=>'pro'])
+    && !\AdultCore\Support\SiteHealth::editionMatches('lite',['edition'=>'pro'])
+    && !\AdultCore\Support\SiteHealth::editionMatches('pro',null)
+    && !\AdultCore\Support\SiteHealth::editionMatches('unknown',['edition'=>'unknown']),
+    'Site Health never treats mismatched or absent local paid edition as consistent');
 $admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
     ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
 uiCheck(str_contains($admin, 'class="admin-sidebar"'), 'Sidebar layout');
