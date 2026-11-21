@@ -1,3 +1,9 @@
+## Source ZIP distribution integrity (2026-11-21)
+
+Keep `scripts/build-release.php` as a **developer-only**, single Lite/Pro source ZIP builder with an output directory outside the project/public root. The ZIP must contain all runtime classes, both edition manifests and no private `config/license.php`, `app-key.php`, customer database or private media. `tests/release_distribution_tests.php` in CI reopens the archive and checks a generated `.sha256` checksum. This checksum is **not a digital signature** and does not authorize an update or claim production release acceptance. Preserve the explicit fail-closed updater and host-certification gates.
+
+---
+
 ## Ten-workstream security and release boundary (2026-11-21)
 
 Keep `src/Support/ReleaseMilestones.php`, `scripts/release-matrix.php` and `ReleaseReadiness::blockers()` synchronized: **all ten production gates remain open** until independently evidenced. `docs/WORKSTREAM_ACCEPTANCE.md` records the real owner-controlled tests. Never infer merchant approval, a completed adult age/consent workflow, Pro FFmpeg operation, cPanel certification or independent audit from a GitHub green run.
