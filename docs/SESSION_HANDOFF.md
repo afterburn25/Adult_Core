@@ -1,3 +1,14 @@
+## Exhaustive Cajun Web Pro SKU staging audit — 2026-11-20
+
+- The operator-only `scripts/audit-cwp-staging.php` still uses owner-approved, private staging keys and an HTTPS-allowlisted issuer; it never issues licenses or initiates billing.
+- `CwpStagingAudit::run()` now makes **five** bounded read-only calls instead of three: the expected product/domain, **all three** other Adult_Core SKU/domain combinations, and the unregistered-domain negative control. A grant tied to a second SKU cannot falsely pass simply because a different competing SKU was the sole negative check.
+- `checks.other_products` now reports a separate verdict for each other SKU; `api_calls` is 5. Any transient response for any of the five controls yields `inconclusive` (not `passed`).
+- `tests/cwp_staging_audit_tests.php` checks all twelve unexpected second-grant pairs, every per-SKU transport failure, exact call count/order, negative domain, no private key in reports and existing CLI/endpoint protection.
+- GitHub Actions [run 44872344387](https://github.com/afterburn25/Adult_Core/actions/runs/44872344387) **passed** on code/test commit [`1e788a8`](https://github.com/afterburn25/Adult_Core/commit/1e788a8db30248c50388d3610e9c4e3c36365f57). Documentation in `docs/CWP_STAGING_PREFLIGHT.md` and `docs/CWP_CATALOG_SETUP.md` has been updated. Because CWP's default per-IP allowance is ten/minute, avoid running this five-call probe concurrently or twice in one minute without accounting for other traffic.
+- **Do not infer live acceptance.** The real Cajun Web Pro catalog, non-master staging licenses, merchant sandbox checkout/renewal/cancellation, and cPanel/Pro VPS deployments have still not been exercised or certified.
+
+---
+
 ## Installation recovery and runtime Host-validation checkpoint — 2026-11-20
 
 - The installation gate now treats a missing signed completion marker alongside any generated private app-key, database config, license config or license cache as **invalid partial installation**, not a fresh setup. A symlink or directory occupying the marker path is invalid; an app-key or database configuration symlink is also rejected. Normal license-repair entry points remain available when a valid installation marker exists and the license itself is missing.
