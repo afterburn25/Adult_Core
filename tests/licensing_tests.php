@@ -53,6 +53,40 @@ foreach (array_keys($products) as $authorizedSku) {
         $check('Authorized SKU cannot install with uncertain SKU '.$authorizedSku.' / '.$uncertainSku, $blocked);
     }
 }
+// Every SKU must be checked even after one positive response. A key that
+// resolves to multiple products is ambiguous and must never select an edition.
+$probes = [];
+$duplicate = new CajunWebClient(static function (string $body) use (&$probes): array {
+    $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+    $probes[] = $sku;
+    return ['status' => 200, 'body' => json_encode([
+        'authorized' => in_array($sku, [CajunWebClient::SKU_LITE_ONCE, CajunWebClient::SKU_PRO_ONCE], true),
+    ], JSON_THROW_ON_ERROR)];
+});
+try { $duplicate->resolve($key, $domain); $ambiguous = false; }
+catch (RuntimeException $error) { $ambiguous = str_contains($error->getMessage(), 'multiple editions'); }
+$check('Ambiguous multiple authorized SKUs fail closed', $ambiguous);
+$check('All four product-bound checks executed for ambiguous key', $probes === array_keys($products));
+$probeCount = 0;
+$single = new CajunWebClient(static function (string $body) use (&$probeCount): array {
+    $probeCount++;
+    $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+    return ['status' => 200, 'body' => json_encode([
+        'authorized' => $sku === CajunWebClient::SKU_LITE_ONCE,
+    ], JSON_THROW_ON_ERROR)];
+});
+$check('Unambiguous Lite resolution succeeds', $single->resolve($key, $domain)['edition'] === 'lite');
+$check('Successful discovery still checks four SKUs', $probeCount === 4);
+$network = new CajunWebClient(static function (string $body): array {
+    $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+    if ($sku === CajunWebClient::SKU_PRO_MONTH) throw new RuntimeException('Simulated transport outage');
+    return ['status' => 200, 'body' => json_encode([
+        'authorized' => $sku === CajunWebClient::SKU_LITE_ONCE,
+    ], JSON_THROW_ON_ERROR)];
+});
+try { $network->resolve($key, $domain); $outageBlocked = false; }
+catch (RuntimeException $error) { $outageBlocked = str_contains($error->getMessage(), 'temporarily unavailable'); }
+$check('Positive license plus thrown transport exception fails closed', $outageBlocked);
 $check('www hostname normalized',CajunWebClient::domain('WWW.Example.Test')==='example.test');
 foreach(['http://example.test','example.test:443','localhost','bad/../example.test','bad@domain.test'] as $value){
     try{CajunWebClient::domain($value);$ok=false;}catch(InvalidArgumentException){$ok=true;}
