@@ -1,6 +1,6 @@
 # Signed add-ons and themes — Milestone 4
 
-**Development feature, not a general PHP plugin sandbox.** Adult_Core M4 accepts **data-only** signed ZIP packages, stores them outside the web root, and records activation/selection. It **does not execute uploaded code, load extensions into frontend routes, render selected themes, or update/uninstall installed extensions** yet. Do not describe these as working photo/video plugins or production themes.
+**Development feature, not a general PHP plugin sandbox.** Adult_Core M4 accepts **data-only** signed ZIP packages, stores them outside the web root, and records activation/selection. A signed update ZIP can be **previewed but not applied**. It **does not execute uploaded code, load extensions into frontend routes, render selected themes, or update/uninstall installed extensions** yet. Do not describe these as working photo/video plugins or production themes.
 
 ## Why these limits exist
 
@@ -70,7 +70,8 @@ The shared-host core doesn't require the optional `ext-zip`. Package upload uses
 - Enabled modules are checked for signature, installed file hashes, core version, edition, available capabilities and **transitive active dependencies** whenever `isRunnable()` is called. Corrupt packages fail closed.
 - An invalid/disabled dependency prevents other dependent modules from qualifying. Disabling a module with enabled dependents is refused. Pro-only modules cannot be installed/activated on Lite.
 - Nothing can be loaded directly from an uploaded ZIP. No untrusted CSS is served on the public site yet.
-- There is **no package update/uninstall flow** or recovery UI. Replacing files manually will fail the integrity checks. Back up the installation before managing packages.
+- Signed update **compatibility preview** is now available in `/admin/packages` and through `PackageStore::previewUpdate()`. Upload a publisher-signed data-only ZIP with the **same installed identifier, type, publisher and paid-product SKU**, a **strictly newer** semantic version, and compatible edition/host/dependencies. The target package must first be disabled; the check reports current/proposed versions but **does not alter package files, registry entries, entitlements or activation**.
+- There is still **no package update, rollback, uninstall or executable plugin flow**. The preview is not a permission to copy new ZIP contents into an installed directory. A future updater must repeat every security check under its filesystem update lock and implement interruption recovery. Back up the installation before managing packages.
 - A valid publisher signature indicates origin only, **not** that a package is safe or compliant. Future runtime plugins need code audit, isolation, versioned API and a secure update process.
 
 ## Tests
