@@ -23,6 +23,7 @@ use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\CutoutPlacement;
 use AdultCore\Member\MemberSchema;
@@ -252,6 +253,15 @@ try {
     DesignSchema::migrate($pdo);
     CutoutPlacement::migrate($pdo);
     CutoutPlacement::migrate($pdo); // Interrupted/previous upgrades must be restart-safe.
+    HighlightSchema::migrate($pdo);
+    HighlightSchema::migrate($pdo);
+    $testCards=HighlightSchema::defaults();
+    $testCards[0]=['title'=>'Owner-made highlight','body'=>'Site-local title and text'];
+    $cardsRepo=new DesignRepository($pdo);
+    $cardsRepo->save('noir-gold','#d9ae75','right','large',null,null,$testCards);
+    if ($cardsRepo->current()['highlights']!==$testCards) {
+        throw new RuntimeException('Owner-edited homepage info cards did not persist.');
+    }
     $positionColumns = $pdo->query("SHOW COLUMNS FROM ac_design_settings LIKE 'cutout_%'")->fetchAll(PDO::FETCH_ASSOC);
     if (count($positionColumns)!==3) throw new RuntimeException('Visual positioning columns missing.');
     $design=new DesignRepository($pdo);

@@ -81,10 +81,22 @@ final class Layout
             . '<p class="hero-footnote"><span class="status-light" aria-hidden="true"></span> ' . self::escape($intro) . ' · Private by design</p>'
             . '</div><div class="hero-art" aria-hidden="true">'
             . $art . '</div></div>';
-        $secondary = '<section class="site-highlights" aria-label="Site information">'
-            . '<div><span class="highlight-number">01</span><strong>Your space</strong><p>A thoughtfully designed home for your community.</p></div>'
-            . '<div><span class="highlight-number">02</span><strong>Member accounts</strong><p>Dedicated account access with privacy-first safeguards.</p></div>'
-            . '<div><span class="highlight-number">03</span><strong>Made personal</strong><p>Pages and styling curated by your site administrator.</p></div></section>';
+        $cards=\AdultCore\Design\HighlightSchema::defaults();
+        if (isset($design['highlights'])) {
+            try {
+                $cards=\AdultCore\Design\HighlightSchema::validate($design['highlights']);
+            } catch (\RuntimeException) {
+                // Invalid persisted data can never interpolate HTML or scripts.
+            }
+        }
+        $secondary='<section class="site-highlights" aria-label="Site information">';
+        foreach ($cards as $index=>$card) {
+            $secondary.='<div><span class="highlight-number">'
+                .str_pad((string)($index+1),2,'0',STR_PAD_LEFT).'</span><strong>'
+                .self::escape($card['title']).'</strong><p>'
+                .self::escape($card['body']).'</p></div>';
+        }
+        $secondary.='</section>';
         return self::head($title, 'public-site theme-' . $theme . ' image-' . $side . ' image-size-' . $size, $siteName)
             . '<div class="site-frame"><header class="site-header"><div class="site-container site-header-inner">'
             . self::brand(false, $siteName) . '<nav class="site-nav" aria-label="Main navigation">' . $nav . '</nav>'

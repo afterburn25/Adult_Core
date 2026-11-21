@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Design\DesignImages;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\CutoutPlacement;
 use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
@@ -21,6 +22,29 @@ designCheck(count(ThemeCatalog::THEMES) === 4,'Four distinct layout presets');
 designCheck(array_keys(ThemeCatalog::THEMES) === ['noir-gold','velvet-plum','midnight-teal','rose-ivory'],'Original four keys unchanged, without duplicates');
 designCheck(DesignSchema::VERSION==='m11_visual_design_v1','Original design schema remains stable');
 designCheck(CutoutPlacement::VERSION==='m12_cutout_placement_v1','Additive placement schema');
+designCheck(HighlightSchema::VERSION==='m18_home_highlights_v1','Additive safe homepage cards schema');
+designCheck(count(HighlightSchema::defaults())===3,'Three safe default homepage info cards');
+$cards=HighlightSchema::validate([
+    ['title'=>'Only <welcome>','body'=>'Safe & plain informational text'],
+    ['title'=>'Local <owners>','body'=>'Independent website design'],
+    ['title'=>'Members','body'=>'No automatic media grant'],
+]);
+$rendered=Layout::site('Welcome','Text',[], 'Local Studio',true,['highlights'=>$cards]);
+designCheck(str_contains($rendered,'Only &lt;welcome&gt;')
+    && str_contains($rendered,'Safe &amp; plain')
+    && !str_contains($rendered,'Only <welcome>'),'Homepage cards are always escaped');
+foreach ([
+    [['title'=>'Only one','body'=>'Missing two']],
+    [['title'=>'','body'=>'Valid'],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
+    [['title'=>"Line\nBreak",'body'=>'Valid'],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
+] as $invalidCards) {
+    try {
+        HighlightSchema::validate($invalidCards);
+        throw new RuntimeException('Unsafe home cards accepted.');
+    } catch (RuntimeException $e) {
+        designCheck($e->getMessage()!=='Unsafe home cards accepted.','Invalid cards rejected');
+    }
+}
 designCheck(CutoutPlacement::defaults() === ['cutout_x'=>50,'cutout_y'=>50,'cutout_width'=>80], 'Safe default placement values');
 foreach ([['0','0','20'],['100','100','100'],['23','68','62']] as $coords) {
     $value=CutoutPlacement::validate(...$coords);

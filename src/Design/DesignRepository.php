@@ -37,7 +37,27 @@ final class DesignRepository
                 }
             }
         }
-        return array_merge($row, $coordinates);
+        $highlights=HighlightSchema::defaults();
+        if (HighlightSchema::installed($this->pdo)) {
+            $saved=$this->pdo->query('SELECT highlight_1_title,highlight_1_body,
+                highlight_2_title,highlight_2_body,highlight_3_title,highlight_3_body
+                FROM ac_design_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+            if (is_array($saved)) {
+                try {
+                    $highlights=HighlightSchema::validate([
+                        ['title'=>(string)$saved['highlight_1_title'],
+                         'body'=>(string)$saved['highlight_1_body']],
+                        ['title'=>(string)$saved['highlight_2_title'],
+                         'body'=>(string)$saved['highlight_2_body']],
+                        ['title'=>(string)$saved['highlight_3_title'],
+                         'body'=>(string)$saved['highlight_3_body']],
+                    ]);
+                } catch (RuntimeException) {
+                    // Malformed stored text cannot become executable markup.
+                }
+            }
+        }
+        return array_merge($row,$coordinates,['highlights'=>$highlights]);
     }
 
     /** @return list<array<string,mixed>> */
@@ -67,9 +87,16 @@ final class DesignRepository
         return is_array($row) ? $row : null;
     }
 
-    public function save(string $theme, string $accent, string $side, string $size, ?int $assetId, ?array $placement = null): void
+    public function save(string $theme, string $accent, string $side, string $size, ?int $assetId,
+                         ?array $placement = null, ?array $highlights = null): void
     {
         ThemeCatalog::validate($theme, $accent, $side, $size);
+        if ($highlights!==null) {
+            if (!HighlightSchema::installed($this->pdo)) {
+                throw new RuntimeException('Apply the additive homepage card migration in Site setup.');
+            }
+            $highlights=HighlightSchema::validate($highlights);
+        }
         if ($assetId !== null && $this->asset($assetId) === null) {
             throw new RuntimeException('Choose an uploaded design image.');
         }
@@ -98,5 +125,18 @@ final class DesignRepository
         $s = $this->pdo->prepare('UPDATE ac_design_settings SET theme_key=?,accent_color=?,image_side=?,image_size=?,hero_asset_id=?,cutout_x=?,cutout_y=?,cutout_width=?,updated_at=UTC_TIMESTAMP() WHERE id=1');
         $s->execute([$theme, strtolower($accent), $side, $size, $assetId,
             $position['cutout_x'], $position['cutout_y'], $position['cutout_width']]);
+        if ($highlights!==null) {
+            $values=[];
+            foreach ($highlights as $card) {
+                $values[]=$card['title'];
+                $values[]=$card['body'];
+            }
+            $s=$this->pdo->prepare('UPDATE ac_design_settings SET
+                highlight_1_title=?,highlight_1_body=?,
+                highlight_2_title=?,highlight_2_body=?,
+                highlight_3_title=?,highlight_3_body=?
+                WHERE id=1');
+            $s->execute($values);
+        }
     }
 }
