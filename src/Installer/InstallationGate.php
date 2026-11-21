@@ -63,15 +63,28 @@ final class InstallationGate
         $installDirectoryPresent = is_dir($this->projectRoot . '/install');
         $stateFile = $this->projectRoot . '/storage/install-state.json';
 
-        if (!is_file($stateFile)) {
+        $keyFile = $this->projectRoot . '/config/app-key.php';
+        $dbFile = $this->projectRoot . '/config/database.php';
+        $licenseFile = $this->projectRoot . '/config/license.php';
+        $licenseCache = $this->projectRoot . '/storage/license-cache.json';
+        if (!is_file($stateFile) || is_link($stateFile)) {
+            // A missing marker plus generated private files is an incomplete
+            // installation, NOT a fresh site. Never offer the setup form or
+            // silently reinitialize an existing database in this state.
+            foreach ([$keyFile, $dbFile, $licenseFile, $licenseCache] as $privateFile) {
+                if (file_exists($privateFile) || is_link($privateFile)) {
+                    return self::INVALID_STATE;
+                }
+            }
+            if (is_link($stateFile)) return self::INVALID_STATE;
             return $installDirectoryPresent ? self::SETUP_REQUIRED : self::INSTALLER_MISSING;
         }
 
         // Never trust a bare JSON marker. Validity requires the private app
         // key, an installed database configuration, and a signed v2 state.
-        $keyFile = $this->projectRoot . '/config/app-key.php';
-        $dbFile = $this->projectRoot . '/config/database.php';
-        if (!is_readable($stateFile) || !is_file($keyFile) || !is_readable($keyFile)
+        // Refuse symlinks so an untrusted mount cannot redirect secret reads.
+        if (!is_readable($stateFile) || is_link($keyFile) || is_link($dbFile)
+            || !is_file($keyFile) || !is_readable($keyFile)
             || !is_file($dbFile) || !is_readable($dbFile)) {
             return self::INVALID_STATE;
         }
