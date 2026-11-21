@@ -15,6 +15,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\PageHistorySchema;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
@@ -66,6 +67,12 @@ final class SiteAdminController
                     '<p>Back up the database and apply the additive page navigation migration in <a href="/admin/setup">Site setup</a>.</p>');
                 return;
             }
+            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview'],true)
+                && !PageHistorySchema::installed($pdo)) {
+                $this->render(503,'Page history setup required',
+                    '<p>Back up the database, then apply the additive private page history migration in <a href="/admin/setup">Site setup</a>.</p>');
+                return;
+            }
             if ($path === '/admin/page/preview') {
                 if ($method!=='GET') {
                     header('Allow: GET');
@@ -98,6 +105,7 @@ final class SiteAdminController
             SiteSchema::migrate($pdo);
             PageRevisionSchema::migrate($pdo);
             PageNavigationSchema::migrate($pdo);
+            PageHistorySchema::migrate($pdo);
             AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
@@ -122,6 +130,7 @@ final class SiteAdminController
             'Public page schema'=>SiteSchema::VERSION,
             'Page revision protection'=>PageRevisionSchema::VERSION,
             'Page navigation settings'=>PageNavigationSchema::VERSION,
+            'Private page revision history'=>PageHistorySchema::VERSION,
             'Administrator authenticator MFA'=>AdminMfaSchema::VERSION,
             'Design Studio'=>DesignSchema::VERSION,
             'Cutout position controls'=>CutoutPlacement::VERSION,
@@ -268,7 +277,35 @@ final class SiteAdminController
         $error = null;
         $entry = $id > 0 ? $repo->byId($id) : null;
         if ($id > 0 && $entry === null) { $this->render(404, 'Page missing', '<p>Page not found.</p>'); return; }
-        if ($method==='POST' && ($_POST['action']??'save')==='duplicate') {
+        $action=$_POST['action']??'save';
+        if ($method==='POST' && !in_array($action,['save','duplicate','restore'],true)) {
+            $this->render(422,'Invalid page action','<p>Unknown page action.</p>');
+            return;
+        }
+        if ($method==='POST' && $action==='restore') {
+            try {
+                $current=$_POST['revision']??null;
+                $source=$_POST['history_revision']??null;
+                $currentVersion=is_string($current)
+                    ? filter_var($current,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false;
+                $fromVersion=is_string($source)
+                    ? filter_var($source,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false;
+                if ($id<1 || !is_int($currentVersion) || !is_int($fromVersion)) {
+                    throw new RuntimeException('Invalid saved page revision.');
+                }
+                $repo->restoreTextAsDraft($id,$currentVersion,$fromVersion);
+                header('Location: /admin/page?id='.$id.'&result=restored',true,303);
+                return;
+            } catch (RuntimeException $e) {
+                $error=in_array($e->getMessage(),[
+                    'Page changed; reload before restoring.',
+                    'Saved page revision not found.',
+                    'Invalid saved page revision.',
+                ],true)?$e->getMessage():'Could not restore the private page revision.';
+            } catch (Throwable) {
+                $error='Could not restore the private page revision.';
+            }
+        } elseif ($method==='POST' && $action==='duplicate') {
             try {
                 $rawRevision=$_POST['revision']??null;
                 $revision=is_string($rawRevision)
@@ -343,6 +380,10 @@ final class SiteAdminController
             $html.='<p role="status">A new private draft copy was created. Review it before publishing. '
                 .'The original page is unchanged.</p>';
         }
+        if (($_GET['result']??'')==='restored' && $id>0 && $method==='GET') {
+            $html.='<p role="status">An earlier page text revision was restored to a NEW PRIVATE DRAFT. '
+                .'Publish separately after reviewing. Previous revisions are retained.</p>';
+        }
         $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
             . ($id>0 ? '<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">' : '')
@@ -381,6 +422,31 @@ final class SiteAdminController
                 .'pattern="[a-z0-9][a-z0-9-]*" placeholder="new-page-draft" required>'
                 .'<button class="button-secondary" type="submit">Create unpublished copy</button></form>' : '')
             . '</aside></div>';
+        if ($id>0) {
+            $html.='<section class="panel"><h2>Private page revision history</h2>'
+                .'<p class="muted">Only saved revisions since this feature was installed are available. '
+                .'Restoring an earlier version copies its title and text into a new <strong>unpublished draft</strong>. '
+                .'It never restores the old published state, URL or navigation settings.</p>'
+                .'<table class="page-table"><thead><tr><th>Revision</th><th>Title</th><th>Saved as</th><th>Saved at (UTC)</th><th></th></tr></thead><tbody>';
+            foreach ($repo->history($id) as $snapshot) {
+                $version=(int)$snapshot['revision'];
+                $html.='<tr><td>'. $version .'</td><td>'.self::e((string)$snapshot['title'])
+                    .'</td><td>'.self::e((string)$snapshot['status'])
+                    .'</td><td>'.self::e((string)$snapshot['saved_at']).'</td><td>';
+                if ($version<(int)$entry['revision']) {
+                    $html.='<form method="post" action="/admin/page?id='.$id.'">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+                        .'<input type="hidden" name="action" value="restore">'
+                        .'<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">'
+                        .'<input type="hidden" name="history_revision" value="'.$version.'">'
+                        .'<button class="button-secondary" type="submit">Restore text as draft</button></form>';
+                } else {
+                    $html.='<span class="muted">Current revision</span>';
+                }
+                $html.='</td></tr>';
+            }
+            $html.='</tbody></table><p class="muted">Showing up to 20 most recent revisions.</p></section>';
+        }
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }
 

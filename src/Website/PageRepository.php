@@ -119,22 +119,118 @@ final class PageRepository
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    private function historyReady(): void
+    {
+        if (!PageHistorySchema::installed($this->pdo)) {
+            throw new RuntimeException('Apply the additive private page-history migration in Site setup before editing.');
+        }
+    }
+
     /**
-     * Owner-only operation invoked only after the admin controller session,
-     * role and CSRF gates: copy safe page text to an UNPUBLISHED new slug.
-     * Row lock + revision compare avoids cloning a stale source. Navigation
-     * starts hidden, and neither media nor membership records are touched.
+     * Compose DB changes with a caller's existing Design Studio transaction.
+     * Savepoints keep a failed history insert from leaving a partial page edit
+     * even if a future outer caller catches the exception.
+     */
+    private function atomic(callable $operation): mixed
+    {
+        $nested=$this->pdo->inTransaction();
+        if ($nested) $this->pdo->exec('SAVEPOINT ac_page_mutation');
+        else $this->pdo->beginTransaction();
+        try {
+            $value=$operation();
+            if ($nested) $this->pdo->exec('RELEASE SAVEPOINT ac_page_mutation');
+            else $this->pdo->commit();
+            return $value;
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                if ($nested) {
+                    $this->pdo->exec('ROLLBACK TO SAVEPOINT ac_page_mutation');
+                    $this->pdo->exec('RELEASE SAVEPOINT ac_page_mutation');
+                } else {
+                    $this->pdo->rollBack();
+                }
+            }
+            throw $e;
+        }
+    }
+
+    /** Append only a committed, actual page version; no user-authored SQL. */
+    private function recordHistory(int $pageId): void
+    {
+        $q=$this->pdo->prepare("INSERT INTO ac_page_history
+            (page_id,revision,slug,title,body,status,show_in_menu,nav_position,saved_at)
+            SELECT id,revision,slug,title,body,status,show_in_menu,nav_position,UTC_TIMESTAMP()
+            FROM ac_pages WHERE id=?");
+        $q->execute([$pageId]);
+        if ($q->rowCount()!==1) throw new RuntimeException('Could not preserve the saved page version.');
+    }
+
+    /**
+     * Private admin-only, bounded history list. Never query body into the
+     * rendered table; restoring text requires a separate CSRF-protected POST.
+     * @return list<array<string,mixed>>
+     */
+    public function history(int $pageId): array
+    {
+        $this->historyReady();
+        if ($pageId<1) return [];
+        $q=$this->pdo->prepare('SELECT revision,title,status,saved_at
+            FROM ac_page_history WHERE page_id=? ORDER BY revision DESC LIMIT 20');
+        $q->execute([$pageId]);
+        return $q->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Restore only the old title/body, ALWAYS as a new unpublished draft.
+     * Keep the current URL and menu flags; old public status is never restored.
+     * Row locking + optimistic revision prevent stale saves and replay.
+     */
+    public function restoreTextAsDraft(int $pageId,int $expectedRevision,int $sourceRevision): int
+    {
+        $this->historyReady();
+        if ($pageId<1 || $expectedRevision<1 || $sourceRevision<1
+            || $sourceRevision >= $expectedRevision) {
+            throw new RuntimeException('Invalid saved page revision.');
+        }
+        return $this->atomic(function () use ($pageId,$expectedRevision,$sourceRevision): int {
+            $q=$this->pdo->prepare('SELECT slug,revision FROM ac_pages WHERE id=? FOR UPDATE');
+            $q->execute([$pageId]);
+            $current=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($current)) throw new RuntimeException('Page not found.');
+            if ((int)$current['revision']!==$expectedRevision) {
+                throw new RuntimeException('Page changed; reload before restoring.');
+            }
+            $q=$this->pdo->prepare('SELECT title,body FROM ac_page_history
+                WHERE page_id=? AND revision=? LIMIT 1');
+            $q->execute([$pageId,$sourceRevision]);
+            $snapshot=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($snapshot)) throw new RuntimeException('Saved page revision not found.');
+            self::validate((string)$current['slug'],(string)$snapshot['title'],(string)$snapshot['body'],'draft');
+            $q=$this->pdo->prepare("UPDATE ac_pages SET
+                title=?,body=?,status='draft',revision=revision+1,
+                updated_at=UTC_TIMESTAMP() WHERE id=? AND revision=?");
+            $q->execute([(string)$snapshot['title'],(string)$snapshot['body'],$pageId,$expectedRevision]);
+            if ($q->rowCount()!==1) throw new RuntimeException('Page changed; reload before restoring.');
+            $this->recordHistory($pageId);
+            return $expectedRevision+1;
+        });
+    }
+
+    /**
+     * Owner-only operation invoked only after authenticated admin/CSRF gates.
+     * Copy safe text into an unlisted UNPUBLISHED draft; do not copy media,
+     * member entitlements, publication state, or the original revision number.
      */
     public function duplicateAsDraft(int $sourceId,int $expectedRevision,string $newSlug): int
     {
+        $this->historyReady();
         if ($sourceId<1 || $expectedRevision<1) {
             throw new RuntimeException('Page revision required; reload before copying.');
         }
         if ($newSlug==='home') {
             throw new RuntimeException('The homepage URL slug is reserved.');
         }
-        $this->pdo->beginTransaction();
-        try {
+        return $this->atomic(function () use ($sourceId,$expectedRevision,$newSlug): int {
             $q=$this->pdo->prepare('SELECT title,body,revision FROM ac_pages WHERE id=? FOR UPDATE');
             $q->execute([$sourceId]);
             $source=$q->fetch(PDO::FETCH_ASSOC);
@@ -148,58 +244,61 @@ final class PageRepository
                 VALUES (?,?,?,'draft',1,0,100,UTC_TIMESTAMP(),UTC_TIMESTAMP())");
             $q->execute([$newSlug,(string)$source['title'],(string)$source['body']]);
             $newId=(int)$this->pdo->lastInsertId();
-            $this->pdo->commit();
+            $this->recordHistory($newId);
             return $newId;
-        } catch (\Throwable $e) {
-            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
-            throw $e;
-        }
+        });
     }
 
     public function save(int $id, string $slug, string $title, string $body, string $status,
                          ?int $expectedRevision=null, ?bool $showInMenu=null,
                          ?int $navPosition=null): void
     {
-        self::validate($slug, $title, $body, $status);
+        $this->historyReady();
+        self::validate($slug,$title,$body,$status);
         self::validateNavigation($showInMenu,$navPosition);
         if ($id===0 && $slug==='home') {
-            // The one homepage is created by SiteSchema, never by a new-page form.
             throw new RuntimeException('The homepage URL slug is reserved.');
         }
-        if ($id > 0) {
-            if ($expectedRevision===null || $expectedRevision<1) {
-                throw new RuntimeException('Page revision required; reload before saving.');
-            }
-            $existing=$this->byId($id);
-            if ($existing===null) throw new RuntimeException('Page not found.');
-            if (((string)$existing['slug']==='home') !== ($slug==='home')) {
-                // Site routing, Design Studio and publication depend on this stable slug.
-                // The atomic revision comparison below also protects concurrent updates.
-                throw new RuntimeException('The homepage URL slug is reserved.');
-            }
-            // Compare-and-swap is atomic even across separate admin sessions
-            // and within one second, unlike updated_at timestamp comparisons.
-            $s=$this->pdo->prepare('UPDATE ac_pages SET
-                slug=?,title=?,body=?,status=?,revision=revision+1,
-                show_in_menu=COALESCE(?,show_in_menu),
-                nav_position=COALESCE(?,nav_position),
-                updated_at=UTC_TIMESTAMP() WHERE id=? AND revision=?');
-            $s->execute([$slug,$title,$body,$status,
-                $showInMenu===null?null:($showInMenu?1:0),
-                $navPosition,$id,$expectedRevision]);
-            if ($s->rowCount()!==1) {
-                if ($this->byId($id)===null) throw new RuntimeException('Page not found.');
-                throw new RuntimeException('Page changed; reload before saving.');
-            }
-            return;
+        if ($id>0 && ($expectedRevision===null || $expectedRevision<1)) {
+            throw new RuntimeException('Page revision required; reload before saving.');
         }
-        if ($expectedRevision!==null) {
+        if ($id===0 && $expectedRevision!==null) {
             throw new RuntimeException('New pages cannot supply an existing page revision.');
         }
-        $s = $this->pdo->prepare('INSERT INTO ac_pages
-            (slug,title,body,status,show_in_menu,nav_position,updated_at,created_at)
-            VALUES (?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())');
-        $s->execute([$slug,$title,$body,$status,
-            $showInMenu===null?1:($showInMenu?1:0),$navPosition??100]);
+        $this->atomic(function () use ($id,$slug,$title,$body,$status,
+                                        $expectedRevision,$showInMenu,$navPosition): void {
+            if ($id>0) {
+                $q=$this->pdo->prepare('SELECT slug,revision FROM ac_pages WHERE id=? FOR UPDATE');
+                $q->execute([$id]);
+                $existing=$q->fetch(PDO::FETCH_ASSOC);
+                if (!is_array($existing)) throw new RuntimeException('Page not found.');
+                if (((string)$existing['slug']==='home') !== ($slug==='home')) {
+                    throw new RuntimeException('The homepage URL slug is reserved.');
+                }
+                if ((int)$existing['revision']!==$expectedRevision) {
+                    throw new RuntimeException('Page changed; reload before saving.');
+                }
+                $q=$this->pdo->prepare('UPDATE ac_pages SET
+                    slug=?,title=?,body=?,status=?,revision=revision+1,
+                    show_in_menu=COALESCE(?,show_in_menu),
+                    nav_position=COALESCE(?,nav_position),
+                    updated_at=UTC_TIMESTAMP() WHERE id=? AND revision=?');
+                $q->execute([$slug,$title,$body,$status,
+                    $showInMenu===null?null:($showInMenu?1:0),
+                    $navPosition,$id,$expectedRevision]);
+                if ($q->rowCount()!==1) {
+                    throw new RuntimeException('Page changed; reload before saving.');
+                }
+                $this->recordHistory($id);
+                return;
+            }
+            $q=$this->pdo->prepare('INSERT INTO ac_pages
+                (slug,title,body,status,show_in_menu,nav_position,updated_at,created_at)
+                VALUES (?,?,?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())');
+            $q->execute([$slug,$title,$body,$status,
+                $showInMenu===null?1:($showInMenu?1:0),$navPosition??100]);
+            $newId=(int)$this->pdo->lastInsertId();
+            $this->recordHistory($newId);
+        });
     }
 }

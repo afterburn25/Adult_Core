@@ -22,6 +22,7 @@ use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\PageHistorySchema;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\DesignRepository;
@@ -243,6 +244,10 @@ try {
     if (count($revisionColumns)!==1) throw new RuntimeException('Page revision migration is not repeat-safe.');
     PageNavigationSchema::migrate($pdo);
     PageNavigationSchema::migrate($pdo);
+    PageHistorySchema::migrate($pdo);
+    PageHistorySchema::migrate($pdo);
+    $initialHistory=(int)$pdo->query("SELECT COUNT(*) FROM ac_page_history WHERE slug='home'")->fetchColumn();
+    if ($initialHistory!==1) throw new RuntimeException('Legacy homepage history backfill duplicated or vanished.');
     foreach (['show_in_menu','nav_position'] as $column) {
         $columnCheck=$pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_pages' AND COLUMN_NAME=?");
@@ -516,6 +521,35 @@ try {
         || $copy['title']!=='About the club'
         || $repo->published('about-private-copy')!==null) {
         throw new RuntimeException('Page duplicate unexpectedly published or altered content.');
+    }
+    $history=$repo->history($aboutId);
+    if (count($history)!==5 || array_column($history,'revision')!==[5,4,3,2,1]
+        || count($repo->history($copyId))!==1) {
+        throw new RuntimeException('Versioned page saves or new private copies lost history.');
+    }
+    try {
+        $repo->restoreTextAsDraft($aboutId,4,1);
+        throw new RuntimeException('Stale page restore was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale page restore was accepted.') throw $e;
+    }
+    try {
+        $repo->restoreTextAsDraft($aboutId,5,999);
+        throw new RuntimeException('Missing historic revision restored.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Missing historic revision restored.') throw $e;
+    }
+    $restoredRevision=$repo->restoreTextAsDraft($aboutId,5,1);
+    $restoredPage=$repo->byId($aboutId);
+    if ($restoredRevision!==6 || !is_array($restoredPage)
+        || (int)$restoredPage['revision']!==6
+        || $restoredPage['title']!=='About the club'
+        || $restoredPage['status']!=='draft'
+        || (int)$restoredPage['show_in_menu']!==1
+        || (int)$restoredPage['nav_position']!==2
+        || $repo->published('about')!==null
+        || count($repo->history($aboutId))!==6) {
+        throw new RuntimeException('Restore reused published state, changed local menu or lost revision history.');
     }
     foreach ([[4,'stale-source-copy'],[5,'bad/slug']] as [$rev,$slug]) {
         try {

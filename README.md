@@ -1,3 +1,7 @@
+## Private page history (m19 development)
+
+Admins can view the last 20 saved revisions of each local website page and restore an earlier title/body as a **new unpublished draft**. Original history is retained, and restoring never publishes or rewrites the URL/menu settings. Apply the additive migration from **Admin → Setup** after a verified database backup. Existing sites can only backfill their current revision; unavailable historical edits cannot be recreated. No protected adult media, billing or age/consent approval is implied.
+
 ## Homepage information cards (m18 development)
 
 Design Studio owners can edit the three public homepage information cards as bounded, safely escaped text. Apply the additive **Admin → Setup** migration after a verified backup. The member/media/verification/payment release gates do not change.

@@ -179,6 +179,7 @@ def main():
                    code == 200 and 'Apply additive migrations' in setup
                    and 'Page revision protection' in setup
                    and 'Page navigation settings' in setup
+                   and 'Private page revision history' in setup
                    and 'Pending' in setup)
             setup_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', setup)
             ensure('Setup has CSRF token', setup_token is not None)
@@ -189,7 +190,8 @@ def main():
                    code==200
                    and 'All listed local schema migrations have been recorded.' in migrated_setup
                    and '<td>Page revision protection</td><td>Installed</td>' in migrated_setup
-                   and '<td>Page navigation settings</td><td>Installed</td>' in migrated_setup)
+                   and '<td>Page navigation settings</td><td>Installed</td>' in migrated_setup
+                   and '<td>Private page revision history</td><td>Installed</td>' in migrated_setup)
             # Two independent staff sessions ensure a suspended-and-restored
             # moderator's OLD cookie stays revoked even without an intervening
             # HTTP request while the database account was suspended.
@@ -572,6 +574,40 @@ def main():
             code, original_preview=req('/admin/page/preview?id='+saved_draft_id)
             ensure('Source page remains unchanged when copied',
                    code==200 and 'Updated safe draft' in original_preview)
+            code, revision_form=req('/admin/page?id='+saved_draft_id)
+            ensure('Owner may browse private page snapshots after two saves',
+                   code==200 and 'Private page revision history' in revision_form
+                   and 'name="action" value="restore"' in revision_form
+                   and 'name="history_revision" value="1"' in revision_form)
+            code, _=req('/admin/page?id='+saved_draft_id,{
+                'csrf':'bad','action':'restore','revision':'2','history_revision':'1'
+            })
+            ensure('History restoration must pass administrator CSRF',code==403)
+            code, stale_history=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'action':'restore',
+                'revision':'1','history_revision':'1'
+            })
+            ensure('History restoration rejects invalid or replayed versions',
+                   code==200 and 'Invalid saved page revision' in stale_history)
+            code, _=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'action':'restore',
+                'revision':'2','history_revision':'1'
+            })
+            ensure('Earlier private draft content is restored as new draft revision',
+                   code==303)
+            code, restored_preview=req('/admin/page/preview?id='+saved_draft_id)
+            ensure('Restored historic draft text is safely escaped, not published',
+                   code==200 and 'Unpublished &lt;b&gt;preview&lt;/b&gt;' in restored_preview
+                   and 'Private &lt;script&gt;not_public()&lt;/script&gt;' in restored_preview
+                   and 'Updated safe draft' not in restored_preview)
+            code, still_private=req('/p/secret-preview')
+            ensure('History restoration cannot accidentally publish a saved draft',code==404)
+            code, replay=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'action':'restore',
+                'revision':'2','history_revision':'1'
+            })
+            ensure('Replaying an old page-restore form does not overwrite newer text',
+                   code==200 and 'Page changed; reload before restoring.' in replay)
             # Authenticated Visual Design Studio: correct theme and escaped homepage content.
             code, studio = req('/admin/design')
             ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)

@@ -55,6 +55,7 @@ if ($action === 'seed-pages') {
         \AdultCore\Website\SiteSchema::VERSION,
         \AdultCore\Website\PageRevisionSchema::VERSION,
         \AdultCore\Website\PageNavigationSchema::VERSION,
+        \AdultCore\Website\PageHistorySchema::VERSION,
     ] as $version) {
         $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
         $q->execute([$version]);

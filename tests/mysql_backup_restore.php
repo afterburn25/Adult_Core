@@ -16,6 +16,7 @@ use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\PageHistorySchema;
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
@@ -78,6 +79,7 @@ try{
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
     PageRevisionSchema::migrate($pdo);
     PageNavigationSchema::migrate($pdo);
+    PageHistorySchema::migrate($pdo);
     HighlightSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
@@ -99,6 +101,11 @@ try{
         && (int)$beforePageRecovery[0]['revision']===2
         && (int)$beforePageRecovery[1]['show_in_menu']===0,
         'Revisioned homepage and intentionally unlisted page prepared for encrypted recovery');
+    $beforeHistoryRecovery=$pdo->query('SELECT page_id,revision,slug,title,body,status,
+        show_in_menu,nav_position FROM ac_page_history ORDER BY page_id,revision')
+        ->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery(count($beforeHistoryRecovery)===3,
+        'Owner page revision history includes baseline, new homepage revision and unlisted page');
     $pdo->exec("UPDATE ac_design_settings SET theme_key='velvet-plum' WHERE id=1");
     $pdo->prepare('UPDATE ac_design_settings SET
         highlight_1_title=?,highlight_1_body=? WHERE id=1')
@@ -212,6 +219,12 @@ try{
         FROM ac_pages ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
     verifyRecovery($afterPageRecovery===$beforePageRecovery,
         'Encrypted restore preserves every published page revision and local navigation setting');
+    $afterHistoryRecovery=$pdo->query('SELECT page_id,revision,slug,title,body,status,
+        show_in_menu,nav_position FROM ac_page_history ORDER BY page_id,revision')
+        ->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery($afterHistoryRecovery===$beforeHistoryRecovery
+        && PageHistorySchema::installed($pdo),
+        'Encrypted restore retains all private page snapshots, version markers and earlier draft text');
     $afterHighlightRecovery=$pdo->query('SELECT highlight_1_title,highlight_1_body,
         highlight_2_title,highlight_2_body,highlight_3_title,highlight_3_body
         FROM ac_design_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);

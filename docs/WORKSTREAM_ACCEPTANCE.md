@@ -1,3 +1,11 @@
+## Private page revision history with draft-only restore (m19) — 2026-11-21
+
+A repeatable additive m19 schema preserves page title/body, status, slug, menu visibility/order and revision snapshots in a local `ac_page_history` table. Existing installations backfill **only the current known state**; prior overwritten revisions cannot be reconstructed. Every subsequent page create/edit and private page duplication writes the snapshot in the same DB transaction, including Design Studio homepage edits through savepoints; if the snapshot fails the edit rolls back. The owner/admin editor lists at most 20 recent version summaries and permits a CSRF-protected, revision-checked restore of an earlier title/body. **Restoration always creates a new private draft** and never restores an earlier published state, URL slug or menu flag. The owner must separately publish again.
+
+Site setup requires a verified backup before the additive migration; page edit routes stay unavailable until the marker is installed. Signed Lite/Pro source ZIP checks, unit/database, real authenticated HTTP, MySQL/MariaDB and encrypted backup/restore regressions cover version history, stale/replayed restores, private 404 after restore, and local recovery parity. No member entitlement, adult-media publishing, independent age/consent or merchant payment gate is enabled. Actual host rehearsals and independent release acceptance remain outstanding.
+
+---
+
 ## Protected homepage route and unique active navigation — 2026-11-21
 
 The site-local page repository now treats `home` as an immutable, reserved slug: the seeded homepage cannot be renamed, another page cannot claim `home`, and an unpublished duplicate cannot reuse it. Version-checked edits to the real homepage title, content, draft/published status and navigation remain supported. The owner editor shows its special slug read-only but the server enforces the restriction independently. Public pages and authenticated draft previews now mark active navigation by the route slug, never by a potentially duplicated title; at most one public-page link receives `aria-current="page"`. Unit, disposable MySQL/MariaDB and authenticated HTTP regressions cover denied mutations and duplicate-title links. Existing one-package Lite/Pro licenses, adult verification and payment release gates are unchanged.
