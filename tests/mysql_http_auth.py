@@ -486,6 +486,9 @@ def main():
             ensure('Admin tier catalog does not allow billing-affecting deactivation',code == 422)
             code, pages = req('/admin/pages')
             ensure('Pages admin lists draft homepage', code == 200 and 'Welcome' in pages)
+            code, _, private_pages_cache, _=req_binary('/admin/pages')
+            ensure('Owner-only saved page list forbids browser/proxy caching',
+                   code==200 and 'no-store' in private_pages_cache)
             code, bad_pages=req('/admin/pages?before=not-an-id')
             ensure('Forged page list cursor fails without opening protected drafts',
                    code==422 and 'Invalid page list cursor' in bad_pages)
@@ -882,6 +885,9 @@ def main():
             # Authenticated moderation: new content remains draft/private.
             code, moderation = req('/admin/moderation')
             ensure('Admin moderation queue available', code == 200 and 'Create unpublished draft' in moderation)
+            code, _, private_moderation_cache, _=req_binary('/admin/moderation')
+            ensure('Private reports and performer status cannot be browser/proxy cached',
+                   code==200 and 'no-store' in private_moderation_cache)
             moderation_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', moderation)
             ensure('Moderation is CSRF protected', moderation_token is not None)
             code, _ = req('/admin/moderation', {'csrf': 'invalid', 'action': 'new_draft', 'title': 'Hidden safety demo'})

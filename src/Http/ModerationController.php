@@ -153,6 +153,10 @@ final class ModerationController
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $method, array $admin): void
     {
+        // Private content titles, reports and performer status cannot be
+        // stored by browser caches or shared proxies, even on an error path.
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
         $this->currentRole=$admin['role'];
         if (!RolePolicy::allows($admin['role'], 'content.moderate')) {
             $this->render(403,'Access denied','<p>Moderation permission required.</p>'); return;

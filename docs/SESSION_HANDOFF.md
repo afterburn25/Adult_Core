@@ -1,3 +1,9 @@
+## No-store / noindex for private site management and moderation lists — 2026-11-21
+
+SiteAdminController and ModerationController main request handlers now always return `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow`, including on denied and invalid requests. This prevents private saved page titles, version history, registered-member email listings, pending images, report reasons and performer status summaries from being cached by browsers or intermediary proxies. Existing private draft and binary image preview routes already had their own no-store protections. Real authenticated HTTP tests assert both main administration indexes return no-store; no public site headers, publishing gates, license, payment or identity approval state is changed.
+
+---
+
 ## Paginated pending-private-image moderation inventory — 2026-11-21
 
 The authenticated moderator dashboard's pending private image section now uses `pendingDraftImagesPage()` and 50-record numeric-keyset Older/Back navigation, replacing the previous invisible 80-image ceiling. Each listed image must remain pending, linked to an unpublished private, unreviewed draft; the image itself is still served only by the existing authenticated binary preview endpoint with revalidation at access time. Upload and rejection actions remain under moderator role, CSRF, content state and file inspection controls. Disposable real HTTP tests place 51 known safe PNG bytes in test-only private storage, one per synthetic unapproved draft, and verify the oldest image remains reviewable, malformed cursors fail with 422 and no media approval or publishing occurs. This does not add creator uploads, remote storage, provider consent or payment processing.

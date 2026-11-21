@@ -42,6 +42,10 @@ final class SiteAdminController
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $path, string $method, array $admin): void
     {
+        // Member emails, saved drafts and version history must not survive in
+        // shared/private HTTP caches outside the currently authorized session.
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
         if (!RolePolicy::allows($admin['role'], 'site.settings.manage')) {
             $this->render(403, 'Access denied', '<p>Permission denied.</p>'); return;
         }
