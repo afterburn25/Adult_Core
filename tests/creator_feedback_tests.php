@@ -19,6 +19,9 @@ $check(CreatorFeedbackSchema::VERSION==='m15_creator_feedback_history_v1',
 $check(CreatorReviewSchema::VERSION==='m14_creator_text_review_v1',
     'Review history has local m14 prerequisite');
 $schema=file_get_contents(dirname(__DIR__).'/src/Creator/CreatorFeedbackSchema.php');
+$check(str_contains($schema,'ix_creator_review_queue')
+    && str_contains($schema,'information_schema.STATISTICS'),
+    'Repeatable review queue index is in additive m15 schema');
 $check(str_contains($schema,'UNIQUE KEY uq_review_revision')
     && str_contains($schema,'INSERT IGNORE INTO ac_creator_feedback_history')
     && str_contains($schema,'e.action=d.status')

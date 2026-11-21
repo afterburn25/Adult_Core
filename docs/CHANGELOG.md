@@ -1,3 +1,8 @@
+## Bounded private text-review queue navigation — 2026-11-21
+
+- Replace fixed first-50-only moderation queue with 50-row keyset pages, URL-safe validated cursors and navigation for local submitted text plans, preserving numeric role/CSRF restrictions.
+- Add idempotent `(status,updated_at,id)` queue index in m15 and SQL/HTTP tests for 51 plans, invalid cursors, cross-role denial and no public content transition.
+
 ## Local creator private feedback history — 2026-11-21
 
 - Record each moderator's `changes`/`rejected` review note with actor, submitted draft revision and UTC timestamp in a new local `ac_creator_feedback_history` table; unique per reviewed submission revision and written transactionally with the original decision.

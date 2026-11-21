@@ -1055,6 +1055,12 @@ def main():
             review_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',initial_review)
             ensure('Local moderator can enter creator text-review queue',
                    code == 200 and 'No submitted private plans' in initial_review)
+            code, invalid_cursor=mod_req('/admin/creator-review?after=invalid*cursor')
+            ensure('Malformed text-review pagination cursor is rejected safely',
+                   code == 422 and 'Invalid private review queue cursor.' in invalid_cursor)
+            code, normal_queue=mod_req('/admin/creator-review')
+            ensure('Malformed cursor does not change the regular queue',
+                   code == 200 and 'No submitted private plans' in normal_queue)
             code, _=req('/members/creator',{
                 'csrf':'bad','action':'submit_review',
                 'draft_id':creator_draft_id,'revision':'2'})

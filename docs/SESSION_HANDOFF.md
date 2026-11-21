@@ -1,3 +1,9 @@
+## Local moderator text-review keyset paging — 2026-11-21
+
+Added `CreatorDraftReview::queuePage(actor, after)` with 50 private text submissions/page, timestamp+ID stable ordering, bounded opaque URL-safe cursors and mandatory fresh role check. `queue()` remains a compatible first-page helper. The moderator `/admin/creator-review` shows a Next link and first-page navigation; malformed cursor produces an explicit 422. Additive m15 migration adds an indexed `(status, updated_at, id)` lookup for supported MySQL/MariaDB. SQL regression seeds 51 submitted plans across two local creators and verifies complete, duplicate-free coverage, invalid cursor denial and no public media. This remains a self-hosted text-review tool, not provider-approved adult content publishing.
+
+---
+
 ## Private creator review feedback timeline (m15) — 2026-11-21
 
 - Added repeatable `CreatorFeedbackSchema::migrate()` after m14, installing local `ac_creator_feedback_history` with unique (draft_id,submitted_revision), reviewer ID, decision, private feedback and UTC timestamp. Reviewer `CreatorDraftReview::decide()` now writes the feedback snapshot **inside the same transaction** as the draft decision and numeric event. No approve/publish or vendor-side SaaS.

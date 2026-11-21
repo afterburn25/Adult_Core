@@ -847,6 +847,54 @@ try {
     if (count($feedbackRepo->forMember((int)$secondMember['id']))!==1) {
         throw new RuntimeException('Creator migration guessed unverified historic reviewer attribution.');
     }
+    // More than 50 submitted local text plans must remain reachable in
+    // ordered, role-protected pages. A second creator avoids the 50-private
+    // drafts-per-creator cap while testing site-wide moderation throughput.
+    $queueBeforeCount=(int)$pdo->query("SELECT COUNT(*) FROM ac_creator_drafts
+        WHERE status='submitted'")->fetchColumn();
+    if ($queueBeforeCount!==0) throw new RuntimeException('Creator queue fixture not empty before pagination test.');
+    $createdQueueIds=[];
+    for ($i=1;$i<=51;$i++) {
+        $creatorMember=$i%2===0?(int)$member['id']:(int)$secondMember['id'];
+        $qId=$creators->saveDraft($creatorMember,null,null,
+            'Review queue item '.str_pad((string)$i,3,'0',STR_PAD_LEFT),
+            'Private pending text-plan pagination regression fixture '.$i.'.');
+        $textReview->submit($creatorMember,$qId,1);
+        $createdQueueIds[]=$qId;
+    }
+    $firstPage=$textReview->queuePage($moderatorId);
+    if (count($firstPage['drafts'])!==50 || !is_string($firstPage['next'])
+        || $firstPage['next']==='') {
+        throw new RuntimeException('First local creator text-review page lacks bounded next cursor.');
+    }
+    $secondPage=$textReview->queuePage($moderatorId,$firstPage['next']);
+    $seenIds=array_merge(
+        array_map('intval',array_column($firstPage['drafts'],'id')),
+        array_map('intval',array_column($secondPage['drafts'],'id'))
+    );
+    sort($createdQueueIds);sort($seenIds);
+    if (count($secondPage['drafts'])!==1 || $secondPage['next']!==null
+        || $createdQueueIds!==$seenIds) {
+        throw new RuntimeException('Review queue pagination skipped, leaked or duplicated creator plans.');
+    }
+    foreach (['bad*cursor',rtrim(strtr(base64_encode('2026-99-99 99:99:99|1'),
+             '+/','-_'),'='),str_repeat('a',101)] as $badCursor) {
+        try {
+            $textReview->queuePage($moderatorId,$badCursor);
+            throw new RuntimeException('Malformed private review cursor accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Malformed private review cursor accepted.') throw $e;
+        }
+    }
+    try {
+        $textReview->queuePage((int)$member['id'],$firstPage['next']);
+        throw new RuntimeException('Member bypassed moderation permission by supplying a cursor.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Member bypassed moderation permission by supplying a cursor.') throw $e;
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent) {
+        throw new RuntimeException('Private moderation queue paging affected public content.');
+    }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
     if ($recovery->issueForEmail('owner@example.test') !== null) throw new RuntimeException('Admin recovery exposed through member route.');

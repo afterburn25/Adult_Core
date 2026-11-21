@@ -1,3 +1,9 @@
+## Review queue with more than 50 private submissions — 2026-11-21
+
+The **site-local** moderator text-review queue now uses bounded 50-row keyset pages ordered by submission update timestamp and numeric draft ID. A **Next submitted plans** link appears only when more private plans exist, and the moderator can return to the first page without changing review state. Cursors are bounded, validated, SQL-parameterized and not privileged credentials; the moderator's active local role is checked on **every** page. An additive, repeatable m15 review-queue index supports the same ordering on MySQL 8 and MariaDB 10.11. Invalid cursors fail closed with a 422, never a partial moderation change. This does not create SaaS, creator approvals or any public publishing.
+
+---
+
 ## Private review feedback history — m15 (2026-11-21)
 
 On each self-hosted installation, a moderator's request-changes or reject decision now preserves a **private feedback snapshot** identified by the exact submitted text-plan revision, local reviewer ID, decision, note and UTC timestamp. Snapshots are written transactionally with the decision and remain available even after the creator updates or resubmits the plan. They do not duplicate private text in the numeric-only draft action history.
