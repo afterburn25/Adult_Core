@@ -98,28 +98,6 @@ def main():
             code, body = req('/admin')
             ensure('Dashboard loads authenticated', code == 200 and 'HTTP Fixture &lt;script&gt;alert(1)&lt;/script&gt;' in body and '<script>alert(1)</script>' not in body)
             ensure('Edition visible', 'LITE' in body)
-            subprocess.check_output(php_fixture + ['suspend-owner'],cwd=root)
-            code, _ = req('/admin')
-            ensure('Suspended administrator loses existing dashboard session',code == 302)
-            code, suspended_signin = req('/admin/login')
-            suspended_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',suspended_signin)
-            ensure('Suspended account must sign in anew',code == 200 and suspended_csrf is not None)
-            code, _ = req('/admin/login', {
-                'email':'owner@example.test','password':'strong-example-admin-password',
-                'csrf':suspended_csrf.group(1)
-            })
-            ensure('Suspended admin password cannot authenticate',code == 401)
-            subprocess.check_output(php_fixture + ['reactivate-owner'],cwd=root)
-            code, _ = req('/admin')
-            ensure('Restoring account does not resurrect revoked session',code == 302)
-            code, restored_login = req('/admin/login')
-            restored_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',restored_login)
-            ensure('Reactivated administrator gets a fresh login CSRF',restored_csrf is not None)
-            code, _ = req('/admin/login', {
-                'email':'owner@example.test','password':'strong-example-admin-password',
-                'csrf':restored_csrf.group(1)
-            })
-            ensure('Reactivated administrator can sign in again',code == 303)
             code, license_page = req('/admin/license')
             ensure('Licensed admin configuration accessible', code == 200 and 'SOFTWARE-ADULT-CORE' in license_page)
             ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
@@ -181,6 +159,28 @@ def main():
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            subprocess.check_output(php_fixture + ['suspend-owner'],cwd=root)
+            code, _ = req('/admin')
+            ensure('Suspended administrator loses existing dashboard session',code == 302)
+            code, suspended_signin = req('/admin/login')
+            suspended_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',suspended_signin)
+            ensure('Suspended account must sign in anew',code == 200 and suspended_csrf is not None)
+            code, _ = req('/admin/login', {
+                'email':'owner@example.test','password':'strong-example-admin-password',
+                'csrf':suspended_csrf.group(1)
+            })
+            ensure('Suspended admin password cannot authenticate',code == 401)
+            subprocess.check_output(php_fixture + ['reactivate-owner'],cwd=root)
+            code, _ = req('/admin')
+            ensure('Restoring account does not resurrect revoked session',code == 302)
+            code, restored_login = req('/admin/login')
+            restored_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',restored_login)
+            ensure('Reactivated administrator gets a fresh login CSRF',restored_csrf is not None)
+            code, _ = req('/admin/login', {
+                'email':'owner@example.test','password':'strong-example-admin-password',
+                'csrf':restored_csrf.group(1)
+            })
+            ensure('Reactivated administrator can sign in again',code == 303)
             code, tier_page = req('/admin/tiers')
             ensure('Tier catalog loads for authenticated site administrator',
                    code == 200 and 'Create tier label' in tier_page

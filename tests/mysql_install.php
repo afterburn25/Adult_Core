@@ -183,15 +183,6 @@ try {
     if (!is_array($valid) || $valid['role'] !== 'admin' || $valid['email'] !== 'owner@example.test') {
         throw new RuntimeException('Real MySQL administrator login failed.');
     }
-    $pdo->prepare("UPDATE ac_users SET status='suspended' WHERE id=?")->execute([$valid['id']]);
-    if ($auth->verifyCredentials('owner@example.test','super-secret-example-password')!==null
-        || $auth->authorizedById((int)$valid['id'])!==null) {
-        throw new RuntimeException('Suspended administrator retained login/session authorization.');
-    }
-    $pdo->prepare("UPDATE ac_users SET status='active' WHERE id=?")->execute([$valid['id']]);
-    if ($auth->authorizedById((int)$valid['id'])===null) {
-        throw new RuntimeException('Reactivated test administrator could not reauthenticate.');
-    }
     if ($auth->verifyCredentials('owner@example.test', 'incorrect-password') !== null
         || $auth->verifyCredentials('missing@example.test', 'super-secret-example-password') !== null) {
         throw new RuntimeException('Incorrect/unknown credentials were accepted.');
@@ -283,6 +274,15 @@ try {
     }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);
+    $pdo->prepare("UPDATE ac_users SET status='suspended' WHERE id=?")->execute([$valid['id']]);
+    if ($auth->verifyCredentials('owner@example.test','super-secret-example-password')!==null
+        || $auth->authorizedById((int)$valid['id'])!==null) {
+        throw new RuntimeException('Suspended administrator retained login/session authorization.');
+    }
+    $pdo->prepare("UPDATE ac_users SET status='active' WHERE id=?")->execute([$valid['id']]);
+    if ($auth->authorizedById((int)$valid['id'])===null) {
+        throw new RuntimeException('Reactivated test administrator could not reauthenticate.');
+    }
     $tiers=new TierCatalog($pdo);
     $newTierId=$tiers->create('Founders & <Test>',(int)$valid['id']);
     $tiers->rename($newTierId,(int)$valid['id'],'Founders & <Test>','Founders preview');

@@ -13,6 +13,17 @@ final class AdminAccounts
     {
     }
 
+    /**
+     * The base installer schema predates member-account migrations. Its first
+     * administrator MUST be able to sign in to apply the additive migration.
+     * Once the status column exists, suspended identities fail closed.
+     */
+    private function hasAccountStatus(): bool
+    {
+        $q=$this->pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users' AND COLUMN_NAME='status'");
+        return (int)$q->fetchColumn()===1;
+    }
+
     /** @return array{id: int, email: string, role: string}|null */
     public function verifyCredentials(string $email, string $password): ?array
     {
@@ -21,7 +32,9 @@ final class AdminAccounts
             return null;
         }
         $email = strtolower(trim($email));
-        $statement = $this->pdo->prepare("SELECT id, email, password_hash, role FROM ac_users WHERE email = ? AND status='active' LIMIT 1");
+        $sql='SELECT id, email, password_hash, role FROM ac_users WHERE email = ?';
+        if ($this->hasAccountStatus()) $sql.=" AND status='active'";
+        $statement=$this->pdo->prepare($sql.' LIMIT 1');
         $statement->execute([$email]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
         // Always perform a password hash comparison even for unknown accounts.
@@ -42,7 +55,9 @@ final class AdminAccounts
         if ($id < 1) {
             return null;
         }
-        $statement = $this->pdo->prepare("SELECT id, email, role FROM ac_users WHERE id = ? AND status='active' LIMIT 1");
+        $sql='SELECT id, email, role FROM ac_users WHERE id = ?';
+        if ($this->hasAccountStatus()) $sql.=" AND status='active'";
+        $statement=$this->pdo->prepare($sql.' LIMIT 1');
         $statement->execute([$id]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
         if (!is_array($user) || !RolePolicy::allows((string) $user['role'], 'admin.access')) {
