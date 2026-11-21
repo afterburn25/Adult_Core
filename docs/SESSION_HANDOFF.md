@@ -1,3 +1,9 @@
+## m21 member-safety encrypted disaster recovery parity — 2026-11-21
+
+The disposable full-site encrypted `.acfull` backup test now installs m21 after member recovery, performs a local owner suspension and pending-only restore of a confirmed member, records both private actor/reason/status audit rows and the two incremented session generations, then verifies exact parity after an empty-database restore. The existing local creator draft/feedback/plan and member email confirmation snapshots remain intact and no protected media or paid access is granted. Repeating m21 must remain idempotent; live cPanel/VPS offsite restoration and retention obligations still require operator testing and external acceptance.
+
+---
+
 ## Authenticated member suspension/pending-only restoration workflow — 2026-11-21
 
 Real disposable browser regressions now exercise owner-only single-account `/admin/members/manage?id=ID`, CSRF and mismatched hidden target rejection, a once-per-30-minute bounded manager-password verification, suspension of a previously pending local member, escaped private reason, rejection of stale status transitions, and restoration **only to pending** with both decisions retained. These tests never create age verification, merchant payment, creator publishing or adult media approvals. Database regressions independently confirm each transition increments the member session generation, denying old cookies after restore. Owner list copy was also clarified. CI verification required before treating acceptance as green.

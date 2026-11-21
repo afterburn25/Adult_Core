@@ -1,3 +1,9 @@
+## m21 member-safety encrypted disaster recovery parity — 2026-11-21
+
+The disposable full-site encrypted `.acfull` backup test now installs m21 after member recovery, performs a local owner suspension and pending-only restore of a confirmed member, records both private actor/reason/status audit rows and the two incremented session generations, then verifies exact parity after an empty-database restore. The existing local creator draft/feedback/plan and member email confirmation snapshots remain intact and no protected media or paid access is granted. Repeating m21 must remain idempotent; live cPanel/VPS offsite restoration and retention obligations still require operator testing and external acceptance.
+
+---
+
 ## Serialized local membership-tier labels and raw input protection — 2026-11-21
 
 TierCatalog now locks the site's existing installation row with `SELECT ... FOR UPDATE` before either create or rename, serializing the local 50-row limit and case-insensitive name uniqueness check across concurrent administrator sessions. The installation row is not modified and no license or subscription action is introduced. Tier name validation now examines untrimmed bytes so trailing NUL/newline controls cannot be normalized into accepted labels. Unit/source checks and disposable MySQL/MariaDB regressions cover valid labels, malformed controls, duplicate case variants and zero accidental membership grants. The catalog still creates disabled labels only; approved adult payment checkout and provider-authenticated entitlement issuance remain blocked.

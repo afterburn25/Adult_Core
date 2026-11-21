@@ -22,6 +22,10 @@ use AdultCore\Website\SiteIdentity;
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\PasswordRecoverySchema;
+use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\MemberSafetySchema;
+use AdultCore\Member\LocalMemberSafety;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\CreatorReviewSchema;
@@ -93,6 +97,9 @@ try{
     PageHistorySchema::migrate($pdo);
     HighlightSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
+    PasswordRecoverySchema::migrate($pdo);
+    MemberSafetySchema::migrate($pdo);
+    MemberSafetySchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
     // Deliberately leave m14 unapplied until after one m13-era draft is saved.
     // This proves the additive review upgrade preserves existing private data.
@@ -182,6 +189,18 @@ try{
         && count($beforeCreatorRecovery['events'])===6
         && count($review->queue($ownerId))===1,
         'Local creator private text states and numeric review event history seeded');
+    $localSafety=new LocalMemberSafety($pdo);
+    verifyRecovery($localSafety->change($ownerId,$memberId,'suspend','pending',
+        'Private encrypted backup suspension decision')==='suspended',
+        'Suspension preserves creator records but revokes member access');
+    verifyRecovery($localSafety->change($ownerId,$memberId,'restore_pending','suspended',
+        'Restore pending only after private review')==='pending',
+        'Restore never activates member, payment, identity or consent flags');
+    $beforeMemberAudit=$pdo->query('SELECT member_id,actor_id,old_status,new_status,reason
+        FROM ac_member_status_actions ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
+    $beforeMemberGeneration=(new PasswordRecovery($pdo))->generation($memberId);
+    verifyRecovery(count($beforeMemberAudit)===2 && $beforeMemberGeneration===2,
+        'Member account safety audit and two session invalidations exist before backup');
     mkdir($src.'/storage/design-assets');
     $asset='\x89PNG\r\n\x1a\n'.random_bytes(300000); // binary-safe data preservation, not a public image
     file_put_contents($src.'/storage/design-assets/creator.png',$asset);
@@ -225,6 +244,13 @@ try{
     $restored=$recovery->restore(Connection::open($dst),$vaultCopy['archive'],$backupKey);
     verifyRecovery($restored===$stats,'Backup and restore counters agree');
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
+    $afterMemberAudit=$pdo->query('SELECT member_id,actor_id,old_status,new_status,reason
+        FROM ac_member_status_actions ORDER BY id ASC')->fetchAll(PDO::FETCH_ASSOC);
+    verifyRecovery(MemberSafetySchema::installed($pdo)
+        && $beforeMemberAudit===$afterMemberAudit
+        && (new PasswordRecovery($pdo))->generation($memberId)===$beforeMemberGeneration
+        && (new LocalMemberSafety($pdo))->member($ownerId,$memberId)['status']==='pending',
+        'Encrypted backup preserves complete member safety audit, pending state and invalidated session epochs');
     verifyRecovery($pdo->query("SELECT title FROM ac_pages WHERE slug='home'")->fetchColumn()==='Recovered creator page','Creator page retained');
     verifyRecovery((new SiteIdentity($pdo))->current()===$beforeIdentityRecovery
         && SiteIdentitySchema::installed($pdo),
