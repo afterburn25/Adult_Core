@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -42,6 +42,64 @@ if ($action === 'issue-recovery') {
     $issued = (new PasswordRecovery($pdo))->issueForEmail('member@test.example');
     if (!is_array($issued)) throw new RuntimeException('Disposable member must be confirmed before recovery.');
     echo $issued['token'];
+    exit;
+}
+if ($action === 'stage-gallery') {
+    // Test fixture only: deliberately bypasses real provider authorization in
+    // this expressly confirmed, disposable MySQL database. This MUST NOT be
+    // reused as an administrator action or a production verification adapter.
+    $q=$pdo->query("SELECT id FROM ac_users WHERE email='member@test.example' AND role='member' LIMIT 1");
+    $member=(int)$q->fetchColumn();
+    if ($member<1 || !(new EmailConfirmations($pdo))->verified($member)) {
+        throw new RuntimeException('Disposable member must confirm email before the gallery test.');
+    }
+    $pdo->prepare("UPDATE ac_users SET status='active' WHERE id=?")->execute([$member]);
+    $pdo->prepare("INSERT INTO ac_age_verifications
+        (user_id,provider,verification_ref_hash,verified_at,expires_at)
+        VALUES (?,'disposable_fixture',?,UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))")
+        ->execute([$member,hash('sha256','temporary-http-verification')]);
+    $pdo->exec("INSERT INTO ac_content
+        (title,status,visibility,review_status,requires_consent,expected_performers,created_at)
+        VALUES ('Approved local fixture album','published','members','approved',1,1,UTC_TIMESTAMP())");
+    $contentId=(int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO ac_performer_records
+        (content_id,private_record_key,verified_at,consent_at,review_status)
+        VALUES (?,'disposable-performer-record',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
+        ->execute([$contentId]);
+    $key=bin2hex(random_bytes(20));
+    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6fQy0AAAAASUVORK5CYII=',true);
+    if (!is_string($png) || strlen($png)<10) throw new RuntimeException('Invalid disposable PNG.');
+    $mediaDirectory=dirname(__DIR__).'/storage/private-media';
+    if (!is_dir($mediaDirectory) && !mkdir($mediaDirectory,0700,true)) {
+        throw new RuntimeException('Disposable media directory unavailable.');
+    }
+    $mediaFile=$mediaDirectory.'/'.$key.'.bin';
+    if (file_put_contents($mediaFile,$png,LOCK_EX)!==strlen($png)) {
+        throw new RuntimeException('Disposable PNG could not be staged.');
+    }
+    chmod($mediaFile,0600);
+    $pdo->prepare("INSERT INTO ac_media
+        (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'image/png','approved')")->execute([$contentId,$key]);
+    $mediaId=(int)$pdo->lastInsertId();
+    echo $contentId.':'.$mediaId;
+    exit;
+}
+if ($action === 'revoke-gallery') {
+    $contentId=$argv[2]??null;
+    if (!is_string($contentId) || preg_match('/^[1-9][0-9]{0,17}$/D',$contentId)!==1) {
+        throw new RuntimeException('Disposable fixture gallery ID invalid.');
+    }
+    $q=$pdo->prepare("SELECT id FROM ac_content WHERE id=? AND title='Approved local fixture album'");
+    $q->execute([(int)$contentId]);
+    if (!$q->fetchColumn()) throw new RuntimeException('Disposable fixture gallery missing.');
+    $pdo->prepare("UPDATE ac_performer_records SET consent_at=NULL,review_status='pending' WHERE content_id=?")
+        ->execute([(int)$contentId]);
+    $pdo->prepare("UPDATE ac_content SET status='quarantined',review_status='pending' WHERE id=?")
+        ->execute([(int)$contentId]);
+    $pdo->prepare("UPDATE ac_media SET review_status='pending' WHERE content_id=?")
+        ->execute([(int)$contentId]);
+    echo "Disposable performer consent revoked and gallery quarantined.";
     exit;
 }
 if ($action === 'cleanup') {
