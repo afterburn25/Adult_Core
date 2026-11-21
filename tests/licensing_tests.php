@@ -66,7 +66,7 @@ $duplicate = new CajunWebClient(static function (string $body) use (&$probes): a
 try { $duplicate->resolve($key, $domain); $ambiguous = false; }
 catch (RuntimeException $error) { $ambiguous = str_contains($error->getMessage(), 'multiple editions'); }
 $check('Ambiguous multiple authorized SKUs fail closed', $ambiguous);
-$check('All four product-bound checks executed for ambiguous key', $probes === array_keys($products));
+$check('Ambiguous key stops discovery as soon as second authorization is found', $probes === array_slice(array_keys($products), 0, 3));
 $probeCount = 0;
 $single = new CajunWebClient(static function (string $body) use (&$probeCount): array {
     $probeCount++;
