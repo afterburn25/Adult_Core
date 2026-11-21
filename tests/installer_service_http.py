@@ -23,6 +23,14 @@ $mode = (string) ($_GET['case'] ?? '');
 $fields = [
     'license_key' => 'ABCD-EF12-3456-7890',
     'license_domain' => $mode === 'match' ? '127.0.0.1' : 'wrong.example.test',
+    'db_host' => $mode === 'bad_dsn' ? 'localhost;dbname=other' : 'localhost',
+    'db_port' => 3306,
+    'db_name' => 'disposable_db',
+    'db_user' => 'disposable_user',
+    'db_password' => 'fixture-password',
+    'site_name' => 'Disposable Test Site',
+    'admin_email' => 'owner@example.test',
+    'admin_password' => 'example-long-install-password',
 ];
 $issuer = new \AdultCore\Licensing\CajunWebClient(static function (string $body) use ($root): array {
     file_put_contents($root . '/storage/issuer-called', '1');
@@ -85,6 +93,10 @@ def run():
             assert not (root / 'storage' / 'issuer-called').exists(), 'Vendor called before rejecting hostname'
             assert not (root / 'storage' / 'install-state.json').exists(), 'Rejected hostname wrote completion state'
             assert not (root / 'config' / 'license.php').exists(), 'Rejected hostname wrote license config'
+
+            status, body = fetch(f'http://127.0.0.1:{port}/?case=bad_dsn')
+            assert (status, body) == (422, 'HOST_REJECTED'), (status, body)
+            assert not (root / 'storage' / 'issuer-called').exists(), 'Malformed DB DSN reached vendor'
 
             status, body = fetch(f'http://127.0.0.1:{port}/?case=match')
             assert (status, body) == (409, 'ISSUER_DENIED'), (status, body)
