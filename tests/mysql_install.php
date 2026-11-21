@@ -29,6 +29,7 @@ use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Membership\Entitlements;
+use AdultCore\Membership\MemberLibrary;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Verification\VerificationSchema;
 use AdultCore\Verification\VerificationRegistry;
@@ -323,7 +324,11 @@ try {
     $pdo->exec("INSERT INTO ac_content (title,status,visibility,review_status,requires_consent,expected_performers,created_at) VALUES ('Fixture gallery','published','members','approved',1,1,UTC_TIMESTAMP())");
     $contentId=(int)$pdo->lastInsertId();
     $policy=new Entitlements($pdo);
+    $library=new MemberLibrary($pdo);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Pending account got private content.');
+    if ($library->visible((int)$member['id']) !== []) {
+        throw new RuntimeException('Pending member could see private library titles.');
+    }
     $pdo->prepare("UPDATE ac_users SET status='active' WHERE id=?")->execute([$member['id']]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Unverified adult got private content.');
     $registry=new VerificationRegistry($pdo);
@@ -333,12 +338,23 @@ try {
         throw new RuntimeException('Age verification event was not idempotent.');
     }
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Missing consent unlocked private content.');
+    if ($library->visible((int)$member['id']) !== []) {
+        throw new RuntimeException('Missing performer consent exposed a library title.');
+    }
     $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    $authorizedTitles=$library->visible((int)$member['id']);
+    if (count($authorizedTitles)!==1 || $authorizedTitles[0]['id']!==$contentId
+        || $authorizedTitles[0]['title']!=='Fixture gallery') {
+        throw new RuntimeException('Verified member was not shown exactly their authorized gallery.');
+    }
     // Missing or mismatched performer coverage always fails closed.
     $pdo->prepare('UPDATE ac_content SET expected_performers=2 WHERE id=?')->execute([$contentId]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Incomplete performer coverage was allowed.');
+    if ($library->visible((int)$member['id']) !== []) {
+        throw new RuntimeException('Private library revealed gallery with missing performer records.');
+    }
     $pdo->prepare('UPDATE ac_content SET expected_performers=0 WHERE id=?')->execute([$contentId]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Unknown performer count was allowed.');
     $pdo->prepare('UPDATE ac_content SET expected_performers=1 WHERE id=?')->execute([$contentId]);
