@@ -72,7 +72,8 @@ try{
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
-    CreatorReviewSchema::migrate($pdo);
+    // Deliberately leave m14 unapplied until after one m13-era draft is saved.
+    // This proves the additive review upgrade preserves existing private data.
     $pdo->prepare("UPDATE ac_pages SET title=?, body=?, status='published' WHERE slug='home'")
         ->execute(['Recovered creator page','Original member content preserved.']);
     $pdo->exec("UPDATE ac_design_settings SET theme_key='velvet-plum' WHERE id=1");
@@ -85,10 +86,25 @@ try{
     verifyRecovery($emailConfirmation->confirm($emailConfirmation->issue($memberId)),
         'Local member email confirmation fixture established');
     $creators=new LocalCreators($pdo);
-    $review=new CreatorDraftReview($pdo);
     $creatorId=$creators->provision($ownerId,'member@example.test','Recoverable <Creator>');
     $archiveDraftId=$creators->saveDraft($memberId,null,null,
         'Original private <plan>','This is local private planning text for an encrypted backup.');
+    $legacySelect=$pdo->prepare('SELECT title,status,revision FROM ac_creator_drafts WHERE id=?');
+    $legacySelect->execute([$archiveDraftId]);
+    $beforeUpgrade=$legacySelect->fetch(PDO::FETCH_ASSOC);
+    verifyRecovery(is_array($beforeUpgrade) && $beforeUpgrade['title']==='Original private <plan>'
+        && $beforeUpgrade['status']==='private' && (int)$beforeUpgrade['revision']===1,
+        'Local creator draft persists under m13 before optional text-review upgrade');
+    CreatorReviewSchema::migrate($pdo);
+    CreatorReviewSchema::migrate($pdo);
+    $upgradedDraft=$creators->ownDrafts($memberId)[0]??null;
+    verifyRecovery(is_array($upgradedDraft)
+        && $upgradedDraft['title']===$beforeUpgrade['title']
+        && $upgradedDraft['status']==='private'
+        && (int)$upgradedDraft['revision']===1
+        && (string)$upgradedDraft['review_note']==='',
+        'Repeatable m14 review migration preserves prior m13 creator title, state and revision');
+    $review=new CreatorDraftReview($pdo);
     $review->submit($memberId,$archiveDraftId,1);
     $review->decide($ownerId,$archiveDraftId,2,'changes',
         'Revise the plan privately and do not upload identity evidence.');
