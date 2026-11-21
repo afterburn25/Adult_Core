@@ -10,17 +10,12 @@ final class ReleaseReadiness
     /** @return list<string> */
     public static function blockers(): array
     {
-        return [
-            'Approved adult-content merchant processor with verified real webhook integration',
-            'Age and identity verification provider and documented jurisdiction controls',
-            'Performer consent and recordkeeping workflow audited for completeness',
-            'Moderation, reporting, takedown and appeals workflows',
-            'Production Pro worker and video playback authorization load tests',
-            'Administrative MFA, password recovery and incident audit logging',
-            'Signed updates with tested rollback and encrypted backup/restore',
-            'Shared hosting/cPanel and provisioned VPS compatibility certification',
-            'Independent security assessment and vulnerability remediation',
-        ];
+        // One canonical list of ten uncompleted launch workstreams. An
+        // automated or local green CI run cannot remove an external gate.
+        return array_map(
+            static fn(array $item): string => $item['name'] . ': ' . $item['remaining'],
+            ReleaseMilestones::all()
+        );
     }
 
     public static function productionReady(): bool
