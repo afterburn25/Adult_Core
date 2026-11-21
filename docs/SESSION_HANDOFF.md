@@ -1,3 +1,9 @@
+## m20 site-local identity backend — 2026-11-21
+
+Added repeatable `SiteIdentitySchema` for the canonical `ac_settings.site_name` plus a separate local monotonic revision. `SiteIdentity` validates owner-supplied 2–120-byte single-line UTF-8 text before saving, uses a database lock and expected revision, and leaves the vendor domain/license, edition, member state and protected media untouched. Legacy installer branding is preserved and displayed escaped even if it predates new input rules. Repeating setup never resets an owner-changed name. Added unit, disposable SQL and one-package ZIP checks. The authenticated owner UI and real HTTP/backup regressions are the next development step; no live cPanel or VPS acceptance is implied.
+
+---
+
 ## Legacy admin page-save form preserves navigation settings — 2026-11-21
 
 An administrator's older browser tab opened before m17 may submit title/body/status without the newer menu fields. The page editor now passes null optional values to the revision-safe repository, preserving existing `show_in_menu` and `nav_position` rather than silently relisting a published unlisted page. Explicit malformed menu settings still fail validation; modern forms continue sending their checked/unchecked values. The real HTTP regression saves an unlisted page with a legacy-style form and verifies its invisible nav link and stored sort order survive. Publishing, protected media, member billing and the Lite/Pro installer are unchanged.

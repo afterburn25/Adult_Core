@@ -5,6 +5,8 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\Website\SiteIdentity;
+use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\UI\Layout;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MemberLibrary;
@@ -16,6 +18,18 @@ use AdultCore\Member\PasswordRecoverySchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
 PageRepository::validate('home','Hello','Safe plain text','published');claim(true,'Valid home page');
+claim(SiteIdentitySchema::VERSION==='m20_local_site_identity_v1',
+    'Local brand schema version is separate from vendor licensing');
+claim(SiteIdentity::validateName(' Local <Brand> & More ')==='Local <Brand> & More',
+    'Local UTF-8 branding accepts punctuation that public renderer escapes');
+foreach (['x','  ',str_repeat('X',121),"Invalid\nName","Bad\0Name",'Trailing'."\0"] as $badName) {
+    try {
+        SiteIdentity::validateName($badName);
+        throw new RuntimeException('Invalid local branding accepted.');
+    } catch (RuntimeException $e) {
+        claim($e->getMessage()!=='Invalid local branding accepted.','Unsafe brand denied');
+    }
+}
 claim(PageRevisionSchema::VERSION==='m16_page_revisions_v1','Page revision migration has distinct version');
 claim(PageNavigationSchema::VERSION==='m17_page_navigation_v1','Navigation migration has distinct version');
 PageRepository::validateNavigation(false,0);

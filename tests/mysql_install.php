@@ -23,6 +23,8 @@ use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Website\PageHistorySchema;
+use AdultCore\Website\SiteIdentity;
+use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\HighlightSchema;
 use AdultCore\Design\DesignRepository;
@@ -238,6 +240,31 @@ try {
     // M6/M7 additive migrations and site/member access against actual MySQL.
     SiteSchema::migrate($pdo);
     SiteSchema::migrate($pdo);  // Repeat-safe.
+    SiteIdentitySchema::migrate($pdo);
+    SiteIdentitySchema::migrate($pdo);
+    $identity=new SiteIdentity($pdo);
+    if ($identity->current()!==['site_name'=>'Disposable Integration Site','revision'=>1]) {
+        throw new RuntimeException('Local brand migration changed original installer name.');
+    }
+    $identity->rename('Local <Club> & More',1);
+    if ($identity->current()!==['site_name'=>'Local <Club> & More','revision'=>2]) {
+        throw new RuntimeException('Local brand revision was not persisted.');
+    }
+    foreach ([
+        static fn()=> $identity->rename('Stale overwrite',1),
+        static fn()=> $identity->rename("Bad\nBrand",2),
+    ] as $badChange) {
+        try {
+            $badChange();
+            throw new RuntimeException('Unsafe or stale branding change was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe or stale branding change was accepted.') throw $e;
+        }
+    }
+    $identity->rename('Disposable Integration Site',2);
+    if ($identity->current()['revision']!==3) {
+        throw new RuntimeException('Local brand repeat-edit revision failed.');
+    }
     PageRevisionSchema::migrate($pdo);
     PageRevisionSchema::migrate($pdo); // Legacy and interrupted updates are repeat-safe.
     $revisionColumns=$pdo->query("SHOW COLUMNS FROM ac_pages LIKE 'revision'")->fetchAll(PDO::FETCH_ASSOC);
