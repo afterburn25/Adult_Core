@@ -50,13 +50,22 @@ final class JobInbox
             if (!is_array($prior) || !is_int($prior['received_at'] ?? null)
                 || !in_array($prior['status'] ?? null, ['pending','processing','done','failed'], true)
                 || !is_array($prior['job'] ?? null)
+                || !is_string($prior['signature'] ?? null)
+                || !hash_equals($envelope['signature'], $prior['signature'])
                 || $prior['job'] !== $envelope['data']) {
                 throw new RuntimeException('Conflicting or corrupted Pro job replay.');
             }
             return false;
         }
         try {
-            $data=json_encode(['received_at'=>time(),'job'=>$envelope['data'],'status'=>'pending'],JSON_THROW_ON_ERROR);
+            // Preserve the signed original envelope for later integrity
+            // verification. Receipt metadata is not an execution instruction.
+            $data=json_encode([
+                'received_at'=>time(),
+                'job'=>$envelope['data'],
+                'signature'=>$envelope['signature'],
+                'status'=>'pending',
+            ],JSON_THROW_ON_ERROR);
             if (fwrite($fp,$data)!==strlen($data) || !fflush($fp)) throw new RuntimeException('Cannot persist Pro job.');
         } catch (\Throwable $e) {
             fclose($fp);@unlink($path);throw $e;
