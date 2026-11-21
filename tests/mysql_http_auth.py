@@ -312,6 +312,10 @@ def main():
                 'content_id': draft_id, 'performer_count': '1'
             })
             ensure('Duplicate roster refused', code >= 400)
+            # Private catalog never exposes unverified titles without a member session.
+            code, anonymous_library = req('/members/library')
+            ensure('Anonymous private library redirects to member sign-in',
+                   code == 303 and 'Fixture gallery' not in anonymous_library)
             # Registration creates a pending member, not a verified adult.
             code, registration = req('/join')
             join_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', registration)
@@ -323,6 +327,13 @@ def main():
             ensure('Member login CSRF', code == 200 and member_token is not None)
             code, _ = req('/members/login', {'csrf': member_token.group(1), 'email': 'member@test.example', 'password': 'strong-example-member-password'})
             ensure('Member login redirects', code == 303)
+            code, library = req('/members/library')
+            ensure('Pending member sees neutral private library, no unverified content',
+                   code == 200 and 'No content is currently available' in library
+                   and 'Fixture gallery' not in library
+                   and '<img' not in library)
+            code, rejected_post = req('/members/library', {'test': 'unsafe'})
+            ensure('Member library forbids mutating HTTP methods', code == 405)
             code, email_page = req('/members/email')
             ensure('Email settings available', code == 200 and 'Not confirmed' in email_page)
             code, bad_confirm = req('/members/email/confirm?token=invalid')
