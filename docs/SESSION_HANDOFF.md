@@ -1,3 +1,9 @@
+## Server-asserted HTTPS in read-only local Site Health — 2026-11-21
+
+The owner-only Site Health screen and redacted JSON report now include a separate **HTTPS request transport** check based exclusively on PHP's server-provided `HTTPS=on|1` flag, not a client-supplied `X-Forwarded-Proto` header or a forged Host request. Local HTTP loopback CI correctly displays `Needs attention` rather than pretending to have a trusted TLS certificate. The result is only a transport self-check; it cannot prove certificate trust, cPanel/VPS origin routing or external release readiness. Unit and authenticated HTTP regressions enforce this narrow semantics. No direct HTTP routing or persistent session policy is changed.
+
+---
+
 ## Disposable PHP mail configuration unit checks — 2026-11-21
 
 `tests/site_member_tests.php` now creates a unique, disposable config directory to exercise the new local health flag: no `email.php` reports false, an enabled PHP mail config with valid sender and HTTPS origin reports true, and invalid sender/insecure origin report false without sending any email or leaking the values. The fixture cleans up its temporary file and directory and never touches installed customer configuration or production deliverability. The actual hosted mail path remains an external acceptance item.

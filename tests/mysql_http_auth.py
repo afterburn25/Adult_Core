@@ -233,6 +233,8 @@ def main():
             ensure('Owner can inspect local health without receiving private data or launch approval',
                    code==200 and 'Local checks:' in health
                    and 'Public webroot isolation' in health
+                   and 'HTTPS request transport' in health
+                   and 'HTTP loopback testing' in health
                    and 'Monitored additive migrations' in health
                    and 'Local license/edition consistency' in health
                    and 'Member email delivery configuration' in health

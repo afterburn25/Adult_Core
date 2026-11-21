@@ -50,6 +50,9 @@ final class SiteHealth
             (new InstallationGate($this->root))->status()===InstallationGate::READY,
             'Installer removed and signed installed state valid.');
         $add('PHP runtime',PHP_VERSION_ID>=80300,'PHP 8.3+ required.');
+        $add('HTTPS request transport',self::httpsIndicator($_SERVER['HTTPS']??null),
+            'The active website request must use server-confirmed HTTPS. '
+            .'HTTP loopback testing and untrusted proxy headers do not prove secure hosting.');
         $add('Required PHP extensions',
             extension_loaded('pdo_mysql') && extension_loaded('openssl')
             && extension_loaded('json') && extension_loaded('fileinfo')
@@ -104,6 +107,15 @@ final class SiteHealth
             'The locally validated license SKU and database edition must agree. '
             .'Use the existing license/edition recovery flow if mismatched.');
         return $result;
+    }
+
+    /**
+     * Only a server-provided HTTPS flag is consulted. Never trust a
+     * client-controlled X-Forwarded-Proto header as transport proof.
+     */
+    public static function httpsIndicator(mixed $value): bool
+    {
+        return is_string($value) && in_array(strtolower($value),['on','1'],true);
     }
 
     /**

@@ -54,6 +54,13 @@ uiCheck(str_contains($privatePreview,'Draft &lt;private&gt;')
     && !str_contains($privatePreview,'<script>unsafe()</script>'),
     'Private preview renders escaped page copy with production layout');
 
+uiCheck(\AdultCore\Support\SiteHealth::httpsIndicator('on')
+    && \AdultCore\Support\SiteHealth::httpsIndicator('ON')
+    && \AdultCore\Support\SiteHealth::httpsIndicator('1')
+    && !\AdultCore\Support\SiteHealth::httpsIndicator('off')
+    && !\AdultCore\Support\SiteHealth::httpsIndicator('https')
+    && !\AdultCore\Support\SiteHealth::httpsIndicator(null),
+    'Local HTTPS diagnostic does not trust an unvalidated proxy header');
 uiCheck(!\AdultCore\Support\SiteHealth::allLocalChecksPass([])
     && \AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>true],['pass'=>true]])
     && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>'true']])
