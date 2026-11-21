@@ -464,6 +464,27 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Stale draft rename accepted.') throw $e;
     }
+    $pendingKey=str_repeat('f',40);
+    $pdo->prepare("INSERT INTO ac_media (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'image/png','pending')")->execute([$draft,$pendingKey]);
+    $reviewMediaId=(int)$pdo->lastInsertId();
+    $moderation->rejectDraftImage($reviewMediaId,(int)$valid['id'],
+        'Individual pending image rejected for legal review.');
+    $q=$pdo->prepare('SELECT review_status,private_storage_key FROM ac_media WHERE id=?');
+    $q->execute([$reviewMediaId]); $reviewed=$q->fetch(PDO::FETCH_ASSOC);
+    if ($reviewed['review_status']!=='rejected' || $reviewed['private_storage_key']!==$pendingKey) {
+        throw new RuntimeException('Individual rejection did not retain private image record and evidence key.');
+    }
+    try { $moderation->rejectDraftImage($reviewMediaId,(int)$valid['id'],'Reject again without change.');
+        throw new RuntimeException('Repeated image rejection was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Repeated image rejection was accepted.') throw $e;
+    }
+    $actions=$moderation->auditTrail($draft);
+    if (!in_array('image_rejected',array_column($actions,'action'),true)
+        || !in_array('draft_renamed',array_column($actions,'action'),true)) {
+        throw new RuntimeException('Private title and image decisions lacked audit history.');
+    }
     $roster=$moderation->declarePerformers($draft,(int)$valid['id'],2);
     if (count($roster)!==2 || count(array_unique($roster))!==2) throw new RuntimeException('Performer roster was not declared.');
     try { $moderation->declarePerformers($draft,(int)$valid['id'],1); throw new RuntimeException('Duplicate roster unexpectedly created.'); }

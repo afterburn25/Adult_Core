@@ -313,6 +313,39 @@ def main():
             draft_match = re.search(r'<tr><td>(\d+)</td><td>Hidden safety demo</td><td>draft / pending', moderation)
             ensure('Moderation draft is private pending', code == 200 and draft_match is not None)
             draft_id = draft_match.group(1)
+            # Draft edits require administrator CSRF and the exact previously
+            # displayed title. A concurrent moderator edit must not overwrite.
+            code, _ = req('/admin/moderation', {
+                'csrf': 'wrong-token', 'action':'rename_draft',
+                'content_id':draft_id,'expected_title':'Hidden safety demo',
+                'title':'Unapproved change'
+            })
+            ensure('Private draft rename rejects invalid CSRF', code == 403)
+            marked_title='Hidden safety demo <img src=x onerror=alert(1)>'
+            code, _ = req('/admin/moderation', {
+                'csrf': moderation_token.group(1),'action':'rename_draft',
+                'content_id':draft_id,'expected_title':'Hidden safety demo',
+                'title':marked_title
+            })
+            ensure('Private draft title can be edited without publishing', code == 303)
+            code, moderation = req('/admin/moderation')
+            ensure('Private title escaped and still unpublished',
+                   code == 200 and '&lt;img src=x onerror=alert(1)&gt;' in moderation
+                   and '<img src=x onerror=alert(1)>' not in moderation
+                   and 'draft / pending' in moderation)
+            code, stale_error = req('/admin/moderation', {
+                'csrf': moderation_token.group(1),'action':'rename_draft',
+                'content_id':draft_id,'expected_title':'Hidden safety demo',
+                'title':'Overwritten stale title'
+            })
+            ensure('Stale draft title edit safely rejected',
+                   code == 422 and 'Draft changed; reload the moderation queue' in stale_error)
+            code, _ = req('/admin/moderation', {
+                'csrf': moderation_token.group(1),'action':'rename_draft',
+                'content_id':draft_id,'expected_title':marked_title,
+                'title':'Hidden safety demo'
+            })
+            ensure('Private draft title can be revised with fresh expected title', code == 303)
             # Admin-only multipart upload can stage a private pending image
             # but can never bypass performer consent or moderation gates.
             def upload_draft(csrf_value, data, draft=draft_id):
@@ -371,6 +404,45 @@ def main():
                    code == 200 and preview_type.startswith('image/png')
                    and 'no-store' in preview_cache
                    and private_preview.startswith(b'\x89PNG\r\n\x1a\n'))
+            # Reject another staged image independently, without deleting its
+            # private evidence or affecting this still-pending image.
+            code, _ = upload_draft(moderation_token.group(1), sample_png())
+            ensure('Additional private draft image can be staged for review', code == 303)
+            rejected_media_id=subprocess.check_output(
+                php_fixture+['draft-media-id',draft_id],cwd=root,text=True).strip()
+            ensure('Additional pending media has separate ID',rejected_media_id != pending_media_id)
+            code, _ = req('/admin/moderation', {
+                'csrf':'bad-token','action':'reject_draft_image',
+                'media_id':rejected_media_id,'note':'Unsafe image reported for review.'
+            })
+            ensure('Individual media rejection requires CSRF',code == 403)
+            code, _ = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'reject_draft_image',
+                'media_id':rejected_media_id,'note':'short'
+            })
+            ensure('Individual media rejection requires meaningful reason',code == 422)
+            code, _ = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'reject_draft_image',
+                'media_id':rejected_media_id,'note':'Pending image rejected for safety review.'
+            })
+            ensure('Moderation can reject only one pending draft image',code == 303)
+            code, _, _, rejected_binary=req_binary('/admin/moderation/image/'+rejected_media_id)
+            ensure('Rejected image preview unavailable to moderator',
+                   code == 404 and not rejected_binary.startswith(b'\x89PNG'))
+            code, _, _, retained_preview=req_binary('/admin/moderation/image/'+pending_media_id)
+            ensure('Unrelated pending image remains privately previewable',
+                   code == 200 and retained_preview.startswith(b'\x89PNG'))
+            code, again = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'reject_draft_image',
+                'media_id':rejected_media_id,'note':'Second attempt to reject image again.'
+            })
+            ensure('Rejected image cannot be reviewed twice',
+                   code == 422 and 'Pending private draft image not found.' in again)
+            code, moderation=req('/admin/moderation')
+            ensure('Only one image remains pending in draft queue',
+                   code == 200 and re.search(r'<td>'+re.escape(draft_id)
+                       +r'</td><td>Hidden safety demo</td>.*?<td>1 pending</td>',moderation,
+                       flags=re.DOTALL) is not None)
             code, _, _, missing_preview = req_binary('/admin/moderation/image/99999999')
             ensure('Unknown draft-image preview is unavailable',
                    code == 404 and not missing_preview.startswith(b'\x89PNG'))
