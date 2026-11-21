@@ -1,3 +1,14 @@
+## Service-level installer input and HTTPS safeguards — 2026-11-20
+
+- Fresh installation now calls `InstallInput::validateForService()` inside `InstallService::install()` after taking the installation lock and checking existing state, **before** any vendor request, capability probe or MySQL creation. This validates normalized password, identity, database host/port/name/user fields even if a caller bypasses the browser form. Browser password-confirmation remains a UI concern; the service receives a single password and an integer port.
+- Direct web service calls also enforce HTTPS for non-loopback requests; local loopback fixtures are permitted. The normal browser controller retains its own separate HTTPS, CSRF and rate-limit checks.
+- `tests/run.php` exercises accepted normalized service fields and rejects malicious DSN host, invalid database name/port/type, missing or short administrator credentials, and invalid license host.
+- `tests/installer_service_http.py` uses an isolated PHP server plus a mock denying issuer to verify unsafe DSN and wrong host are rejected before issuer traffic, a simulated non-local insecure request is denied, and simulated HTTPS or localhost requests reach the denying issuer but never finish installation. The simulated `HTTPS=on` fixture **does not constitute a real TLS test**.
+- GitHub Actions [run 44871465911](https://github.com/afterburn25/Adult_Core/actions/runs/44871465911) passed on commit [`58acec8`](https://github.com/afterburn25/Adult_Core/commit/58acec8a54629be95ec30cd9a4bf00a83e501c4a), including real disposable MySQL, HTTP and licensing tests. Confirm the workflow again for any later documentation commit.
+- **Still open:** actual CWP four-SKU catalog setup, owner-issued staging keys and merchant-sandbox payment/renewal acceptance, real shared-host and Pro VPS installation tests, and independent security/compliance certification. No production payment or real customer-server claims.
+
+---
+
 ## Latest installer licensing/hostname guard checkpoint — 2026-11-20
 
 - The one-package installer still derives Lite/Pro **exclusively** from the Cajun Web Pro product-bound license key, never from the host or a posted edition.
