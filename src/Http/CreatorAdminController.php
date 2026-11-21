@@ -8,6 +8,8 @@ use AdultCore\Auth\AdminSession;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorFeedbackSchema;
+use AdultCore\Creator\CreatorFeedbackHistory;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Database\Connection;
 use AdultCore\Licensing\LicenseManager;
@@ -62,6 +64,13 @@ final class CreatorAdminController
                     '<p>Apply the additive local creator text-review migration in Site setup.</p>');
                 return;
             }
+            $feedbackCheck=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $feedbackCheck->execute([CreatorFeedbackSchema::VERSION]);
+            if ((int)$feedbackCheck->fetchColumn()!==1) {
+                $this->render(503,'Feedback history setup required',
+                    '<p>Apply the local creator feedback history migration in Site setup.</p>');
+                return;
+            }
             $data=(new LocalCreators($pdo))->privatePlansForOwner($admin['id'],(int)$match[1]);
             if ($data===null) {
                 $this->render(404,'Not found','<p>Private planning drafts unavailable.</p>');
@@ -100,7 +109,20 @@ final class CreatorAdminController
                     .'<td>'.self::e((string)$event['created_at']).'</td></tr>';
             }
             $html.='</tbody></table></section>'
-                .'<p><a href="/admin/creators">Return to local creators</a></p>';
+                .'<section class="panel"><h2>Private review feedback history</h2>'
+                .'<p>Latest 100 review decisions for this local creator. Feedback is stored '
+                .'only in private site-owned records, not in the numeric action log.</p>';
+            $feedback=(new CreatorFeedbackHistory($pdo))->forOwner($admin['id'],(int)$match[1]);
+            if ($feedback===[]) $html.='<p>No private review feedback recorded.</p>';
+            foreach ($feedback as $entry) {
+                $html.='<article class="panel"><h3>Draft #'.(int)$entry['draft_id']
+                    .' — '.self::e((string)$entry['decision']).'</h3>'
+                    .'<p>Reviewer #'.(int)$entry['reviewer_id']
+                    .' · Submitted revision #'.(int)$entry['submitted_revision']
+                    .' · Reviewed '.self::e((string)$entry['reviewed_at']).' UTC</p>'
+                    .'<p>'.nl2br(self::e((string)$entry['feedback'])).'</p></article>';
+            }
+            $html.='</section><p><a href="/admin/creators">Return to local creators</a></p>';
             $this->render(200,'Private creator plans',$html);
         } catch (Throwable) {
             $this->render(503,'Private creator plans unavailable','<p>Could not load saved plans.</p>');

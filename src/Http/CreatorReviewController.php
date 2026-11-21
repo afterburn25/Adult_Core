@@ -8,6 +8,7 @@ use AdultCore\Auth\AdminSession;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorFeedbackSchema;
 use AdultCore\Database\Connection;
 use AdultCore\Licensing\LicenseManager;
 use AdultCore\UI\Layout;
@@ -44,6 +45,13 @@ final class CreatorReviewController
             if ((int)$q->fetchColumn()!==1) {
                 $this->render(503,'Site setup needed',
                     '<p>Apply the additive local creator text-review migration under Site setup.</p>',$admin['role']);
+                return;
+            }
+            $check=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $check->execute([CreatorFeedbackSchema::VERSION]);
+            if ((int)$check->fetchColumn()!==1) {
+                $this->render(503,'Feedback history setup required',
+                    '<p>Apply the local creator feedback history migration in Site setup.</p>',$admin['role']);
                 return;
             }
             $review=new CreatorDraftReview($pdo);

@@ -8,6 +8,8 @@ use AdultCore\Auth\LoginRateLimiter;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorFeedbackSchema;
+use AdultCore\Creator\CreatorFeedbackHistory;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
@@ -196,6 +198,13 @@ final class MemberController
                 '<p>Ask the site owner to apply the creator review migration.</p>');
             return;
         }
+        $feedbackSchema=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $feedbackSchema->execute([CreatorFeedbackSchema::VERSION]);
+        if ((int)$feedbackSchema->fetchColumn()!==1) {
+            $this->view(503,'Creator feedback history setup required',
+                '<p>Ask your site owner to apply the private feedback history migration.</p>');
+            return;
+        }
         $creators=new LocalCreators($pdo);
         $profile=$creators->activeForMember((int)$member['id']);
         if ($profile===null) {
@@ -375,6 +384,18 @@ final class MemberController
                 }
             }
             $html.='</article>';
+        }
+        $html.='</section><section class="panel"><h2>Your private review feedback history</h2>'
+            .'<p>Latest 100 local decisions, retained after you edit, withdraw, or resubmit '
+            .'your private planning text. No public content is approved here.</p>';
+        $history=(new CreatorFeedbackHistory($pdo))->forMember((int)$member['id']);
+        if ($history===[]) $html.='<p>No private review feedback recorded.</p>';
+        foreach ($history as $entry) {
+            $html.='<article class="panel"><h3>Draft #'.(int)$entry['draft_id']
+                .' — '.self::e((string)$entry['decision']).'</h3>'
+                .'<p>Submitted revision #'.(int)$entry['submitted_revision']
+                .' · Reviewed '.self::e((string)$entry['reviewed_at']).' UTC</p>'
+                .'<p>'.nl2br(self::e((string)$entry['feedback'])).'</p></article>';
         }
         $html.='</section><p><a href="/members">Back to member account</a></p>';
         $this->view(200,'Private creator workspace',$html);
