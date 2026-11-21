@@ -1,3 +1,9 @@
+## Restricted local member safety admin screen — 2026-11-21
+
+Added `/admin/members/manage?id=ID` as an owner/admin-only local member security screen, linked from the otherwise read-only Admin → Members listing. It lists only one existing local member's ID/email/status/registration time and 20 private audit entries, with escaped reasons, no-store/noindex and no public record URLs. A manager may suspend pending/active members or restore a suspended account **only to pending**, using POST+CSRF, optimistic expected status and server-side recent manager verification. Existing secure admin sessions remain active for routine edits; after the 30-minute manager window, the site offers a single rate-limited password recheck (`action=verify`), not password input on every change. The service invalidates old member sessions and reset tokens in the same DB transaction. Moderator/anonymous access, owner IDs and any approve/paid/age/content paths remain forbidden. Added route/navigation, setup, ZIP and UI checks; live HTTP suspension/replay and recovery tests are next. Release gates remain blocked.
+
+---
+
 ## Revision-restore HTTP fixture uses the current administrator CSRF — 2026-11-21
 
 The new 23-revision browser test reached its oldest saved private version but its restore POST was rejected. The test reused an editor CSRF token captured much earlier, before intervening owner session/security flows; the actual page contains a fresh hidden CSRF value. The fixture now extracts and submits that current token from the older revisions screen rather than relying on an earlier login epoch. The real protected restore still requires CSRF, matching optimistic page revision and draft-only state. If CI fails again, inspect the returned safe error before touching production logic.

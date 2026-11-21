@@ -1,3 +1,7 @@
+## Review local member safety (m21 development)
+
+An authenticated site owner can open **Admin → Members → Safety review** to suspend a local member or restore a suspended account to **pending only**, with a retained private reason and security audit. The existing secure session avoids repeated passwords for ordinary changes; a high-risk member status change uses the same short manager-authentication window as staff operations. No age/consent or paid membership approval is possible here.
+
 ## Local member safety controls (m21 development)
 
 The local account security backend supports owner-initiated member suspension and a deliberately limited restore to **pending** only. Every transition revokes previous member sessions and password-reset tokens, and retains a private audit. Apply the additive migration under **Admin → Setup** after database backup. This is not member age verification, billing fulfillment or an adult-media activation path.

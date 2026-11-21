@@ -65,6 +65,14 @@ uiCheck(\AdultCore\Support\SiteHealth::editionMatches('lite',['edition'=>'lite']
     && !\AdultCore\Support\SiteHealth::editionMatches('pro',null)
     && !\AdultCore\Support\SiteHealth::editionMatches('unknown',['edition'=>'unknown']),
     'Site Health never treats mismatched or absent local paid edition as consistent');
+$memberSafetyController=(string)file_get_contents(dirname(__DIR__).'/src/Http/MemberSafetyController.php');
+uiCheck(str_contains($memberSafetyController,'AdminSession::managerVerifiedRecently')
+    && str_contains($memberSafetyController,'AdminSession::csrfValid')
+    && str_contains($memberSafetyController,'markManagerVerified')
+    && str_contains($memberSafetyController,'LocalMemberSafety')
+    && !str_contains($memberSafetyController,"'approve'")
+    && !str_contains($memberSafetyController,"'activate'"),
+    'Local member safety requires CSRF, bounded password step-up and never approves adult media');
 $admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
     ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
 uiCheck(str_contains($admin, 'class="admin-sidebar"'), 'Sidebar layout');

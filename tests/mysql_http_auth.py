@@ -238,6 +238,7 @@ def main():
             code, migrated_setup=req('/admin/setup')
             ensure('Site setup reports individual page migrations as installed',
                    code==200
+                   and '<td>Local member suspension audit</td><td>Installed</td>' in migrated_setup
                    and 'All listed local schema migrations have been recorded.' in migrated_setup
                    and '<td>Page revision protection</td><td>Installed</td>' in migrated_setup
                    and '<td>Page navigation settings</td><td>Installed</td>' in migrated_setup
@@ -421,7 +422,7 @@ def main():
             })
             ensure('Moderator can stage a private-only content draft',code == 303)
             for forbidden in ('/admin/staff','/admin/tiers','/admin/upgrade','/admin/license',
-                              '/admin/pages','/admin/site','/admin/health','/admin/packages','/admin/page/preview?id=1'):
+                              '/admin/pages','/admin/site','/admin/health','/admin/members/manage?id=1','/admin/packages','/admin/page/preview?id=1'):
                 code, _=mod_req(forbidden)
                 ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
             code, mod_mfa=mod_req('/admin/security')

@@ -656,7 +656,7 @@ final class SiteAdminController
         $page=(new MemberDirectory($pdo))->page($before,$filter==='all'?null:$filter,$memberId);
         header('Cache-Control: private, no-store, max-age=0');
         header('X-Robots-Tag: noindex, nofollow');
-        $html='<p class="intro">Read-only local accounts. A stored account status does not prove '
+        $html='<p class="intro">Read-only local account listing. Safety changes require a separate '
             .'age, identity, performer consent, payment or permission to access private media. '
             .'Administrators cannot enable adult access here.</p>'
             .'<form method="get" action="/admin/members" class="install-form">'
@@ -675,12 +675,14 @@ final class SiteAdminController
             .'<a href="/admin/members">Clear lookup</a></form>'
             .'<section class="panel"><h2>Registered members</h2>'
             .'<table class="page-table"><thead><tr>'
-            .'<th>ID</th><th>Email</th><th>Status</th><th>Created (UTC)</th>'
+            .'<th>ID</th><th>Email</th><th>Status</th><th>Created (UTC)</th><th>Account safety</th>'
             .'</tr></thead><tbody>';
         foreach ($page['members'] as $row) {
             $html.='<tr><td>'.$row['id'].'</td><td>'.self::e($row['email'])
                 .'</td><td>'.self::e($row['status'])
-                .'</td><td>'.self::e($row['created_at']).'</td></tr>';
+                .'</td><td>'.self::e($row['created_at'])
+                .'</td><td><a href="/admin/members/manage?id='.$row['id']
+                .'">Safety review</a></td></tr>';
         }
         $html.='</tbody></table>';
         if ($page['members']===[]) $html.='<p>No local member accounts match this filter.</p>';
