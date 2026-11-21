@@ -157,6 +157,12 @@ final class CreatorDraftReview
                 SET status=?,review_note=?,revision=revision+1,
                     updated_at=UTC_TIMESTAMP() WHERE id=?')
                 ->execute([$decision,$feedback,$draftId]);
+            // Snapshot feedback in the same transaction as the decision.
+            // The numeric event log stays free of private review text.
+            $history=$this->pdo->prepare('INSERT INTO ac_creator_feedback_history
+                (draft_id,reviewer_id,submitted_revision,decision,feedback,reviewed_at)
+                VALUES (?,?,?,?,?,UTC_TIMESTAMP())');
+            $history->execute([$draftId,$moderatorId,$expectedRevision,$decision,$feedback]);
             $this->event($draftId,$moderatorId,$decision);
             $this->pdo->commit();
         } catch (Throwable $e) {
