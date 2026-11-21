@@ -178,7 +178,7 @@ final class DesignController
         $html .= '</fieldset><label for="studio-title">Homepage headline</label><input id="studio-title" name="title" required maxlength="190" value="' . self::e($title) . '">'
             . '<label for="studio-body">Homepage text</label><textarea id="studio-body" name="body" maxlength="30000" rows="5">' . self::e($body) . '</textarea>'
             . '<button class="install-button" type="submit">Save design changes</button></form>'
-            . '<hr><h2>Upload photos & cutouts</h2><p class="muted">Transparent PNG and WebP work best. JPG is also supported. Maximum 5 MB / 4096 px. No automatic background removal yet.</p>'
+            . '<hr><h2>Upload photos & cutouts</h2><p class="muted">Transparent PNG and WebP work best. JPG is also supported. Maximum 5 MB / 4096 px. Images with EXIF, GPS, text notes or unsupported metadata are rejected; export a metadata-free image first. No automatic background removal yet.</p>'
             . '<form method="post" action="/admin/design/upload" enctype="multipart/form-data" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . $csrf . '">'
             . '<label for="design-upload">Picture</label><input id="design-upload" name="design_image" type="file" accept="image/png,image/webp,image/jpeg" required>'

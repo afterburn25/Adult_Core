@@ -60,6 +60,18 @@ catch (RuntimeException $e) { designCheck($e->getMessage() !== 'Fake image accep
 file_put_contents($test,str_repeat('a',DesignImages::MAX_BYTES+1));
 try { DesignImages::inspect($test); throw new RuntimeException('Large image accepted.'); }
 catch (RuntimeException $e) { designCheck($e->getMessage() !== 'Large image accepted.','Reject oversized upload'); }
+// Public decorative assets must not retain private location/creator notes,
+// even when the administrator initially keeps them in private preview.
+$cleanPng=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4p2gOAAMXATf6OqxSAAAAAElFTkSuQmCC',true);
+if (!is_string($cleanPng)) throw new RuntimeException('Disposable design PNG missing.');
+file_put_contents($test, $cleanPng);
+designCheck(DesignImages::inspect($test)['mime']==='image/png','Metadata-free design PNG accepted');
+$metadata='GPSComment=private';
+$tag='tEXt';
+$chunk=pack('N',strlen($metadata)).$tag.$metadata.hex2bin(hash('crc32b',$tag.$metadata));
+file_put_contents($test, substr($cleanPng,0,33).$chunk.substr($cleanPng,33));
+try { DesignImages::inspect($test); throw new RuntimeException('Design PNG metadata accepted.'); }
+catch (RuntimeException $e) { designCheck($e->getMessage() !== 'Design PNG metadata accepted.','Design studio refuses private PNG metadata'); }
 unlink($test);
 $css=file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(is_string($css)&&str_contains($css,'.theme-rose-ivory')&&str_contains($css,'.theme-velvet-plum'),'Built-in layout CSS exists');

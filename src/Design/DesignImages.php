@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Design;
 
+use AdultCore\Media\ImageMetadataPolicy;
 use PDO;
 use RuntimeException;
 
@@ -29,6 +30,9 @@ final class DesignImages
             || $dimensions[0] > 4096 || $dimensions[1] > 4096) {
             throw new RuntimeException('Invalid image or oversized dimensions (maximum 4096px).');
         }
+        // Decorative images may later be published to the homepage. Refuse
+        // EXIF/GPS, XMP and unsupported chunks BEFORE any private/public flag.
+        ImageMetadataPolicy::assertAllowed($path, $mime);
         return ['mime'=>$mime,'extension'=>$types[$mime], 'size'=>(int)$bytes];
     }
 

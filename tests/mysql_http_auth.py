@@ -236,20 +236,26 @@ def main():
                     return struct.pack('>I',len(data))+name+data+struct.pack('>I',zlib.crc32(name+data)&0xffffffff)
                 return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR',struct.pack('>IIBBBBB',2,2,8,6,0,0,0))
                         + chunk(b'IDAT',zlib.compress(b'\x00'+b'\xff\xaa\x99\x00'*2 + b'\x00'+b'\xff\xaa\x99\x00'*2)) + chunk(b'IEND',b''))
-            def upload_design(public_ok):
+            def upload_design(public_ok, image_bytes=None):
                 boundary='ACMultipartTestBoundary'
                 items=[('csrf',studio_csrf.group(1))]
                 if public_ok: items.append(('public_use_confirm','1'))
                 parts=[]
                 for key,value in items:
                     parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n').encode())
-                parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="design_image"; filename="cutout.png"\r\nContent-Type: image/png\r\n\r\n').encode()+sample_png()+b'\r\n')
+                parts.append((f'--{boundary}\r\nContent-Disposition: form-data; name="design_image"; filename="cutout.png"\r\nContent-Type: image/png\r\n\r\n').encode()+(sample_png() if image_bytes is None else image_bytes)+b'\r\n')
                 parts.append(f'--{boundary}--\r\n'.encode())
                 request=urllib.request.Request(f'http://127.0.0.1:{port}/admin/design/upload',
                     data=b''.join(parts),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'})
                 try: resp=opener.open(request,timeout=4)
                 except urllib.error.HTTPError as err: resp=err
                 with resp: return resp.status,resp.read().decode('utf-8', errors='replace')
+            metadata = b'GPSComment=private'
+            meta_chunk = (struct.pack('>I',len(metadata)) + b'tEXt' + metadata
+                          + struct.pack('>I',zlib.crc32(b'tEXt'+metadata)&0xffffffff))
+            clean_design = sample_png()
+            code, _ = upload_design(True, clean_design[:33] + meta_chunk + clean_design[33:])
+            ensure('Public decorative upload rejects EXIF/location-style PNG notes', code == 422)
             code, _ = upload_design(False)
             ensure('Private transparent PNG upload accepted', code == 303)
             code, studio = req('/admin/design')
