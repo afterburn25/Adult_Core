@@ -1,3 +1,9 @@
+## Staff restoration hardening and MFA enrollment indicator — 2026-11-21
+
+- Reject restoring a moderator with the old password; retain new-password epoch rotation and status checks.
+- Lock the manager's active role inside staff mutation transactions to avoid stale authorization.
+- Show nonsecret moderator MFA enrollment status on the team page. No MFA credential/OTP disclosure or MFA reset action.
+
 ## Moderator staff lifecycle and credential revocation — 2026-11-21 (development)
 
 - Add `/admin/staff` manager-only moderator creation, suspension and restore-with-new-password, backed by role checks, manager password step-up, CSRF and rate limiting.

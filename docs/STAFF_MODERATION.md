@@ -12,13 +12,15 @@ A signed-in owner/administrator with `members.manage` opens `/admin/staff` over 
 
 **The site does not send an invitation email or independently establish staff-email ownership.** The manager must independently verify who receives the credentials and transmit the initial password through an appropriate secure channel; never use the manager's own password. Staff should change that initial password promptly in **Admin → Account security**; this change rotates their revocation counter and signs out their current browser.
 
+The manager's account list shows each moderator's **Enrolled** or **Not enrolled** authenticator status without exposing MFA setup keys, TOTP codes or recovery credentials. This is a readiness indicator, not verification of the person's identity.
+
 The moderator's menu contains **Moderation**, **Account security** and **Sign out** only. The route layer independently denies licensing, modules, public-page editing, edition upgrade, tier management and other manager-only areas.
 
 ## Suspend and restore
 
 Only a manager can suspend an active moderator at `/admin/staff` with a fresh manager-password check. Suspended staff cannot log in, and existing sessions are refused on their next request. Suspension increments the private account's session epoch.
 
-A manager can restore a suspended moderator only while setting a **new** 16–72-byte password and confirming the manager password again. Restoration increments the epoch a second time. Even if an old browser never contacted the site while the account was suspended, its original authenticated session can **never** be revived by restoration. Pending moderator MFA challenges bind the epoch captured after password verification and likewise cannot survive the suspension/restoration cycle. Staff who have MFA enabled still need their valid authenticator/recovery codes after restoration; a credential change does not silently disable MFA.
+A manager can restore a suspended moderator only while setting a **different** 16–72-byte password (the exact previous password is rejected) and confirming the manager password again. Restoration increments the epoch a second time. Even if an old browser never contacted the site while the account was suspended, its original authenticated session can **never** be revived by restoration. Pending moderator MFA challenges bind the epoch captured after password verification and likewise cannot survive the suspension/restoration cycle. Staff who have MFA enabled still need their valid authenticator/recovery codes after restoration; a credential change does not silently disable MFA.
 
 This prototype intentionally provides **no account deletion** or promotion path. Retained audit rows and linked moderator content may have legal/security retention obligations.
 

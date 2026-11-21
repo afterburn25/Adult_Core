@@ -1,3 +1,9 @@
+## Moderator account restoration and MFA operator readiness — 2026-11-21
+
+Additional hardening rejects reuse of the old moderator password on restoration, locks manager authorization within the staff-change transaction, and displays a nonsecret MFA enrollment indicator on the manager's staff page. This is only a status cue: MFA enrollment does not verify staff email ownership or satisfy external identity/consent obligations.
+
+---
+
 ## Restricted staff account provisioning, suspension, restoration and password rotation — 2026-11-21
 
 The administrator-only `/admin/staff` page now provisions **moderators only**, with fresh manager password step-up, IP-bounded request attempts, CSRF, immutable role restrictions and transactional private action history. Staff passwords are always hashed and never logged. Active moderators can rotate their own credential at `/admin/security` after proving the existing password. Suspension, reactivation with a new credential and self-password rotation each increment `ac_users.staff_session_epoch`; existing moderator sessions reject mismatched epochs, including a browser that never contacted the site during suspension. Password-verified MFA challenges store the epoch and cannot be completed after account rotation.

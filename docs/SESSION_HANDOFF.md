@@ -1,3 +1,11 @@
+## Credential restoration and staff MFA-readiness tightening — 2026-11-21
+
+- Restoring a suspended moderator now checks the chosen replacement password against the prior password hash, rejects reuse and locks the active manager's DB role row for each privileged transactional mutation. The current account revocation epoch is still rotated.
+- `StaffRepository::moderators()` now LEFT JOINs MFA enrollment state **without selecting secrets**; `/admin/staff` shows Enrolled/Not enrolled status. Disposable SQL and real HTTP tests check that new staff begin without an authenticator assertion. The owner still must communicate credentials securely; no email identity verification or production compliance is inferred.
+- Confirm the latest two-job MySQL/MariaDB CI run before using this build. External release gates remain open.
+
+---
+
 ## Administrator-managed moderator accounts — 2026-11-21
 
 - New `StaffSchema` adds `ac_staff_actions` and `ac_users.staff_session_epoch` via repeatable `/admin/setup` migration. `StaffRepository` permits manager-only create/suspend/restore of **moderator** accounts with private audit, plus moderator-only self-password rotation (requires current password). There is no manager role grant, account deletion or automatic invitation email.
