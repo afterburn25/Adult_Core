@@ -161,6 +161,16 @@ try {
     file_put_contents($modulePending, "simulated activation interruption\n");
     verifyPackageTest('Incomplete addon activation disables valid cached module',
         !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    // Enabled-but-blocked modules must present a repair form; otherwise the
+    // operator has no straightforward path to revalidate the interrupted key.
+    $_SESSION ??= [];
+    $renderPackageUi = new \ReflectionMethod(\AdultCore\Http\AdminController::class, 'packagesContent');
+    $packageHtml = $renderPackageUi->invoke(null, 'lite',
+        $paidStore->listPackages('lite', $caps), null, null);
+    verifyPackageTest('Enabled paid module with interrupted activation exposes repair form',
+        is_string($packageHtml) && str_contains($packageHtml, 'Repair paid module license')
+        && str_contains($packageHtml, 'name="module_license_key"')
+        && !str_contains($packageHtml, 'AAAA-BBBB-CCCC-DDDD'));
     verifyPackageTest('Incomplete module activation blocks snapshot backups',
         !(new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
     $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD');
