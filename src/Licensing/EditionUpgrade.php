@@ -301,7 +301,35 @@ final class EditionUpgrade
         if (!is_resource($fp)) throw new RuntimeException('Edition upgrade lock unavailable.');
         try {
             if (!flock($fp, LOCK_EX | LOCK_NB)) throw new RuntimeException('Another edition operation is running.');
-            $callback();
+            // Edition upgrades and same-edition license replacements modify the
+            // same private config/cache files. Serialize them with the shared
+            // license update lock, then exclude in-flight license cache refresh
+            // writers. Lock acquisition order: edition -> license -> refresh.
+            $sharedPath = $this->root . '/storage/.license-update.lock';
+            if (is_link($sharedPath)) throw new RuntimeException('Unsafe license update lock file.');
+            $shared = @fopen($sharedPath, 'c+');
+            if (!is_resource($shared)) throw new RuntimeException('License update lock unavailable.');
+            try {
+                if (!flock($shared, LOCK_EX | LOCK_NB)) {
+                    throw new RuntimeException('Another license update is running.');
+                }
+                $refreshPath = $this->root . '/storage/.license-refresh.lock';
+                if (is_link($refreshPath)) throw new RuntimeException('Unsafe license refresh lock file.');
+                $refresh = @fopen($refreshPath, 'c+');
+                if (!is_resource($refresh)) throw new RuntimeException('License refresh lock unavailable.');
+                try {
+                    if (!flock($refresh, LOCK_EX | LOCK_NB)) {
+                        throw new RuntimeException('Another license refresh is running.');
+                    }
+                    $callback();
+                } finally {
+                    flock($refresh, LOCK_UN);
+                    fclose($refresh);
+                }
+            } finally {
+                flock($shared, LOCK_UN);
+                fclose($shared);
+            }
         } finally { flock($fp, LOCK_UN); fclose($fp); }
     }
 }
