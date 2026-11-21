@@ -181,6 +181,28 @@ try {
         && (require $moduleConfigFile)['key'] === 'AAAA-BBBB-CCCC-DDDD');
     verifyPackageTest('Completed module recovery restores backup eligibility',
         (new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
+    // A malicious marker symlink cannot bypass the lockout or overwrite the
+    // signed module cache as a side effect of reactivation.
+    $cacheBeforePendingLink=file_get_contents($licenseCache);
+    if (!@symlink($licenseCache,$modulePending)) {
+        throw new RuntimeException('Could not create module pending marker symlink fixture.');
+    }
+    try {
+        verifyPackageTest('Symlinked activation marker disables module runtime',
+            !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        verifyPackageTest('Symlinked activation marker disables backup',
+            !(new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
+        $issuerBeforePendingLink=$moduleIssuerCalls;
+        expectRefusal('Module activation refuses symlinked pending recovery marker',
+            fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe pending marker never reaches addon issuer or changes receipt',
+            $moduleIssuerCalls === $issuerBeforePendingLink
+            && file_get_contents($licenseCache) === $cacheBeforePendingLink);
+    } finally {
+        unlink($modulePending);
+    }
+    verifyPackageTest('Removing unsafe marker restores valid module runtime',
+        $paidStore->isRunnable('module','paid-chat','lite',$caps));
     $moduleLock = $moduleDir.'/.lock';
     $moduleLockBackup = $moduleLock.'.original';
     if (!rename($moduleLock, $moduleLockBackup) || !@symlink($moduleLockBackup, $moduleLock)) {
