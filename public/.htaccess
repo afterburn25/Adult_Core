@@ -3,11 +3,20 @@ Options -Indexes
 DirectoryIndex index.php
 <IfModule mod_rewrite.c>
     RewriteEngine On
+    # Never execute unexpected PHP/script files directly, even when a file exists.
+    # Only root public/index.php is a web entrypoint.
+    RewriteRule ^(?!index\.php$).*\.(?:php[0-9]?|phtml|phar|cgi|pl|sh)$ - [F,L,NC]
     RewriteRule ^index\.php$ - [L]
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteRule ^ index.php [L,QSA]
 </IfModule>
 <FilesMatch "^(?:\.ht|.*\.(?:env|ini|log|sql|bak|dist))$">
+    Require all denied
+</FilesMatch>
+
+# Defense in depth if mod_rewrite is unavailable. Only public/index.php
+# may execute directly; public/router.php is for PHP's local development server.
+<FilesMatch "^(?!index\.php$).*\.(?:php[0-9]?|phtml|phar|cgi|pl|sh)$">
     Require all denied
 </FilesMatch>

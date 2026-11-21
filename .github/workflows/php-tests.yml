@@ -50,6 +50,8 @@ jobs:
         run: python3 tests/deployment_agent_contract.py
       - name: Staging-host HTTPS safety and live PHP preinstall protocol checks (offline)
         run: python3 tests/staging_host_audit_tests.py
+      - name: Disposable real Apache rewrite and private-script denial smoke
+        run: python3 tests/apache_preinstall_smoke.py
       - name: Public page and member-session tests
         run: php tests/site_member_tests.php
       - name: Moderation input validation
