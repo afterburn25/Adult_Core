@@ -1,3 +1,9 @@
+## Exact numeric local member lookup without exposing emails in URLs — 2026-11-21
+
+The authenticated Admin → Members directory now allows an exact **positive numeric account ID** lookup, optionally combined with an allowlisted local status filter, instead of forcing the owner to page through hundreds of records to find a known account. IDs are prepared SQL parameters, and a lookup cannot be combined with an older-page cursor. Malformed/zero IDs receive 422. The feature deliberately avoids searching by email in GET parameters, so email addresses are not copied into URL history or proxy access logs. Returned fields remain limited to local ID, escaped email/status and date; there are no password hashes, age/consent/provider evidence, billing records, account changes or access grants. Direct MySQL/MariaDB and authenticated browser tests cover precise matches, status mismatch, invalid cursors and no unintended private account disclosure.
+
+---
+
 ## Private page revision history remains accessible past 20 saves — 2026-11-21
 
 Added `PageRepository::historyPage()` to page the complete existing, immutable `ac_page_history` metadata 20 revisions at a time with a page-ID-scoped descending numeric revision cursor. The owner page editor now shows Older/Back links and explicit invalid-cursor 422, instead of silently hiding saved versions older than 20. The original `history()` and exact `historyDetail()` APIs remain for compatibility. Preview still escapes prior text, and a CSRF/optimistic-revision checked restore of any earlier snapshot still saves a NEW unpublished draft and never changes URL/menu or automatically publishes. Disposable real SQL/HTTP tests create a separate 23-revision private fixture and recover revision 1 without leaking it to public URLs. No new migration, vendor license, payment, age/consent or media-approval route is required.

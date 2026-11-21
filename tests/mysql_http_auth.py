@@ -1759,6 +1759,23 @@ def main():
                    code==200 and older_members is not None
                    and 'bulk-member-50@example.test' in member_list
                    and 'password_hash' not in member_list)
+            sample_id=re.search(r'<tr><td>(\d+)</td><td>bulk-member-50@example\.test</td>',member_list)
+            ensure('Read-only owner member directory exposes numeric local IDs',
+                   sample_id is not None)
+            code, exact_member=req('/admin/members?member_id='+sample_id.group(1))
+            ensure('Owner can find one exact local account without scanning every page',
+                   code==200 and 'bulk-member-50@example.test' in exact_member
+                   and 'bulk-member-49@example.test' not in exact_member
+                   and 'Back to all local members' in exact_member)
+            code, wrong_local_status=req('/admin/members?member_id='+sample_id.group(1)
+                                         +'&status=suspended')
+            ensure('Exact local ID search respects status filter',
+                   code==200 and 'bulk-member-50@example.test' not in wrong_local_status)
+            code, bad_lookup=req('/admin/members?member_id=0')
+            ensure('Zero account ID rejected',code==422 and 'Invalid numeric member lookup' in bad_lookup)
+            code, mixed_lookup=req('/admin/members?member_id='+sample_id.group(1)
+                                   +'&before=2')
+            ensure('Member lookup cannot mix exact ID with cursor',code==422)
             code, older_list=req('/admin/members?before='+older_members.group(1))
             ensure('Owner reaches older local members via numeric cursor',
                    code==200 and 'bulk-member-00@example.test' in older_list

@@ -703,6 +703,25 @@ try {
     $accounts = new MemberAccounts($pdo);
     $accounts->register('newmember@example.test', 'long-example-passphrase');
     $member = $accounts->verify('newmember@example.test', 'long-example-passphrase');
+    $directory=new \AdultCore\Member\MemberDirectory($pdo);
+    $oneMember=$directory->page(null,'pending',(int)$member['id']);
+    if (count($oneMember['members'])!==1
+        || $oneMember['members'][0]['email']!=='newmember@example.test'
+        || $oneMember['next']!==null
+        || $directory->page(null,'suspended',(int)$member['id'])['members']!==[]) {
+        throw new RuntimeException('Owner numeric lookup leaked another member or ignored local state.');
+    }
+    foreach ([
+        static fn()=> $directory->page(null,null,0),
+        static fn()=> $directory->page((int)$member['id'],null,(int)$member['id']),
+    ] as $invalidLookup) {
+        try {
+            $invalidLookup();
+            throw new RuntimeException('Invalid numeric member lookup was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Invalid numeric member lookup was accepted.') throw $e;
+        }
+    }
     if (($member['status'] ?? '') !== 'pending'
         || $accounts->verify('newmember@example.test', 'wrong') !== null) {
         throw new RuntimeException('Member registration must remain pending and use password hashes.');

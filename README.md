@@ -1,3 +1,7 @@
+## Find a local member (development)
+
+Use the numeric account ID field under **Admin → Members** for a read-only exact lookup, optionally filtered by locally recorded status. Email addresses stay out of search URLs; the lookup never changes age/consent, payment, accounts or private media permissions.
+
 ## Page history beyond 20 edits (development)
 
 Owners can now browse older saved page revisions using **Older page revisions** in the page editor. Each version can be previewed privately; restoring text always produces a new unpublished draft, preserving history and protected-media restrictions.

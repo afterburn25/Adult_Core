@@ -17,7 +17,7 @@ final class MemberDirectory
     public function __construct(private readonly PDO $pdo) {}
 
     /** @return array{members:list<array{id:int,email:string,status:string,created_at:string}>,next:?int} */
-    public function page(?int $before=null,?string $status=null): array
+    public function page(?int $before=null,?string $status=null,?int $memberId=null): array
     {
         if ($before!==null && $before<1) {
             throw new RuntimeException('Invalid member directory cursor.');
@@ -25,10 +25,14 @@ final class MemberDirectory
         if ($status!==null && !in_array($status,['pending','active','suspended'],true)) {
             throw new RuntimeException('Invalid member directory filter.');
         }
+        if ($memberId!==null && ($memberId<1 || $before!==null)) {
+            throw new RuntimeException('Invalid numeric member lookup.');
+        }
         $sql="SELECT id,email,status,created_at FROM ac_users WHERE role='member'";
         $params=[];
         if ($before!==null) { $sql.=' AND id<?'; $params[]=$before; }
         if ($status!==null) { $sql.=' AND status=?'; $params[]=$status; }
+        if ($memberId!==null) { $sql.=' AND id=?'; $params[]=$memberId; }
         $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 51');
         $q->execute($params);
         $rows=[];

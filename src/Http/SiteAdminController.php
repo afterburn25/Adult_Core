@@ -641,7 +641,16 @@ final class SiteAdminController
                 '<p role="alert">Choose a supported local account status.</p>');
             return;
         }
-        $page=(new MemberDirectory($pdo))->page($before,$filter==='all'?null:$filter);
+        $rawMemberId=$_GET['member_id']??null;
+        $memberId=$rawMemberId===null?null:(is_string($rawMemberId)
+            ? filter_var($rawMemberId,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+        if ($memberId===false || ($memberId!==null && $before!==null)) {
+            $this->render(422,'Invalid numeric member lookup',
+                '<p role="alert">Enter one positive account ID. '
+                .'<a href="/admin/members">Return to all members</a>.</p>');
+            return;
+        }
+        $page=(new MemberDirectory($pdo))->page($before,$filter==='all'?null:$filter,$memberId);
         header('Cache-Control: private, no-store, max-age=0');
         header('X-Robots-Tag: noindex, nofollow');
         $html='<p class="intro">Read-only local accounts. A stored account status does not prove '
@@ -655,7 +664,12 @@ final class SiteAdminController
             $html.='<option value="'.$value.'"'
                 .($filter===$value?' selected':'').'>'.self::e($label).'</option>';
         }
-        $html.='</select><button class="button-secondary" type="submit">Filter members</button></form>'
+        $html.='</select><label for="member-search-id">Find exact local account ID (optional)</label>'
+            .'<input id="member-search-id" name="member_id" type="number" min="1" step="1"'
+            .($memberId===null?'':' value="'.$memberId.'"')
+            .' placeholder="Account ID">'
+            .'<button class="button-secondary" type="submit">Find members</button>'
+            .'<a href="/admin/members">Clear lookup</a></form>'
             .'<section class="panel"><h2>Registered members</h2>'
             .'<table class="page-table"><thead><tr>'
             .'<th>ID</th><th>Email</th><th>Status</th><th>Created (UTC)</th>'
@@ -676,6 +690,9 @@ final class SiteAdminController
             $html.='<p><a href="/admin/members'
                 .($filter==='all'?'':'?status='.rawurlencode($filter))
                 .'">Back to newest members</a></p>';
+        }
+        if ($memberId!==null) {
+            $html.='<p><a href="/admin/members">Back to all local members</a></p>';
         }
         $html.='<p class="muted">50 accounts per page. No password hashes, verification evidence, '
             .'billing details, or account activation controls appear here.</p></section>';
