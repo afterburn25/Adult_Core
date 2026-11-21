@@ -1888,11 +1888,11 @@ def main():
                                    +r'&amp;history_before=(\d+)',versions_first)
             ensure('Private page history continues beyond its first 20 saved versions',
                    code==200 and history_cursor is not None and history_next is not None
-                   and 'History version 23' in versions_first
-                   and 'History version 1' not in versions_first)
+                   and '<td>History version 23</td>' in versions_first
+                   and '<td>History version 1</td>' not in versions_first)
             code, versions_older=req(history_path+'&history_before='+history_next.group(1))
             ensure('Oldest editable page revision remains inspectable to owner',
-                   code==200 and 'History version 1' in versions_older
+                   code==200 and '<td>History version 1</td>' in versions_older
                    and 'Back to latest page revisions' in versions_older
                    and 'history_revision" value="1"' in versions_older)
             code, invalid_versions=req(history_path+'&history_before=bad')

@@ -1,3 +1,9 @@
+## Exact-row history pagination assertion — 2026-11-21
+
+A 23-revision browser test incorrectly checked absence of the free-text substring `History version 1`, which also occurs within versions 10–19. The first m19 pagination build passed its underlying SQL tests but failed this imprecise HTTP assertion on both databases. The assertions now test the exact escaped HTML table cell `<td>History version 1</td>` on the older page, so shared prefixes do not cause a false failure. No user data, schema, publication state or UI functionality is changed. Rerun both CI jobs before accepting this regression.
+
+---
+
 ## Empty optional member-ID form field is not an invalid lookup — 2026-11-21
 
 The Admin → Members GET filter form always submits its optional numeric account ID field even when empty. Explicit blank `member_id=` is now interpreted as *no lookup* rather than a 422, preserving normal status-only filtering. Nonempty malformed IDs remain rejected and exact-ID/cursor mixing stays prohibited. Added real HTTP regression for the ordinary empty-input form submission.
