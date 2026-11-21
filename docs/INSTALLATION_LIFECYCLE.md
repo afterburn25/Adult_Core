@@ -35,7 +35,7 @@ The signature uses the unique app key in private `config/app-key.php`. The compl
 
 1. Preflight checks PHP/extensions, writable private storage and a safe web document root. The Cajun Web Pro product-bound license key selects Lite or Pro; independently verified server capabilities (including authenticated Pro agent for Pro) may block installation, but never change the licensed edition.
 2. Operator creates a **fresh empty database** in cPanel/hosting control panel and supplies new DB credentials, site name and first admin credentials over HTTPS.
-3. Browser POST must carry a valid installer CSRF token. Session cookies are HttpOnly/SameSite, and the action is IP-rate-limited. Server capabilities are checked again.
+3. Browser POST must carry a valid installer CSRF token. Session cookies are HttpOnly/SameSite, and the action is IP-rate-limited. The registered license hostname must match the actual browser request hostname (www/apex normalized); a mismatch fails before contacting the license issuer or creating any MySQL tables. Server capabilities are checked again.
 4. Installer obtains an exclusive filesystem lock; verifies installation isn't already complete, and refuses to overwrite private config or existing `ac_` schema tables.
 5. Installer creates the initial schema, hashes the first admin password, inserts admin/settings/edition/migration records and verifies tables/admin presence.
 6. Installer generates private configuration and app secret via atomic owner-only writes, then writes the signed completion marker as the **final state mutation**.
