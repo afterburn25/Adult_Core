@@ -55,6 +55,7 @@ final class SiteBackup
         $stats=['tables'=>count($tables),'rows'=>0,'files'=>0,'file_bytes'=>0];
         $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
         $pdo->beginTransaction(); // repeatable-read snapshot; operator must pause schema migrations and file writers
+        $completedArchive=false;
         try {
             StreamArchive::write($destination,$hexKey,function(callable $emit)use($pdo,$tables,$fileList,$edition,&$stats):void{
                 $emit(['type'=>'meta','source_version'=>trim((string)file_get_contents($this->root.'/VERSION')),
@@ -104,9 +105,15 @@ final class SiteBackup
                 }
                 $emit(['type'=>'end']+$stats);
             });
+            $completedArchive=true;
             $pdo->commit();
             return $stats;
-        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();@unlink($destination);throw $e;}
+        }catch(Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            // StreamArchive removes only archives it created. Never delete a pre-existing backup on an overwrite refusal.
+            if($completedArchive)@unlink($destination);
+            throw $e;
+        }
     }
 
     /** Restores only to same-version, uninstalled source with a separately provisioned EMPTY MySQL DB. */

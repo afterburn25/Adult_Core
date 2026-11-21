@@ -77,9 +77,10 @@ try{
     $stats=(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);
     verifyRecovery($stats['tables']>=7&&$stats['rows']>=6&&$stats['files']>=6,'Encrypted backup contains schema, rows and private files');
     verifyRecovery(is_file($archive)&&!str_contains((string)file_get_contents($archive),'Original member content preserved.'),'Archive is encrypted');
+    $originalArchiveHash=hash_file('sha256',$archive);
     try{(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);throw new RuntimeException('Archive overwrite accepted');}
     catch(RuntimeException $e){if($e->getMessage()==='Archive overwrite accepted')throw $e;}
-    $check++;
+    verifyRecovery(is_file($archive)&&hash_file('sha256',$archive)===$originalArchiveHash,'Refused overwrite must preserve original backup byte-for-byte');
     removeDisposableTables($pdo);Schema::assertFresh($pdo);
     testRoot($dst);
     copy($src.'/config/database.php',$dst.'/config/database.php');
