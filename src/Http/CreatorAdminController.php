@@ -7,6 +7,7 @@ namespace AdultCore\Http;
 use AdultCore\Auth\AdminSession;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Creator\CreatorSchema;
+use AdultCore\Creator\CreatorReviewSchema;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Database\Connection;
 use AdultCore\Licensing\LicenseManager;
@@ -52,6 +53,13 @@ final class CreatorAdminController
             $check->execute([CreatorSchema::VERSION]);
             if ((int)$check->fetchColumn()!==1) {
                 $this->render(503,'Setup required','<p>Apply the local creator migration first.</p>');
+                return;
+            }
+            $reviewCheck=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $reviewCheck->execute([CreatorReviewSchema::VERSION]);
+            if ((int)$reviewCheck->fetchColumn()!==1) {
+                $this->render(503,'Text-review setup required',
+                    '<p>Apply the additive local creator text-review migration in Site setup.</p>');
                 return;
             }
             $data=(new LocalCreators($pdo))->privatePlansForOwner($admin['id'],(int)$match[1]);
