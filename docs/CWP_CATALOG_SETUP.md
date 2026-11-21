@@ -1,6 +1,6 @@
 ## Optional read-only staging authority preflight (0.8.10)
 
-Once the owner has provisioned an **actual staging-only** customer grant and reviewed test hostname, `php scripts/audit-cwp-staging.php` can test one SKU + registered hostname and two negative controls with three trusted HTTPS validation calls. See `docs/CWP_STAGING_PREFLIGHT.md`. It cannot create a product, key, paid invoice, subscription, or gateway receipt and cannot replace the real Authorize.Net sandbox lifecycle.
+Once the owner has provisioned an **actual staging-only** customer grant and reviewed test hostname, `php scripts/audit-cwp-staging.php` can validate the chosen SKU/domain, all three competing Adult_Core SKUs, and one unregistered domain in five trusted HTTPS validation calls. Do not run two complete audits within one minute from the same IP without accounting for the issuer's rate limit. See `docs/CWP_STAGING_PREFLIGHT.md`. It cannot create a product, key, paid invoice, subscription, or gateway receipt and cannot replace the real Authorize.Net sandbox lifecycle.
 
 ## 0.8.6.7 loopback subscription contract coverage
 
