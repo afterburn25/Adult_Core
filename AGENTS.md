@@ -1,3 +1,9 @@
+## Saved public-page preview remains private — 2026-11-21
+
+`GET /admin/page/preview?id=ID` is an authenticated site-settings-manager operation handled after the global license and full admin session/MFA gate. It may render **saved drafts** using the regular escaped public layout but MUST include a clear admin preview banner, no-store/noindex headers, and must never alter `ac_pages.status` or expose unapproved decorative assets. POST/other methods cannot preview, and the public `/p/slug` handler MUST continue querying only `PageRepository::published()`. Maintain real disposable HTTP tests for unauthenticated access, XSS-safe preview, method rejection, and draft 404 on public URL. This is not permission to publish protected galleries or close the page-builder acceptance gate.
+
+---
+
 ## Staged private draft title, media rejection and inactive tier catalog — 2026-11-21
 
 `ModerationRepository::renameDraft()`, `rejectDraftImage()` and `assignDraftTier()` are server-side **pending private draft** actions only. Lock parent draft rows before changes, reject stale expected title/tier values, enforce current moderator/admin role, use route CSRF, keep audit notes escaped/private and never add an approve/publish fallback. Image rejection changes review state to `rejected` and immediately denies moderator preview, but NEVER deletes protected blobs or legal-retention evidence. Reject replays, unknown media IDs, and use `tests/mysql_http_auth.py` and `tests/mysql_install.php` to verify no member media release.

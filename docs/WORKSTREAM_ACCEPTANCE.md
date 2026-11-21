@@ -1,3 +1,9 @@
+## Saved draft page preview — development only
+
+The website page builder now links to a private `/admin/page/preview?id=ID` endpoint. This admin-authenticated, no-store and noindex read-only route displays a saved draft with the same escaping, layout and safe imagery conditions used by the public renderer, plus a prominent admin-only preview notice. Anonymous requests do not receive draft content, and `/p/slug` continues to refuse unpublished pages. This is a useful workstream #8 increment, not completed visual builder, mobile/accessibility certification or permission to publish adult media.
+
+---
+
 ## Private draft staging and tier label configuration (2026-11-21 development increment)
 
 New private, unreviewed draft actions support title edits, preparation of future tier assignments and **individual pending-image rejection**. Moderator and admin authorization, CSRF, locked draft/asset status checks and stale-edit rejection remain mandatory. Rejection removes preview eligibility but retains protected file records for lawful review; it does not delete evidence. Moderators may read an escaped, bounded decision history for a selected content ID, and may choose pending drafts by name for staging/roster setup.

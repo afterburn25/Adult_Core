@@ -1,3 +1,11 @@
+## Administrator saved page preview — 2026-11-21
+
+- Added `/admin/page/preview?id=ID` through existing `AdminController` current-user, MFA, HTTPS/loopback, license and site-settings permission gates; `SiteAdminController` accepts GET only, requires an existing saved page and emits private no-store/noindex. The preview uses `Layout::site(..., adminPreview: true)` and an explicit nonlive banner, with existing safe theme and no private image exposure.
+- Page list/editor provide preview links for saved IDs, but the public `/p/slug` route still serves only `PageRepository::published()`. Tests exercise draft public 404, escaped HTML, authenticated preview, logged-out refusal and read-only method behavior. Verify latest CI before declaring green.
+- Existing Lite/Pro licensing and all independent payment, identity, performer consent, publishing and real hosting release gates remain outstanding.
+
+---
+
 ## Private draft editing, single-image rejection and tier label admin — 2026-11-21
 
 - Added `ModerationRepository::renameDraft()` with an expected-title concurrency check, `rejectDraftImage()` for one pending draft image (private bytes retained), and `assignDraftTier()` for future tier references only. Each checks current admin/moderator DB role and locked private/pending status, persists private audit history, and cannot approve/publish.

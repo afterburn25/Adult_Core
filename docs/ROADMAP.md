@@ -1,3 +1,11 @@
+## Administrator-only saved page preview — 2026-11-21
+
+A saved public-page draft can now be previewed under the authenticated `GET /admin/page/preview?id=ID` route, using the same escaped `Layout::site()` theme and plain-text body renderer as the public website. The administrator sees an explicit **ADMIN PREVIEW — SAVED PAGE** notice; the response sets private no-store caching and noindex/nofollow headers. Public URLs remain governed exclusively by `PageRepository::published()` and cannot show saved unpublished pages. Only previously saved database text is previewed (not unsaved browser form state), and unapproved private decorative images are never added. The page list/editor link to this authenticated read-only preview.
+
+Unit and disposable HTTP tests check XSS-safe rendering, draft/public route separation, method rejection, malformed IDs, login requirement and non-cacheable responses. Real cross-browser/mobile accessibility review and a complete visual page builder remain open.
+
+---
+
 ## Unpublished draft workflow and staging-only membership tiers — 2026-11-21
 
 Moderators can now edit a still-private pending draft's title, prepare a future tier assignment and reject an individual staged image. Every mutation is checked server-side against a current active moderator/admin, CSRF, the locked draft's status, and (for edits) the expected old value to avoid lost updates. Rejected image database records and private bytes are retained for appropriate legal/incident handling, while their moderator preview disappears; no approve/publish route is added. The moderation queue now offers named draft selectors for upload/roster creation, and an administrator-only 50-entry audit-history view with escaped notes.

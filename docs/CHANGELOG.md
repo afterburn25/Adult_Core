@@ -1,3 +1,10 @@
+## Saved page preview, admin-only — 2026-11-21 (development only)
+
+- Add authenticated, role-gated, read-only `/admin/page/preview?id=ID` for saved unpublished drafts and saved published page revisions.
+- Use the existing escaped site layout with an explicit admin preview banner; send no-store and noindex headers.
+- Link safe preview from the Pages listing and editor while leaving public pages published-only.
+- Add real HTTP checks for unauthenticated/invalid previews, GET-only behavior, unpublished-public 404 and escaped page text. No public content or privileged media permissions change.
+
 ## Private draft editing and inactive membership tier catalog — 2026-11-21 (development only)
 
 - Enable CSRF-protected, stale-edit-aware private draft title edits, single pending-image rejection (no file deletion or automatic publication) and draft-only future tier association with private moderation audit notes.
