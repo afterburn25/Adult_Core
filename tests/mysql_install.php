@@ -81,6 +81,30 @@ try {
         if (!str_contains($error->getMessage(), 'License not authorized')) throw $error;
     }
     Schema::assertFresh($pdo); // No tables may be created for a denied license.
+    // Mixed success and temporary issuer failure must not create any schema.
+    // Product uniqueness is unverified until all four SKU checks complete.
+    try {
+        (new InstallService($root, new \\AdultCore\\Licensing\\CajunWebClient(
+            static function (string $body): array {
+                $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
+                $sku = $payload['product_id'] ?? '';
+                if ($sku === \\AdultCore\\Licensing\\CajunWebClient::SKU_PRO_MONTH) {
+                    return ['status' => 503, 'body' => '{}'];
+                }
+                return ['status' => 200, 'body' => json_encode([
+                    'authorized' => $sku === \\AdultCore\\Licensing\\CajunWebClient::SKU_LITE_ONCE,
+                ], JSON_THROW_ON_ERROR)];
+            }
+        )))->install($inputs, 'lite');
+        throw new RuntimeException('Ambiguous vendor response was accepted during installation.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'temporarily unavailable')) throw $error;
+    }
+    Schema::assertFresh($pdo); // No tables may be created for an inconclusive SKU.
+    if (is_file($root.'/config/license.php') || is_file($root.'/storage/install-state.json')) {
+        throw new RuntimeException('Ambiguous license wrote installation state.');
+    }
+
     // A Pro key cannot silently install Lite just because the host lacks a Pro agent.
     try {
         (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
