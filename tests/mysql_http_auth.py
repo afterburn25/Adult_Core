@@ -446,6 +446,37 @@ def main():
             ensure('Page editor persists and redirects', code == 303)
             code, public = req('/p/safe-page')
             ensure('Published page escaped in frontend', code == 200 and '&lt;script&gt;' in public and '<script>unsafe()</script>' not in public)
+            # A published page may be intentionally unlisted, but that does
+            # not grant secrecy: its direct URL still works, with escaped text.
+            code, _=req('/admin/page',{
+                'csrf':edit_csrf.group(1),'slug':'unlisted','title':'Unlisted public page',
+                'body':'Public even without menu link','status':'published',
+                'show_in_menu':'0','nav_position':'7'
+            })
+            ensure('Site owner can create a published unlisted page',code==303)
+            code, unlisted_public=req('/p/unlisted')
+            ensure('Unlisted page retains its independently published public URL',
+                   code==200 and 'Unlisted public page' in unlisted_public
+                   and 'href="/p/unlisted"' not in unlisted_public)
+            code, saved_list=req('/admin/pages')
+            unlisted_match=re.search(r'Unlisted public page</td><td>unlisted</td><td>published</td>'
+                                      r'<td><a href="/admin/page\?id=(\d+)"',saved_list)
+            ensure('Owner can reopen the unlisted page',code==200 and unlisted_match is not None)
+            unlisted_id=unlisted_match.group(1)
+            code, unlisted_form=req('/admin/page?id='+unlisted_id)
+            unlisted_revision=re.search(r'name="revision" value="(\d+)"',unlisted_form)
+            ensure('Unlisted page form retains explicit hidden navigation checkbox',
+                   code==200 and unlisted_revision is not None
+                   and 'name="show_in_menu" value="0"' in unlisted_form)
+            code, _=req('/admin/page?id='+unlisted_id,{
+                'csrf':edit_csrf.group(1),'revision':unlisted_revision.group(1),
+                'slug':'unlisted','title':'Unlisted public page','body':'Now listed',
+                'status':'published','show_in_menu':'1','nav_position':'7'
+            })
+            ensure('Owner can opt page into the public menu without unpublishing',code==303)
+            code, public=req('/p/safe-page')
+            ensure('Published listed page appears in the public navigation',
+                   code==200 and 'href="/p/unlisted"' in public)
             # A saved draft can be previewed under the existing administrator
             # session without making the draft visible to public visitors.
             code, _ = req('/admin/page', {

@@ -21,6 +21,7 @@ use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
+use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\CutoutPlacement;
@@ -239,6 +240,14 @@ try {
     PageRevisionSchema::migrate($pdo); // Legacy and interrupted updates are repeat-safe.
     $revisionColumns=$pdo->query("SHOW COLUMNS FROM ac_pages LIKE 'revision'")->fetchAll(PDO::FETCH_ASSOC);
     if (count($revisionColumns)!==1) throw new RuntimeException('Page revision migration is not repeat-safe.');
+    PageNavigationSchema::migrate($pdo);
+    PageNavigationSchema::migrate($pdo);
+    foreach (['show_in_menu','nav_position'] as $column) {
+        $columnCheck=$pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_pages' AND COLUMN_NAME=?");
+        $columnCheck->execute([$column]);
+        if ((int)$columnCheck->fetchColumn()!==1) throw new RuntimeException('Navigation upgrade missing column.');
+    }
     DesignSchema::migrate($pdo);
     DesignSchema::migrate($pdo);
     CutoutPlacement::migrate($pdo);
@@ -397,6 +406,24 @@ try {
     $repo->save($aboutId,'about','About the club',"A safe welcome\nNo HTML",'published',2);
     if (($repo->byId($aboutId)['revision']??null)!=3 || $repo->published('about')===null) {
         throw new RuntimeException('Fresh revision did not restore public plain-text page.');
+    }
+    // Hiding a menu link never changes published/direct URL availability;
+    // Design Studio edits must preserve independent navigation flags.
+    $repo->save($aboutId,'about','About the club','Public but unlisted',
+        'published',3,false,9);
+    $nav=$repo->publishedMenu();
+    if ($repo->published('about')===null
+        || in_array('about',array_column($nav,'slug'),true)) {
+        throw new RuntimeException('Unlisted page became private or leaked into the menu.');
+    }
+    $page=$repo->byId($aboutId);
+    if ((int)$page['nav_position']!==9 || (int)$page['show_in_menu']!==0) {
+        throw new RuntimeException('Hidden menu selection or order was not saved.');
+    }
+    $repo->save($aboutId,'about','About the club',"A safe welcome\nNo HTML",
+        'published',4,true,2);
+    if (!in_array('about',array_column($repo->publishedMenu(),'slug'),true)) {
+        throw new RuntimeException('Reenabled published page missing from menu.');
     }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);

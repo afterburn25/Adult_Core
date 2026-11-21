@@ -1,3 +1,11 @@
+## Owner-controlled public page navigation — m17 development (2026-11-21)
+
+A repeatable, additive m17 migration adds local per-page menu visibility and a bounded 0–999 sort position. The authenticated Pages editor can hide an individual *published* page's navigation link or order visible links without changing its URL, text, membership access or publication state. Unlisted published pages remain accessible by direct URL—**menu hiding is not privacy**; setting a page to Draft is the way to unpublish it. The Home link remains fixed. Existing pages default to visible, sorted as before when assigned the default order, and sites not yet migrated retain their old published menu until local Site setup runs.
+
+The Design Studio carries forward existing menu flags when saving homepage text and rejects stale page revisions. Both Lite and Pro share the same migration, installer and license key model. SQL and authenticated HTTP tests cover migration idempotency, unlisted/direct-access behavior and listing again. This is public plain-text navigation only; no private media/creator publishing, age/consent certification, merchant billing or production hosting release gate is opened.
+
+---
+
 ## Optimistic public page and Design Studio revision protection — development (2026-11-21)
 
 The repeatable additive m16 migration adds a monotonic `ac_pages.revision` integer, including for legacy pages. Owner/admin page edits require the revision displayed when the editor opened; the repository atomically increments it only if it still matches. A stale tab or missing revision cannot overwrite newer text, slug or draft/published status. Visual Design Studio also carries this revision and rolls back theme/image placement changes if the homepage text was edited since the form opened. Both interfaces ask to reload rather than silently lose updates. Install the new revision column via **Admin → Setup** after a verified backup; public pages continue rendering from the existing safe plain-text templates and only published records. Lite/Pro license entitlements, age/performer consent, protected media and payment release gates are unchanged.

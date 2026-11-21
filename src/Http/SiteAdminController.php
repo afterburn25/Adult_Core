@@ -14,6 +14,7 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
+use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
@@ -58,6 +59,12 @@ final class SiteAdminController
                     '<p>Back up the database, then apply the additive page-revision migration in <a href="/admin/setup">Site setup</a>.</p>');
                 return;
             }
+            if (in_array($path,['/admin/pages','/admin/page'],true)
+                && !PageNavigationSchema::installed($pdo)) {
+                $this->render(503,'Page navigation setup required',
+                    '<p>Back up the database and apply the additive page navigation migration in <a href="/admin/setup">Site setup</a>.</p>');
+                return;
+            }
             if ($path === '/admin/page/preview') {
                 if ($method!=='GET') {
                     header('Allow: GET');
@@ -89,6 +96,7 @@ final class SiteAdminController
             // Additive DDL only. A partly-applied migration can be safely re-run.
             SiteSchema::migrate($pdo);
             PageRevisionSchema::migrate($pdo);
+            PageNavigationSchema::migrate($pdo);
             AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
@@ -183,6 +191,15 @@ final class SiteAdminController
             $title = $_POST['title'] ?? null;
             $body = $_POST['body'] ?? null;
             $status = $_POST['status'] ?? null;
+            // The hidden checkbox fallback sends 0 when deliberately off;
+            // older trusted forms default to the original visible position.
+            $rawMenu=$_POST['show_in_menu']??'1';
+            $rawPosition=$_POST['nav_position']??'100';
+            $showInMenu=is_string($rawMenu) && in_array($rawMenu,['0','1'],true)
+                ? $rawMenu==='1' : null;
+            $navPosition=is_string($rawPosition)
+                && preg_match('/^(0|[1-9][0-9]{0,2})$/D',$rawPosition)===1
+                ? (int)$rawPosition : null;
             $rawRevision=$_POST['revision']??null;
             $revision=$id>0 && is_string($rawRevision)
                 ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
@@ -191,9 +208,12 @@ final class SiteAdminController
                 $error = 'Invalid page fields.';
             } elseif ($id>0 && !is_int($revision)) {
                 $error = 'Page revision required; reload before saving.';
+            } elseif ($showInMenu===null || $navPosition===null) {
+                $error = 'Invalid navigation settings.';
             } else {
                 try {
-                    $repo->save($id, trim($slug), trim($title), $body, $status, $revision);
+                    $repo->save($id, trim($slug), trim($title), $body, $status, $revision,
+                        $showInMenu,$navPosition);
                     header('Location: /admin/pages?result=saved', true, 303); return;
                 } catch (RuntimeException $e) {
                     $error=in_array($e->getMessage(),[
@@ -207,9 +227,12 @@ final class SiteAdminController
             }
             $entry = ['slug'=>is_string($slug)?$slug:'','title'=>is_string($title)?$title:'',
                 'body'=>is_string($body)?$body:'','status'=>is_string($status)?$status:'draft',
-                'revision'=>is_int($revision)?$revision:(int)($entry['revision']??0)];
+                'revision'=>is_int($revision)?$revision:(int)($entry['revision']??0),
+                'show_in_menu'=>$showInMenu===null?(int)($entry['show_in_menu']??1):($showInMenu?1:0),
+                'nav_position'=>$navPosition??(int)($entry['nav_position']??100)];
         }
-        $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft','revision'=>0];
+        $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft','revision'=>0,
+            'show_in_menu'=>1,'nav_position'=>100];
         $html = $error ? '<div class="alert-error" role="alert">' . self::e($error) . '</div>' : '';
         $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
@@ -220,6 +243,14 @@ final class SiteAdminController
             . '<label for="page-status">Visibility</label><select id="page-status" name="status">'
             . '<option value="draft"' . ($entry['status'] === 'draft' ? ' selected' : '') . '>Draft</option>'
             . '<option value="published"' . ($entry['status'] === 'published' ? ' selected' : '') . '>Published</option></select>'
+            . '<input type="hidden" name="show_in_menu" value="0">'
+            . '<label><input type="checkbox" name="show_in_menu" value="1"'
+            . ((int)$entry['show_in_menu']===1?' checked':'')
+            . '> Show this page in the public navigation</label>'
+            . '<label for="page-nav-position">Menu order (0–999; lower appears first)</label>'
+            . '<input id="page-nav-position" name="nav_position" type="number" min="0" max="999" value="'
+            . (int)$entry['nav_position'].'">'
+            . '<p class="muted">Hiding a link does not make a published page private. Use Draft to unpublish it. The Home link is always shown.</p>'
             . '<button class="install-button" type="submit">Save page</button></form></section>'
             . '<aside class="panel editor-help"><span class="section-overline">EDITOR NOTES</span><h2>Build something beautiful.</h2>'
             . '<p>Keep your content clear and welcoming. Pages are stored as plain text and escaped before display.</p>'

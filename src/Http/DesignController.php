@@ -15,6 +15,7 @@ use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
+use AdultCore\Website\PageNavigationSchema;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -60,9 +61,10 @@ final class DesignController
             if (!CutoutPlacement::installed($pdo)) {
                 $this->render(503, 'Setup required', '<p>Back up the database, then apply the additive cutout-placement migration from <a href="/admin/setup">Site setup</a> before editing.</p>'); return;
             }
-            if (!PageRevisionSchema::installed($pdo)) {
-                $this->render(503,'Page revision setup required',
-                    '<p>Back up the database, then apply the additive page-revision migration in <a href="/admin/setup">Site setup</a> before editing.</p>');
+            if (!PageRevisionSchema::installed($pdo)
+                || !PageNavigationSchema::installed($pdo)) {
+                $this->render(503,'Page editor setup required',
+                    '<p>Back up the database, then apply the additive page editor migrations in <a href="/admin/setup">Site setup</a> before editing.</p>');
                 return;
             }
             $repo = new DesignRepository($pdo);

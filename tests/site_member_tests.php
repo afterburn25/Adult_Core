@@ -4,6 +4,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
+use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MemberLibrary;
 use AdultCore\Member\MemberSession;
@@ -15,6 +16,17 @@ $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
 PageRepository::validate('home','Hello','Safe plain text','published');claim(true,'Valid home page');
 claim(PageRevisionSchema::VERSION==='m16_page_revisions_v1','Page revision migration has distinct version');
+claim(PageNavigationSchema::VERSION==='m17_page_navigation_v1','Navigation migration has distinct version');
+PageRepository::validateNavigation(false,0);
+PageRepository::validateNavigation(true,999);
+foreach ([-1,1000] as $position) {
+    try {
+        PageRepository::validateNavigation(true,$position);
+        throw new RuntimeException('Out-of-range menu order accepted.');
+    } catch (RuntimeException $e) {
+        claim($e->getMessage()!=='Out-of-range menu order accepted.','Bad menu order rejected');
+    }
+}
 PageRepository::validate('about-us','About us','A','draft');claim(true,'Valid slug');
 foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],['a','Title','Body','hidden'],['a','','Body','draft'],['a',str_repeat('x',191),'Body','draft'],['a','Title',str_repeat('x',30001),'draft']] as $case) {
     try { PageRepository::validate(...$case); throw new RuntimeException('Invalid page accepted'); }

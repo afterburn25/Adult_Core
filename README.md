@@ -1,3 +1,7 @@
+## Local public-page navigation (m17, development)
+
+The authenticated Pages editor can hide a published page's menu link or assign a menu order (0–999); saved pages are still safely escaped and a hidden link **does not protect the direct public URL**. Draft status is required to unpublish. Apply the additive **Admin → Setup** migration after backup. Site owners on Lite/Pro manage their own navigation; this is not SaaS, adult media publication or release certification.
+
 ## Safer concurrent page editing (m16, development)
 
 The public-page editor and homepage Design Studio now require a current revision token for each existing page. An older browser tab cannot silently overwrite a newer title, body, published/draft status or visual design changes. Apply the additive **Admin → Setup** migration (after backup) before editing existing pages. No age/consent verification, payments, public adult media or production signoff is implied. See [site release acceptance](docs/WORKSTREAM_ACCEPTANCE.md).
