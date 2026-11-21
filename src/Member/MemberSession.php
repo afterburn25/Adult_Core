@@ -94,6 +94,19 @@ final class MemberSession
         return $wasSignedOut;
     }
 
+    /** One-use confirmation set only after a committed member profile edit. */
+    public static function markProfileSaved(): void
+    {
+        $_SESSION['private_profile_saved_notice']=true;
+    }
+
+    public static function takeProfileSaved(): bool
+    {
+        $saved=($_SESSION['private_profile_saved_notice']??false)===true;
+        unset($_SESSION['private_profile_saved_notice']);
+        return $saved;
+    }
+
     public static function logout(): void
     {
         $_SESSION=[];

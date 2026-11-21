@@ -18,6 +18,8 @@ use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
 use AdultCore\Member\MemberPasswordChange;
 use AdultCore\Member\MemberSessionRevocation;
+use AdultCore\Member\MemberProfileSchema;
+use AdultCore\Member\MemberProfiles;
 use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\EmailDelivery;
@@ -110,6 +112,10 @@ final class MemberController
                 $this->revokeDevices($pdo,$method,$accounts);
                 return;
             }
+            if ($path === '/members/profile') {
+                $this->profile($pdo,$method,$accounts);
+                return;
+            }
             if ($path === '/members/creator') {
                 $this->creatorWorkspace($pdo,$method,$accounts);
                 return;
@@ -151,6 +157,9 @@ final class MemberController
                 $member = $this->member($accounts);
                 if ($member === null) { $this->redirect('/members/login'); return; }
                 $confirmed = (new EmailConfirmations($pdo))->verified((int)$member['id']);
+                $profileText=MemberProfileSchema::installed($pdo)
+                    ? (new MemberProfiles($pdo))->current((int)$member['id'])
+                    : null;
                 $subscriptionSchema=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
                 $subscriptionSchema->execute([MembershipSchema::VERSION]);
                 $subscriptionView=(int)$subscriptionSchema->fetchColumn()===1
@@ -162,6 +171,10 @@ final class MemberController
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
+                    . (MemberProfileSchema::installed($pdo)
+                        ? '<p>Private display name: <strong>'.self::e($profileText['display_name']??'Not set')
+                            .'</strong>. <a href="/members/profile">Edit your private profile</a></p>'
+                        : '<p>Private member profiles require local site setup.</p>')
                     . '<p><a href="/members/password">Change your password</a></p>'
                     . '<p><a href="/members/sessions">Sign out of all devices</a></p>'
                     . ($this->creatorAccess($pdo,(int)$member['id'])
@@ -287,6 +300,69 @@ final class MemberController
             .'<button class="install-button" type="submit">Sign out all member sessions</button>'
             .'</form></section><p><a href="/members">Back to your account</a></p>';
         $this->view($error!==''?422:200,'Device security',$html);
+    }
+
+    /**
+     * Current local member only: ID always comes from verified MemberSession.
+     * Neither the display name nor its edit route can publish media/creator info.
+     */
+    private function profile(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        if (!MemberProfileSchema::installed($pdo)) {
+            $this->view(503,'Profile setup required',
+                '<p>Ask this site owner to apply the additive private member profile migration.</p>');
+            return;
+        }
+        $repo=new MemberProfiles($pdo);
+        $error='';
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload your private member profile.</p>');
+                return;
+            }
+            $rawRevision=$_POST['revision']??null;
+            $revision=is_string($rawRevision) && preg_match('/^(0|[1-9][0-9]{0,8})$/D',$rawRevision)===1
+                ? (int)$rawRevision : -1;
+            try {
+                if ($revision<0) throw new RuntimeException('Invalid member profile revision.');
+                $repo->save((int)$member['id'],$revision,$_POST['display_name']??null);
+                MemberSession::markProfileSaved();
+                $this->redirect('/members/profile');
+                return;
+            } catch (RuntimeException $e) {
+                $allowed=[
+                    'Invalid member profile revision.',
+                    'Member profile changed; reload before saving.',
+                    'Display name is unchanged.',
+                    'Use a single-line display name of 2–100 UTF-8 bytes.',
+                ];
+                $error=in_array($e->getMessage(),$allowed,true)
+                    ? $e->getMessage():'Private member profile change unavailable.';
+            } catch (Throwable) {
+                $error='Private member profile change unavailable.';
+            }
+        }
+        $saved=$repo->current((int)$member['id']);
+        $html='<p class="intro">This optional display name is private to your account on this '
+            .'independently hosted website. It is not a public creator profile and does '
+            .'not certify age/consent or change membership payments.</p>';
+        if ($method==='GET' && MemberSession::takeProfileSaved()) {
+            $html.='<p role="status">Your private display name was saved.</p>';
+        }
+        if ($error!=='') $html.='<p class="alert-error" role="alert">'.self::e($error).'</p>';
+        $html.='<section class="panel"><h2>Private display name</h2>'
+            .'<form method="post" action="/members/profile" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+            .'<input type="hidden" name="revision" value="'.(int)($saved['revision']??0).'">'
+            .'<label for="private-display-name">Display name (2–100 UTF-8 bytes)</label>'
+            .'<input id="private-display-name" name="display_name" maxlength="100" required '
+            .'value="'.self::e($saved['display_name']??'').'">'
+            .'<button class="install-button" type="submit">Save private display name</button>'
+            .'</form></section><p><a href="/members">Back to your account</a></p>';
+        $this->view($error!==''?422:200,'Private member profile',$html);
     }
 
     private function creatorAccess(PDO $pdo,int $memberId): bool

@@ -105,6 +105,7 @@ try {
 $publicRouter=(string)file_get_contents(dirname(__DIR__).'/public/index.php');
 claim(str_contains($publicRouter,"'/members/password'")
     && str_contains($publicRouter,"'/members/sessions'")
+    && str_contains($publicRouter,"'/members/profile'")
     && str_contains($publicRouter,'MemberController($root)'),
     'Member password security URL is dispatched through real public site router');
 $memberDirectorySource=(string)file_get_contents(dirname(__DIR__).'/src/Member/MemberDirectory.php');
@@ -207,6 +208,9 @@ claim(!MemberSession::takePasswordChanged(),'Rotation success notice is one-time
 MemberSession::markAllDevicesSignedOut();
 claim(MemberSession::takeAllDevicesSignedOut(),'Member session revocation notice comes from server state');
 claim(!MemberSession::takeAllDevicesSignedOut(),'Member device revocation notice is one-use');
+MemberSession::markProfileSaved();
+claim(MemberSession::takeProfileSaved(),'Profile confirmation originates in member session');
+claim(!MemberSession::takeProfileSaved(),'Private profile confirmation cannot be replayed');
 MemberSession::login(27,4);claim(MemberSession::generation()===4,'Member re-login advances generation');
 MemberSession::logout();claim(session_status()===PHP_SESSION_NONE,'Session destroyed');
 foreach (glob($root.'/storage/member-sessions/*') ?: [] as $f) unlink($f);

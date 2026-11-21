@@ -175,7 +175,7 @@ if (str_starts_with($path, '/media/')) {
 }
 
 // Public member entry points are session-isolated from administrator login.
-if (in_array($path, ['/join', '/members', '/members/library', '/members/login', '/members/logout', '/members/report', '/members/creator', '/members/email', '/members/email/confirm', '/members/recover', '/members/recover/reset', '/members/password', '/members/sessions'], true)
+if (in_array($path, ['/join', '/members', '/members/library', '/members/login', '/members/logout', '/members/report', '/members/creator', '/members/email', '/members/email/confirm', '/members/recover', '/members/recover/reset', '/members/password', '/members/sessions', '/members/profile'], true)
     || str_starts_with($path, '/members/library/')) {
     (new \AdultCore\Http\MemberController($root))->handle($path, (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     exit;

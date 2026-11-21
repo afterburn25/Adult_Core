@@ -1,3 +1,9 @@
+## m22 private member profile UI — 2026-11-21
+
+Added `/members/profile` to the public front controller, but the route is accessible only by a verified currently active local member session. GET displays an HTML-escaped private display-name form and revision; POST requires member CSRF and an exact optimistic revision, then uses the row-locking m22 repository to save only the current member's private nickname. Stale edits and unsafe UTF-8/control characters are refused. A one-use server-side session notice confirms committed saves, never a forgeable URL query. The existing private member account shows the nickname escaped; if m22 is missing it shows a setup-needed note rather than failing unrelated account access. There is no public creator registry, member avatar/media, age/consent or paid entitlement grant. Source and session unit tests have been updated; authenticated HTTP and encrypted recovery parity are next.
+
+---
+
 ## m22 private member profile setup — 2026-11-21
 
 Admin → Setup now applies the additive m22 private member display-name schema after m21 member safety, repeats it safely, and lists its exact migration state; owner Site Health reports it independently and fails its local check if missing. Only a signed-in local member may manage the resulting private text after the separate UI route is added. No member identity/consent, payment, public creator or media approval is introduced.

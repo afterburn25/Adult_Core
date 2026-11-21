@@ -1,3 +1,7 @@
+## Optional private member profile (m22 development)
+
+After the site owner applies m22 through **Admin → Setup**, signed-in local members can add a private display name from **Account → Edit your private profile**. It never becomes public or alters creator, verification, billing or adult-content permissions.
+
 ## Member lookup without email URLs (development)
 
 **Admin → Members** now includes a private POST-only exact email search. Search results are read-only; account safety changes continue to require the existing 30-minute manager authorization window, and no identity, subscription or publishing approvals are available.
