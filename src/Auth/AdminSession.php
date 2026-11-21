@@ -90,13 +90,22 @@ final class AdminSession
     }
 
     /** A password-only result never creates an authenticated session when MFA is enabled. */
-    public static function beginMfa(int $id): void
+    public static function beginMfa(int $id, ?int $staffEpoch=null): void
     {
-        if ($id < 1 || !session_regenerate_id(true)) {
+        if ($id < 1 || ($staffEpoch!==null && $staffEpoch<0)
+            || !session_regenerate_id(true)) {
             throw new RuntimeException('Cannot initialize MFA challenge.');
         }
         $_SESSION = ['admin_csrf'=>bin2hex(random_bytes(32)),
-            'admin_mfa_pending'=>['id'=>$id,'issued_at'=>time()]];
+            'admin_mfa_pending'=>['id'=>$id,'issued_at'=>time(),
+                'staff_epoch'=>$staffEpoch]];
+    }
+
+    /** Epoch captured at PASSWORD verification, not at factor completion. */
+    public static function pendingStaffEpoch(): ?int
+    {
+        $epoch=$_SESSION['admin_mfa_pending']['staff_epoch']??null;
+        return is_int($epoch) && $epoch>=0 ? $epoch : null;
     }
 
     public static function pendingMfaId(?int $now = null): ?int

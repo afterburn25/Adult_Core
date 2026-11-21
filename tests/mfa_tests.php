@@ -35,13 +35,16 @@ try {
     AdminSession::start($start,false);
     $token=AdminSession::csrf();
     $test('Pre-auth session token created',strlen($token)===64);
-    AdminSession::beginMfa(7);
+    AdminSession::beginMfa(7,3);
+    $test('Moderator pending MFA challenge binds password-step revocation epoch',
+        AdminSession::pendingStaffEpoch()===3);
     $test('Password stage does not authenticate',AdminSession::authenticatedId()===null);
     $test('Short-lived MFA challenge identifies account',AdminSession::pendingMfaId()===7);
     $test('MFA challenge has rotated CSRF token',!hash_equals($token,AdminSession::csrf()));
     AdminSession::authenticate(7,null,true);
     $test('MFA-completed session is fully authenticated',AdminSession::authenticatedId()===7&&AdminSession::mfaVerified());
-    $test('MFA pending state cleared by full authentication',AdminSession::pendingMfaId()===null);
+    $test('MFA pending state cleared by full authentication',
+        AdminSession::pendingMfaId()===null && AdminSession::pendingStaffEpoch()===null);
     AdminSession::setEnrollmentSecret(7,$generated);
     $test('Enrollment available to right session user',AdminSession::enrollmentSecret(7)===$generated);
     $test('Enrollment not leaked across users',AdminSession::enrollmentSecret(8)===null);

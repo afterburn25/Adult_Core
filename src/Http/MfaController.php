@@ -37,7 +37,16 @@ final class MfaController
                             (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 'mfa-user-'.$id
                         );
                         $pdo=Connection::open($this->root);
-                        $admin=(new AdminAccounts($pdo))->authorizedById($id);
+                        $accounts=new AdminAccounts($pdo);
+                        $admin=$accounts->authorizedById($id);
+                        if ($admin!==null && $admin['role']==='moderator'
+                            && AdminSession::pendingStaffEpoch()!==$accounts->staffSessionEpoch($id)) {
+                            // A suspension, credential rotation or privilege
+                            // change since the password step invalidates the
+                            // pending MFA challenge. Do not consume the factor.
+                            AdminSession::revoke();
+                            $admin=null;
+                        }
                         if ($admin !== null && (new AdminMfa($pdo,$this->root))->enabledFor($id)
                             && (new AdminMfa($pdo,$this->root))->consume($id,trim($factor))) {
                             AdminSession::authenticate($id,null,true);

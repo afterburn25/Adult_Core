@@ -357,7 +357,9 @@ final class AdminController
                         $error = 'Invalid email or password.';
                     } else {
                         if ((new AdminMfa($pdo, $this->root))->enabledFor($account['id'])) {
-                            AdminSession::beginMfa($account['id']);
+                            AdminSession::beginMfa($account['id'],
+                                $account['role']==='moderator'
+                                    ? (new AdminAccounts($pdo))->staffSessionEpoch($account['id']) : null);
                             $this->redirect('/admin/mfa');
                             return;
                         }
