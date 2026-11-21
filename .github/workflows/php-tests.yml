@@ -134,3 +134,54 @@ jobs:
           AC_TEST_DB_NAME: adultcore_ci
           AC_TEST_DB_USER: adultcore
           AC_TEST_DB_PASSWORD: adultcorepass
+
+  mariadb_compat:
+    name: MariaDB 10.11 shared-host SQL compatibility (disposable)
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: rootsecret
+          MARIADB_DATABASE: adultcore_ci
+          MARIADB_USER: adultcore
+          MARIADB_PASSWORD: adultcorepass
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_mysql, openssl, fileinfo, phar, zip
+          coverage: none
+      - name: MariaDB private-media and billing replay (disposable)
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_PORT: '3307'
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass
+        run: |
+          set -euo pipefail
+          php tests/mysql_private_media_audit.php
+          php tests/mysql_billing_inbox.php
+      - name: MariaDB fresh Lite install, authenticated HTTP and encrypted recovery
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_PORT: '3307'
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass
+        run: |
+          set -euo pipefail
+          php tests/mysql_install.php
+          python3 tests/mysql_http_auth.py
+          php tests/mysql_backup_restore.php
