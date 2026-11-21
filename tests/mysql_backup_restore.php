@@ -32,7 +32,9 @@ function testRoot(string $root):void{
     foreach(['lite','pro'] as $ed)copy(dirname(__DIR__).'/config/editions/'.$ed.'.json',$root.'/config/editions/'.$ed.'.json');
     file_put_contents($root.'/VERSION',file_get_contents(dirname(__DIR__).'/VERSION'));
     file_put_contents($root.'/install/index.php','<?php // fixture installer');
-    file_put_contents($root.'/public/index.php','<?php // fixture website');
+    foreach (['index.php','router.php','.htaccess'] as $webFile) {
+        copy(dirname(__DIR__) . '/public/' . $webFile, $root . '/public/' . $webFile);
+    }
     file_put_contents($root.'/storage/.gitkeep','');
     file_put_contents($root.'/config/trusted-publishers/.gitkeep','');
 }
