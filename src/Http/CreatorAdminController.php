@@ -117,6 +117,11 @@ final class CreatorAdminController
                     $creators->provision($admin['id'],
                         self::string($_POST['email']??null),
                         self::string($_POST['display_name']??null));
+                } elseif ($action==='rename') {
+                    $creators->rename($admin['id'],
+                        self::positive($_POST['creator_id']??null),
+                        self::positive($_POST['revision']??null),
+                        self::string($_POST['display_name']??null));
                 } elseif ($action==='suspend' || $action==='restore') {
                     $id=self::positive($_POST['creator_id']??null);
                     $revision=self::positive($_POST['revision']??null);
@@ -148,7 +153,7 @@ final class CreatorAdminController
                 .'<button class="install-button">Enable private creator workspace</button>'
                 .'</form></section><section class="panel"><h2>Creators on this installation</h2>'
                 .'<table class="page-table"><thead><tr><th>ID</th><th>Member</th>'
-                .'<th>Display name</th><th>Workspace</th><th>Private drafts</th><th>Control</th>'
+                .'<th>Display name</th><th>Workspace</th><th>Private drafts</th><th>Control</th><th>Rename</th>'
                 .'</tr></thead><tbody>';
             $before=isset($_GET['before'])?self::positive($_GET['before']):null;
             $page=$creators->managed($admin['id'],$before);
@@ -175,7 +180,14 @@ final class CreatorAdminController
                 } else {
                     $html.='<span class="muted">Unavailable</span>';
                 }
-                $html.='</td></tr>';
+                $html.='</td><td><form method="post" action="/admin/creators">'
+                    .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+                    .'<input type="hidden" name="creator_id" value="'.$id.'">'
+                    .'<input type="hidden" name="revision" value="'.$revision.'">'
+                    .'<input type="hidden" name="action" value="rename">'
+                    .'<label>New display name<input name="display_name" maxlength="100" minlength="2" required value="'
+                    .self::e((string)$row['display_name']).'"></label>'
+                    .'<button class="button-secondary">Save name</button></form></td></tr>';
             }
             $html.='</tbody></table>';
             if ($more && $page!==[]) {
@@ -208,7 +220,7 @@ final class CreatorAdminController
                 'Creator is not in the required state.',
                 'Creator member account or email is no longer eligible.',
                 'Invalid local creator input.','Unsupported local creator action.',
-                'Invalid local creator page cursor.',
+                'Invalid local creator page cursor.','Creator display name is unchanged.',
             ];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Local creator change was refused.';
             $this->render(422,'Creator change refused',

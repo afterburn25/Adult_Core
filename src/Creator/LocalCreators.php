@@ -152,6 +152,43 @@ final class LocalCreators
             FROM ac_creator_actions ORDER BY id DESC LIMIT 50")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Change the presentation label only; never alter member credentials,
+     * creator status, paid entitlement or any saved private content.
+     */
+    public function rename(int $actorId,int $creatorId,int $expectedRevision,string $newName): void
+    {
+        if ($creatorId<1 || $expectedRevision<1) {
+            throw new RuntimeException('Invalid local creator action.');
+        }
+        $newName=self::displayName($newName);
+        $this->pdo->beginTransaction();
+        try {
+            $this->requireManager($actorId,true);
+            $q=$this->pdo->prepare('SELECT display_name,revision,status
+                FROM ac_creator_profiles WHERE id=? FOR UPDATE');
+            $q->execute([$creatorId]);
+            $row=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($row) || !in_array($row['status'],['enabled','suspended'],true)) {
+                throw new RuntimeException('Local creator account not found.');
+            }
+            if ((int)$row['revision']!==$expectedRevision) {
+                throw new RuntimeException('Creator status changed; reload the account list.');
+            }
+            if ($row['display_name']===$newName) {
+                throw new RuntimeException('Creator display name is unchanged.');
+            }
+            $this->pdo->prepare('UPDATE ac_creator_profiles
+                SET display_name=?,revision=revision+1,updated_at=UTC_TIMESTAMP()
+                WHERE id=?')->execute([$newName,$creatorId]);
+            $this->record($actorId,$creatorId,'renamed');
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public function setStatus(int $actorId,int $creatorId,int $expectedRevision,string $action): void
     {
         if ($creatorId<1 || $expectedRevision<1
