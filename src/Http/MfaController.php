@@ -7,6 +7,7 @@ namespace AdultCore\Http;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\AdminMfa;
 use AdultCore\Auth\AdminSession;
+use AdultCore\Auth\StaffRepository;
 use AdultCore\Auth\LoginRateLimiter;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
@@ -94,12 +95,25 @@ final class MfaController
                 } else {
                     try {
                         $action=$_POST['action'] ?? null;
-                        if (!is_string($action) || !in_array($action,['begin','confirm','disable'],true)) {
+                        if (!is_string($action) || !in_array($action,['begin','confirm','disable','change_password'],true)) {
                             throw new RuntimeException('Invalid security action.');
                         }
                         (new LoginRateLimiter($this->root.'/storage','admin-security'))->consume(
                             (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 'mfa-settings-'.$admin['id']
                         );
+                        if ($action==='change_password' && $admin['role']==='moderator') {
+                            $old=$_POST['password']??null;
+                            $new=$_POST['new_password']??null;
+                            if (!is_string($old) || !is_string($new)) {
+                                throw new RuntimeException('Password fields are required.');
+                            }
+                            (new StaffRepository($pdo))->changeOwnPassword($admin['id'],$old,$new);
+                            // Never leave an authenticated browser open after
+                            // a credential rotation, even the initiating one.
+                            AdminSession::revoke();
+                            header('Location: /admin/login?password_changed=1',true,303);
+                            return;
+                        }
                         if ($action === 'begin' && !$enabled && $ready) {
                             $this->reauthenticate($pdo,$admin,$_POST['password'] ?? null);
                             AdminSession::setEnrollmentSecret($admin['id'],$mfa->newSecret());
@@ -169,6 +183,17 @@ final class MfaController
                     .'<button class="install-button" type="submit">Set up authenticator</button></form>';
             }
             $html.='</section>';
+            if ($admin['role']==='moderator') {
+                $html.='<section class="panel"><h2>Change your moderator password</h2>'
+                    .'<p>Changing your password ends every existing moderator session. '
+                    .'Sign in again with the replacement password. Keep this password private.</p>'
+                    .'<form method="post" action="/admin/security" class="install-form" autocomplete="off">'
+                    .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+                    .'<input type="hidden" name="action" value="change_password">'
+                    .'<label>Current password<input type="password" name="password" maxlength="72" required autocomplete="current-password"></label>'
+                    .'<label>New password (16–72 bytes)<input type="password" name="new_password" minlength="16" maxlength="72" required autocomplete="new-password"></label>'
+                    .'<button class="button-secondary" type="submit">Change password and sign out</button></form></section>';
+            }
             if (($_GET['disabled'] ?? '')==='1') $html.='<p role="status">Authenticator disabled.</p>';
             echo Layout::admin('Account security',$html,'/admin/security',AdminSession::csrf(),(new LicenseManager($this->root))->config()['edition']??'unknown',$admin['role']);
         } catch (Throwable) {

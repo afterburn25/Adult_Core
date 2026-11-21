@@ -136,6 +136,43 @@ final class StaffRepository
         }
     }
 
+    /**
+     * A moderator can rotate ONLY their own credential after proving the old
+     * password. Revoking the epoch invalidates all other active sessions,
+     * including sessions where another browser has not made a request yet.
+     */
+    public function changeOwnPassword(int $moderatorId,string $oldPassword,string $newPassword): void
+    {
+        if ($moderatorId<1 || strlen($oldPassword)<1 || strlen($oldPassword)>72) {
+            throw new RuntimeException('Current moderator password was not verified.');
+        }
+        $newPassword=self::validatePassword($newPassword);
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT role,status,password_hash FROM ac_users WHERE id=? FOR UPDATE');
+            $q->execute([$moderatorId]);
+            $staff=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($staff) || $staff['role']!=='moderator'
+                || $staff['status']!=='active'
+                || !password_verify($oldPassword,(string)$staff['password_hash'])) {
+                throw new RuntimeException('Current moderator password was not verified.');
+            }
+            if (password_verify($newPassword,(string)$staff['password_hash'])) {
+                throw new RuntimeException('Choose a new password different from the current password.');
+            }
+            $hash=password_hash($newPassword,PASSWORD_DEFAULT);
+            if (!is_string($hash)) throw new RuntimeException('Staff credential creation unavailable.');
+            $this->pdo->prepare('UPDATE ac_users
+                SET password_hash=?,staff_session_epoch=staff_session_epoch+1 WHERE id=?')
+                ->execute([$hash,$moderatorId]);
+            $this->log($moderatorId,$moderatorId,'password_changed');
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
     /** The immutable role predicate prevents using this to edit admin/member accounts. */
     private function lockedModerator(int $moderatorId): array
     {
