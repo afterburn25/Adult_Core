@@ -31,6 +31,7 @@ final class PrivateMediaAudit
             'unsafe_paths'=>0,
             'invalid_records'=>0,
             'invalid_sizes'=>0,
+            'metadata_scan_enabled'=>$checkMetadata,
             'metadata_checked'=>0,
             'metadata_rejected'=>0,
             'metadata_truncated'=>false,

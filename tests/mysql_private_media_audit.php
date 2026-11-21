@@ -50,6 +50,8 @@ try {
     file_put_contents($path($first),'private-image-placeholder');
     $audit=new PrivateMediaAudit($root,$pdo);
     $result=$audit->inspect();
+    $check($result['metadata_scan_enabled'] === false && $result['metadata_checked'] === 0,
+        'Default quick audit clearly discloses that no image metadata scan ran');
     $check(!$result['ok'] && $result['db_rows']===2
         && $result['stored_files']===1 && $result['missing_files']===1,
         'Missing private image is detected without exposing an identifier');
@@ -94,7 +96,7 @@ try {
     file_put_contents($path($first),$png);
     file_put_contents($path($second),$png);
     $report=$audit->inspect(true);
-    $check($report['ok'] && $report['metadata_checked']===2
+    $check($report['metadata_scan_enabled'] && $report['ok'] && $report['metadata_checked']===2
         && $report['metadata_rejected']===0 && !$report['metadata_truncated'],
         'Bounded metadata scan accepts two clean registered private images');
     $data='GPSComment=private';$type='tEXt';
