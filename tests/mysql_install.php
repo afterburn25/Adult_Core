@@ -448,6 +448,24 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Invalid page cursor accepted.') throw $e;
     }
+    // Unpublished page duplication copies only safe text and is guarded by
+    // source revision; no accidental public visibility or nav menu grant.
+    $copyId=$repo->duplicateAsDraft($aboutId,5,'about-private-copy');
+    $copy=$repo->byId($copyId);
+    if (!is_array($copy) || $copy['status']!=='draft'
+        || (int)$copy['revision']!==1 || (int)$copy['show_in_menu']!==0
+        || $copy['title']!=='About the club'
+        || $repo->published('about-private-copy')!==null) {
+        throw new RuntimeException('Page duplicate unexpectedly published or altered content.');
+    }
+    foreach ([[4,'stale-source-copy'],[5,'bad/slug']] as [$rev,$slug]) {
+        try {
+            $repo->duplicateAsDraft($aboutId,$rev,$slug);
+            throw new RuntimeException('Unsafe page duplication was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe page duplication was accepted.') throw $e;
+        }
+    }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);
     $pdo->prepare("UPDATE ac_users SET status='suspended' WHERE id=?")->execute([$valid['id']]);

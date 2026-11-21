@@ -241,7 +241,29 @@ final class SiteAdminController
         $error = null;
         $entry = $id > 0 ? $repo->byId($id) : null;
         if ($id > 0 && $entry === null) { $this->render(404, 'Page missing', '<p>Page not found.</p>'); return; }
-        if ($method === 'POST') {
+        if ($method==='POST' && ($_POST['action']??'save')==='duplicate') {
+            try {
+                $rawRevision=$_POST['revision']??null;
+                $revision=is_string($rawRevision)
+                    ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
+                    : false;
+                $rawSlug=$_POST['new_slug']??null;
+                if ($id<1 || !is_int($revision) || !is_string($rawSlug)) {
+                    throw new RuntimeException('Invalid private page copy request.');
+                }
+                $newId=$repo->duplicateAsDraft($id,$revision,trim($rawSlug));
+                header('Location: /admin/page?id='.$newId.'&result=duplicated',true,303);
+                return;
+            } catch (RuntimeException $e) {
+                $error=in_array($e->getMessage(),[
+                    'Page revision required; reload before copying.',
+                    'Page changed; reload before copying.',
+                    'Invalid page fields. Use a lowercase slug, a title and up to 30 KB of plain text.',
+                ],true)?$e->getMessage():'Could not create a private page copy.';
+            } catch (Throwable) {
+                $error='Could not create a private page copy.';
+            }
+        } elseif ($method === 'POST') {
             $slug = $_POST['slug'] ?? null;
             $title = $_POST['title'] ?? null;
             $body = $_POST['body'] ?? null;
@@ -289,6 +311,10 @@ final class SiteAdminController
         $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft','revision'=>0,
             'show_in_menu'=>1,'nav_position'=>100];
         $html = $error ? '<div class="alert-error" role="alert">' . self::e($error) . '</div>' : '';
+        if (($_GET['result']??'')==='duplicated' && $id>0 && $method==='GET') {
+            $html.='<p role="status">A new private draft copy was created. Review it before publishing. '
+                .'The original page is unchanged.</p>';
+        }
         $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
             . ($id>0 ? '<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">' : '')
@@ -313,6 +339,16 @@ final class SiteAdminController
             . '<ul><li>Choose a memorable title</li><li>Keep the URL slug simple</li><li>Save a draft before publishing</li><li>Preview your public site</li></ul>'
             . '<a href="/" class="button-secondary" target="_blank" rel="noopener noreferrer">Open live website ↗</a>'
             . ($id>0 ? '<a href="/admin/page/preview?id='.$id.'" class="button-secondary" target="_blank" rel="noopener noreferrer">Preview saved page ↗</a>' : '')
+            . ($id>0 ? '<hr><h2>Copy as private draft</h2>'
+                .'<p>Make a new unpublished page with this saved text. The original is never changed or published.</p>'
+                .'<form method="post" action="/admin/page?id='.$id.'" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+                .'<input type="hidden" name="action" value="duplicate">'
+                .'<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">'
+                .'<label for="page-copy-slug">New private page URL slug</label>'
+                .'<input id="page-copy-slug" name="new_slug" maxlength="80" '
+                .'pattern="[a-z0-9][a-z0-9-]*" placeholder="new-page-draft" required>'
+                .'<button class="button-secondary" type="submit">Create unpublished copy</button></form>' : '')
             . '</aside></div>';
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }

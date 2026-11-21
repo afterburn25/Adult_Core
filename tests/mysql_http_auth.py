@@ -547,6 +547,31 @@ def main():
             ensure('Newest page text survives refused stale writer',
                    code==200 and 'Updated safe draft' in updated_preview
                    and 'Stale public overwrite' not in updated_preview)
+            code, clone_form=req('/admin/page?id='+saved_draft_id)
+            latest_revision=re.search(r'name="revision" value="(\d+)"',clone_form)
+            ensure('Saved page exposes private draft duplicate form',
+                   code==200 and latest_revision is not None
+                   and 'name="action" value="duplicate"' in clone_form)
+            code, _=req('/admin/page?id='+saved_draft_id,{
+                'csrf':'incorrect','action':'duplicate',
+                'revision':latest_revision.group(1),'new_slug':'private-safe-copy'
+            })
+            ensure('Private duplicate requires administrator CSRF',code==403)
+            code, _=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'action':'duplicate',
+                'revision':draft_revision,'new_slug':'stale-copy'
+            })
+            ensure('Private duplicate denies a stale source revision',code==200)
+            code, private_copy_resp=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'action':'duplicate',
+                'revision':latest_revision.group(1),'new_slug':'private-safe-copy'
+            })
+            ensure('Fresh duplicate creates an unpublished page only',code==303)
+            code, copy_public=req('/p/private-safe-copy')
+            ensure('Duplicated private draft cannot be reached on public URL',code==404)
+            code, original_preview=req('/admin/page/preview?id='+saved_draft_id)
+            ensure('Source page remains unchanged when copied',
+                   code==200 and 'Updated safe draft' in original_preview)
             # Authenticated Visual Design Studio: correct theme and escaped homepage content.
             code, studio = req('/admin/design')
             ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)

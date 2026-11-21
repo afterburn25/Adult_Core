@@ -1,3 +1,11 @@
+## Safe per-site page duplication into unpublished drafts — 2026-11-21
+
+Local owners/admins may now copy an existing, saved public-site plain-text page into a new **draft-only** page with a separately supplied lowercase slug. This uses the protected page editor's current session, role and CSRF checks, locks the source row and rejects a stale revision. The copy contains only the original safely escaped title/body, starts with revision 1 and an unlisted menu state, and cannot be publicly accessed until a separate owner publishing action. Copying leaves the original page, menu, protected media, member accounts and creator records unchanged.
+
+Disposable SQL and authenticated HTTP tests check duplicate success, stale source, malformed slug, CSRF and public 404. This does **not** copy media, certify customer content, integrate payments or permit release of adult materials.
+
+---
+
 ## Per-feature additive schema status in owner Site setup — 2026-11-21
 
 The authenticated Site setup page now shows each local schema migration separately, including new page revisions and navigation, staff/MFA, creator review and feedback, member/email, design and moderation. A base page table no longer makes later migrations appear installed. GET remains read-only; the existing authenticated CSRF POST is still the only application path. A recorded schema marker is never presented as proof of age/performer consent, adult merchant approval, Pro workers or production security. Disposable HTTP checks verify missing-versus-installed display without running a real hosted update.

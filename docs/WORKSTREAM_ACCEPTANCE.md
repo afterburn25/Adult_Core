@@ -1,3 +1,11 @@
+## Safe per-site page duplication into unpublished drafts — 2026-11-21
+
+Local owners/admins may now copy an existing, saved public-site plain-text page into a new **draft-only** page with a separately supplied lowercase slug. This uses the protected page editor's current session, role and CSRF checks, locks the source row and rejects a stale revision. The copy contains only the original safely escaped title/body, starts with revision 1 and an unlisted menu state, and cannot be publicly accessed until a separate owner publishing action. Copying leaves the original page, menu, protected media, member accounts and creator records unchanged.
+
+Disposable SQL and authenticated HTTP tests check duplicate success, stale source, malformed slug, CSRF and public 404. This does **not** copy media, certify customer content, integrate payments or permit release of adult materials.
+
+---
+
 ## Encrypted recovery regression for m16/m17 page data — 2026-11-21
 
 The disposable MySQL/MariaDB full backup and empty-database restore test now covers the new page revision and navigation migrations. It backs up a published but unlisted page plus a versioned homepage, then checks exact restored row snapshots, migration markers and the distinction between published URLs and visible menu links. Existing creator feedback, media, license, installer and archive-integrity checks remain. This is local CI evidence, not independent real-host disaster recovery or adult-content production certification.

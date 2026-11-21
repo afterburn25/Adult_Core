@@ -1,3 +1,7 @@
+## Duplicate a page without publishing (development)
+
+An authenticated owner can copy a saved plain-text public-site page from its editor into a new **unpublished and unlisted** draft with a different URL slug. Stale source revisions are refused, and the original is never modified. Copying cannot publish media or change member billing or age/consent status.
+
 ## Clear owner migration checklist (development)
 
 Admin → Setup now distinguishes installed from pending additive local schemas—including page editing, creators, moderation and member account foundations—without implying production approval. Back up the website before running migrations. Real provider, hosting and security release workstreams remain open.

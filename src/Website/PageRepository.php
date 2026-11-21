@@ -98,6 +98,40 @@ final class PageRepository
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Owner-only operation invoked only after the admin controller session,
+     * role and CSRF gates: copy safe page text to an UNPUBLISHED new slug.
+     * Row lock + revision compare avoids cloning a stale source. Navigation
+     * starts hidden, and neither media nor membership records are touched.
+     */
+    public function duplicateAsDraft(int $sourceId,int $expectedRevision,string $newSlug): int
+    {
+        if ($sourceId<1 || $expectedRevision<1) {
+            throw new RuntimeException('Page revision required; reload before copying.');
+        }
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT title,body,revision FROM ac_pages WHERE id=? FOR UPDATE');
+            $q->execute([$sourceId]);
+            $source=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($source)) throw new RuntimeException('Page not found.');
+            if ((int)$source['revision']!==$expectedRevision) {
+                throw new RuntimeException('Page changed; reload before copying.');
+            }
+            self::validate($newSlug,(string)$source['title'],(string)$source['body'],'draft');
+            $q=$this->pdo->prepare("INSERT INTO ac_pages
+                (slug,title,body,status,revision,show_in_menu,nav_position,updated_at,created_at)
+                VALUES (?,?,?,'draft',1,0,100,UTC_TIMESTAMP(),UTC_TIMESTAMP())");
+            $q->execute([$newSlug,(string)$source['title'],(string)$source['body']]);
+            $newId=(int)$this->pdo->lastInsertId();
+            $this->pdo->commit();
+            return $newId;
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public function save(int $id, string $slug, string $title, string $body, string $status,
                          ?int $expectedRevision=null, ?bool $showInMenu=null,
                          ?int $navPosition=null): void
