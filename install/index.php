@@ -70,6 +70,7 @@ if (!extension_loaded('session')) {
                 try {
                     (new InstallRateLimiter($root . '/storage'))->consume(is_string($remote) ? $remote : 'unknown');
                     $input = InstallInput::validate($_POST);
+                    InstallInput::assertRequestHost($input['license_domain'], (string) ($_SERVER['HTTP_HOST'] ?? ''));
                     (new InstallService($root))->install($input);
                     unset($_SESSION['csrf']);
                     session_destroy();
