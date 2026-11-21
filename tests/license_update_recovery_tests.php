@@ -89,6 +89,15 @@ try {
     catch (RuntimeException) { $blocked = true; }
     $check('Second replacement blocked before issuer request', $blocked && $calls === 0);
 
+    // The signed snapshot contains the previous private license key. Refuse
+    // recovery while any group or public filesystem permission is present.
+    chmod($marker, 0644);
+    try { (new LicenseUpdateRecovery($root))->rollback(); $blocked = false; }
+    catch (RuntimeException) { $blocked = true; }
+    $check('World-readable rollback snapshot refuses recovery',
+        $blocked && $gate->status() === InstallationGate::LICENSE_UPDATE_PENDING);
+    chmod($marker, 0600);
+
     $damaged = str_replace('"sku": "'.CajunWebClient::SKU_LITE_ONCE.'"',
         '"sku": "'.CajunWebClient::SKU_PRO_ONCE.'"', $snapshot);
     $check('Tamper fixture changes signed marker', $damaged !== $snapshot);
