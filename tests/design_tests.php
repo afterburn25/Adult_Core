@@ -118,6 +118,8 @@ $css=file_get_contents(dirname(__DIR__).'/public/assets/style.css');
 designCheck(is_string($css)&&str_contains($css,'.theme-rose-ivory')&&str_contains($css,'.theme-velvet-plum'),'Built-in layout CSS exists');
 $js=file_get_contents(dirname(__DIR__).'/public/assets/design-editor.js');
 designCheck(is_string($js)&&str_contains($js,'field.value')&&str_contains($js,'node.innerText'),'Live text input sync uses plain text');
+designCheck(str_contains($js,'preview-highlight-')&&str_contains($js,'preview.textContent=field.value'),
+    'Homepage information-card preview syncs as inert text, never executable HTML');
 designCheck(str_contains($js,'setPointerCapture') && str_contains($js,'pointermove') && str_contains($js,'pointercancel'), 'Pointer capture supports dragging and cancel');
 designCheck(str_contains($js,'cutout-resize-handle') && str_contains($js,'cutout-move-handle') && str_contains($js,'keydown'), 'Visible resize/drag handles and keyboard support');
 designCheck(str_contains($js,'--cutout-x') && str_contains($js,'--cutout-y') && str_contains($js,'--cutout-width'), 'Preview uses the same CSS variables as public renderer');

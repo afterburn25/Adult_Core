@@ -12,6 +12,17 @@
   const title = document.getElementById('visual-title');
   const body = document.getElementById('visual-body');
   const accent = document.getElementById('design-accent');
+  // Text-only card preview never assigns innerHTML or accepts executable
+  // templates; the server separately validates and escapes saved content.
+  for (let i=1; i<=3; i++) {
+    for (const kind of ['title','body']) {
+      const field=document.getElementById('highlight-'+kind+'-'+i);
+      const preview=document.getElementById('preview-highlight-'+kind+'-'+i);
+      if (field && preview) {
+        field.addEventListener('input',()=>{ preview.textContent=field.value; });
+      }
+    }
+  }
   const imageSide = document.getElementById('image-side');
   const imageSize = document.getElementById('image-size');
   const status = document.getElementById('studio-drag-status');

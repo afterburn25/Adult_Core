@@ -1,3 +1,9 @@
+## Visual preview of owner-edited homepage information tiles — 2026-11-21
+
+The Design Studio preview now renders the same three safe information tiles as the public homepage, with live input listeners for each heading and description. JavaScript writes only textContent, never innerHTML; strict server-side UTF-8 validation and HTML escaping remain authoritative. No script/template execution or media upload is introduced. Unit checks and authenticated HTTP tests cover all six preview fields.
+
+---
+
 ## m18 homepage-card encrypted restore parity — 2026-11-21
 
 The disposable MySQL/MariaDB encrypted backup and fresh-database restore regression now records all six per-site homepage card fields, including safe escaped-text examples and the m18 schema marker. It asserts byte-for-byte value parity after restoring the existing .acfull archive, alongside creator feedback, private assets, license configuration, site pages and menu state. This is only test-environment recovery; real cPanel/VPS restoration and independent launch certification are still required.

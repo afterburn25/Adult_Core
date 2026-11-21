@@ -248,6 +248,14 @@ final class DesignController
             . '<p id="visual-body" contenteditable="plaintext-only" role="textbox" aria-label="Edit homepage paragraph" aria-multiline="true" spellcheck="true">' . nl2br(self::e($body),false) . '</p>'
             . '<span class="btn btn-primary">Explore membership ↗</span></div>'
             . '<div class="studio-canvas-visual" id="studio-canvas-visual">' . $assetHtml . '</div></div>'
+            . '<section class="site-highlights studio-info-preview" id="studio-info-cards" aria-label="Preview homepage information cards">';
+        foreach (($current['highlights']??HighlightSchema::defaults()) as $index=>$card) {
+            $number=$index+1;
+            $html.='<div><span class="highlight-number">0'.$number.'</span>'
+                .'<strong id="preview-highlight-title-'.$number.'">'.self::e((string)$card['title']).'</strong>'
+                .'<p id="preview-highlight-body-'.$number.'">'.self::e((string)$card['body']).'</p></div>';
+        }
+        $html .= '</section>'
             . '<p class="studio-drag-hint" role="status" aria-live="polite" id="studio-drag-status">Select a cutout, then drag to move or pull its corner to resize. Changes are live until you save.</p>'
             . '<button class="button-secondary studio-change-image" id="studio-change-image" type="button">Change preview picture ↗</button>'
             . '<p class="muted">This preview is visible to administrators only. A private image will not appear on your published website until it has been marked suitable for public decorative use and selected in a saved design. Homepage draft/published status remains controlled in Pages.</p>'

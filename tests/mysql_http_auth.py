@@ -582,6 +582,10 @@ def main():
             ensure('Owner can edit all three homepage information cards',
                    all(f'name="highlight_{i}_title"' in studio
                        and f'name="highlight_{i}_body"' in studio for i in (1,2,3)))
+            ensure('Studio renders all three safely escaped live information-card previews',
+                   all(f'id="preview-highlight-title-{i}"' in studio
+                       and f'id="preview-highlight-body-{i}"' in studio
+                       for i in (1,2,3)))
             ensure('Live drag/resize slider controls are rendered',
                    all(f'name="{field}"' in studio for field in ('cutout_x','cutout_y','cutout_width')))
             code, invalid= req('/admin/design', {
