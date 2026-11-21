@@ -141,7 +141,16 @@ def run():
             assert_http('interrupted upgrade denies admin login', '/admin/login', 503, 'Edition upgrade recovery required')
             assert_http('interrupted upgrade denies installer', '/install/', 503, 'Edition upgrade recovery required')
             pending.unlink()
-                        # Removing a license must not unlock a completed installation.
+            # A crash during the two-file license replacement must lock all
+            # public and administrator HTTP entry points until console recovery.
+            license_pending = root / 'storage' / '.license-update-pending'
+            license_pending.write_text('synthetic interrupted license update', encoding='utf-8')
+            assert_http('pending license rollback denies site', '/', 503, 'License update recovery required')
+            assert_http('pending license rollback denies admin login', '/admin/login', 503, 'License update recovery required')
+            assert_http('pending license rollback denies package manager', '/admin/packages', 503, 'License update recovery required')
+            assert_http('pending license rollback denies browser installer', '/install/', 503, 'License update recovery required')
+            license_pending.unlink()
+            # Removing a license must not unlock a completed installation.
             license_path = root / "config" / "license.php"
             license_private = license_path.read_text(encoding="utf-8")
             license_path.unlink()
