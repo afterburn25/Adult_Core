@@ -254,6 +254,15 @@ def main():
                    code==422 and 'Invalid diagnostics format' in bad_health_format)
             code, _=req('/admin/health',{'csrf':brand_csrf.group(1)})
             ensure('Read-only local health refuses POST',code==405)
+            code, work_dashboard=req('/admin')
+            ensure('Owner dashboard reflects only local safe work counters after site setup',
+                   code==200 and 'Local work overview' in work_dashboard
+                   and 'Pending local members' in work_dashboard
+                   and 'Unpublished website drafts' in work_dashboard
+                   and 'Open safety reports' in work_dashboard
+                   and 'Submitted private text plans' in work_dashboard
+                   and 'A pending member account is not independently age-verified' in work_dashboard
+                   and 'password_hash' not in work_dashboard)
             code, migrated_setup=req('/admin/setup')
             ensure('Site setup reports individual page migrations as installed',
                    code==200

@@ -1,3 +1,9 @@
+## Owner dashboard read-only work overview — 2026-11-21
+
+The self-hosted owner/admin `/admin` dashboard now displays *actual site-local* counts for pending member accounts, unpublished plain-text website pages, open member safety reports and submitted private creator text plans. `OwnerWorkSummary` uses only fixed aggregate COUNT queries gated by each additive schema marker; missing migrations show **Not configured**, not a misleading zero. The response never selects or reveals emails, password hashes, private creator plan bodies, performer records, payment details or protected media. Every tile links to an existing role-protected management list, but no approval, account activation, adult publishing, subscription grant or SaaS integration has been added. The page prominently states that locally pending members are not independently age-verified. Unit, disposable MySQL/MariaDB, real authenticated HTTP and unified source ZIP checks cover counts, missing data and data minimization. Real external release gates remain unapproved.
+
+---
+
 ## Two independent authenticated browsers prove all-device member revocation — 2026-11-21
 
 The real disposable PHP HTTP suite now logs the same pending local member into *two separate cookie jars* after password rotation, then exercises the new `/members/sessions` form. Invalid CSRF and wrong current password leave the other browser authenticated. Successful server-verified all-device revocation redirects, denies both the original and separately issued cookies, displays a one-time server-authoritative success notice on the next login form (which cannot be spoofed with `?signed_out=1`), and accepts the unchanged password for fresh login. The account remains `pending`; no verification provider, payment processor, protected media, owner/admin credential or SaaS tenant is touched. Both MySQL 8 and MariaDB 10.11 CI are required before acceptance.

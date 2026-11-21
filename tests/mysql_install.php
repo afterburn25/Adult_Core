@@ -1754,6 +1754,16 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Unchanged member password rotation accepted.') throw $e;
     }
+    $work=(new \AdultCore\Support\OwnerWorkSummary($pdo))->read();
+    $expectedWork=[
+        'pending_members'=>(int)$pdo->query("SELECT COUNT(*) FROM ac_users WHERE role='member' AND status='pending'")->fetchColumn(),
+        'draft_pages'=>(int)$pdo->query("SELECT COUNT(*) FROM ac_pages WHERE status='draft'")->fetchColumn(),
+        'open_reports'=>(int)$pdo->query("SELECT COUNT(*) FROM ac_content_reports WHERE status='open'")->fetchColumn(),
+        'submitted_plans'=>(int)$pdo->query("SELECT COUNT(*) FROM ac_creator_drafts WHERE status='submitted'")->fetchColumn(),
+    ];
+    if ($work!==$expectedWork) {
+        throw new RuntimeException('Owner local work summary did not reflect actual private DB counts.');
+    }
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.

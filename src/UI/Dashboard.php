@@ -10,7 +10,8 @@ use AdultCore\Auth\AdminSession;
 final class Dashboard
 {
     /** @param array{id:int,email:string,role:string} $admin */
-    public static function render(string $siteName, string $edition, int $accounts, array $admin): string
+    /** @param array{pending_members?:?int,draft_pages?:?int,open_reports?:?int,submitted_plans?:?int} $work */
+    public static function render(string $siteName, string $edition, int $accounts, array $admin, array $work=[]): string
     {
         $e = static fn(string $value): string => Layout::escape($value);
         $editionLabel = strtoupper($edition);
@@ -35,7 +36,17 @@ final class Dashboard
             . '<h3 class="metric-words">Protected</h3><p>Role checks &amp; CSRF enabled</p><span class="metric-accent accent-gold"></span></section>'
             . '<section class="panel metric-card"><div class="metric-label">SIGNED IN AS <span class="metric-symbol">◉</span></div>'
             . '<h3 class="metric-account">' . $e($admin['email']) . '</h3><p>Role: ' . $e($admin['role']) . '</p><span class="metric-accent accent-pink"></span></section>'
-            . '</div><div class="section-heading section-heading-tools"><div><span class="section-overline">QUICK ACCESS</span><h2>Your tools</h2></div></div>'
+            . '</div><section class="panel owner-work-summary">'
+            . '<h2>Local work overview</h2>'
+            . '<p class="muted">Read-only site records, not age verification, payment approval, or publication permission. '
+            . 'A pending member account is not independently age-verified.</p>'
+            . '<div class="owner-work-grid">'
+            . self::workCount('Pending local members',$work['pending_members']??null,'/admin/members?status=pending')
+            . self::workCount('Unpublished website drafts',$work['draft_pages']??null,'/admin/pages?status=draft')
+            . self::workCount('Open safety reports',$work['open_reports']??null,'/admin/moderation')
+            . self::workCount('Submitted private text plans',$work['submitted_plans']??null,'/admin/creator-review')
+            . '</div></section>'
+            . '<div class="section-heading section-heading-tools"><div><span class="section-overline">QUICK ACCESS</span><h2>Your tools</h2></div></div>'
             . '<div class="tool-grid">'
             . self::tool('01', 'Pages & publishing', 'Create and edit your public-facing website pages.', '/admin/pages', 'Open page editor')
             . self::tool('02', 'Members', 'View registered accounts and pending status.', '/admin/members', 'Manage members')
@@ -44,6 +55,15 @@ final class Dashboard
             . '</div><div class="dashboard-note"><span class="note-icon">i</span><p><strong>Development environment.</strong> '
             . 'Live payments, independent adult verification, full media publishing, and Pro streaming are not available. '
             . 'Do not deploy this build as a production membership platform.</p></div>';
+    }
+
+    private static function workCount(string $title,?int $count,string $url): string
+    {
+        // Null never means zero; it indicates a feature was not migrated.
+        $shown=$count===null?'Not configured':(string)max(0,$count);
+        return '<a class="owner-work-item" href="'.$url.'"><strong>'
+            .Layout::escape($shown).'</strong><span>'.Layout::escape($title)
+            .'</span></a>';
     }
 
     private static function tool(string $number, string $title, string $description, string $url, string $cta): string

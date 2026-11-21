@@ -1,3 +1,7 @@
+## Owner dashboard overview (development)
+
+Your self-hosted administrator dashboard now summarizes pending member accounts, unpublished site pages, open reports and submitted creator text plans from the **local** database. The counters are read-only, and features not yet migrated are labeled **Not configured**. No member activation, payment authorization or adult publishing is implied.
+
 ## Sign out every member device (development)
 
 Authenticated members can use **Account → Sign out of all devices**, re-enter their existing password, and invalidate all member sessions including the current browser. The current password remains valid for a fresh sign-in; this never grants paid or age-verified access.

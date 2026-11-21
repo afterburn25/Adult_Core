@@ -79,8 +79,22 @@ uiCheck(str_contains($memberSafetyController,'AdminSession::managerVerifiedRecen
     && !str_contains($memberSafetyController,"'approve'")
     && !str_contains($memberSafetyController,"'activate'"),
     'Local member safety requires CSRF, bounded password step-up and never approves adult media');
-$admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
-    ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
+$defaultDashboard=Dashboard::render('Site <x>','lite',8,
+    ['id'=>1,'email'=>'admin@example.test','role'=>'admin']);
+uiCheck(str_contains($defaultDashboard,'Local work overview')
+    && str_contains($defaultDashboard,'Not configured'),
+    'Owner work summary never claims missing migrated records are zero');
+$filledDashboard=Dashboard::render('Sample','lite',11,
+    ['id'=>1,'email'=>'admin@example.test','role'=>'admin'],
+    ['pending_members'=>5,'draft_pages'=>7,'open_reports'=>2,'submitted_plans'=>4]);
+uiCheck(str_contains($filledDashboard,'>5</strong><span>Pending local members')
+    && str_contains($filledDashboard,'>7</strong><span>Unpublished website drafts')
+    && str_contains($filledDashboard,'>2</strong><span>Open safety reports')
+    && str_contains($filledDashboard,'>4</strong><span>Submitted private text plans')
+    && str_contains($filledDashboard,'A pending member account is not independently age-verified'),
+    'Real local counts stay read-only and cannot imply verified adult privileges');
+$admin = Layout::admin('Dashboard', $defaultDashboard,
+    '/admin', str_repeat('a', 64));
 uiCheck(str_contains($admin, 'class="admin-sidebar"'), 'Sidebar layout');
 uiCheck(str_contains($admin, 'aria-label="Administrator sections"'), 'Named admin navigation');
 uiCheck(str_contains($admin, 'aria-current="page"'), 'Active admin route');

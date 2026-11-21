@@ -16,6 +16,7 @@ use AdultCore\Licensing\LicenseManager;
 use AdultCore\Licensing\EditionUpgrade;
 use AdultCore\UI\Layout;
 use AdultCore\UI\Dashboard;
+use AdultCore\Support\OwnerWorkSummary;
 use PDO;
 use Throwable;
 
@@ -181,7 +182,8 @@ final class AdminController
             $siteName = (string) ($pdo->query("SELECT setting_value FROM ac_settings WHERE setting_key = 'site_name'")->fetchColumn() ?: 'Adult Core');
             $edition = (string) ($pdo->query('SELECT edition FROM ac_installations WHERE id = 1')->fetchColumn() ?: 'unknown');
             $members = (int) $pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn();
-            $this->page('Dashboard', self::dashboardContent($siteName, $edition, $members, $admin));
+            $work=(new OwnerWorkSummary($pdo))->read();
+            $this->page('Dashboard', Dashboard::render($siteName,$edition,$members,$admin,$work));
         } catch (Throwable) {
             $this->error(503, 'Database unavailable', 'Administrator dashboard could not load. Please check database connectivity.');
         }
