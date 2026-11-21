@@ -1,3 +1,9 @@
+## Persistent bounded admin sessions and staff step-up usability — development only
+
+The private admin session now supports a seven-day HttpOnly/SameSite Strict cookie (Secure on HTTPS), with a server-side 24-hour inactivity limit and seven-day absolute limit; logout and revocation remain immediate. The cookie contains only the random PHP session ID. Routine changes work across page reloads and browser restarts without retyping the password. A manager password verified at login, or once after expiry, opens a 30-minute staff-change window; staff creation/suspension/restoration still require role authorization, CSRF and server-side account checking, but not repetitive password submission on every action. Higher-risk workflows retain their own independent checks. This is not an infinite admin session or production security signoff.
+
+---
+
 ## Restricted staff provisioning and session revocation — local development only
 
 After `/admin/setup` additive migration, a manager can create only a restricted `moderator` identity on `/admin/staff`, suspend it and restore it with a fresh password. Every write requires manager password re-verification and CSRF, is attempt-limited and produces a numeric-only private audit record. A moderator can change their own password using the same active session/MFA gate. Session epochs increment on suspension, restore and password change, preventing the resurrection of old authenticated cookies or MFA challenges. The UI cannot promote staff, edit member status, alter license editions, publish media or grant paid entitlements.

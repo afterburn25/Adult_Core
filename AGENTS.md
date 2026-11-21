@@ -1,3 +1,11 @@
+## Persistent admin sessions and bounded staff change authorization — 2026-11-21
+
+`AdminSession` uses private server-side PHP sessions and an **opaque session-ID cookie only**, with a 7-day persistent browser lifetime, 24-hour idle expiry, 7-day hard server expiry, HttpOnly/SameSite=Strict and Secure on HTTPS. Never store a password, entitlement, privileged API key or reusable bearer credential value inside a separate client-side remember-me cookie. Session regeneration, CSRF, MFA, active-account checks, moderator epoch revocation and logout remain required. `AdminSession::managerVerifiedRecently()` must use a server-side, timestamp-bounded 30-minute window after authenticated password login. No privileged transition may renew that window without a verified password; old sessions lacking this timestamp fail closed for staff changes.
+
+At `/admin/staff`, manager authorization, CSRF and a valid staff window are still required on every create/suspend/restore POST, but **manager password input belongs only in a separate explicit `action=verify` unlock form** after the window expires, not every routine staff form. Bound repeated unlock attempts, do not compare passwords via client cookie, and keep the role/staff-epoch/first-password-rotation checks. Preserve independent password/MFA verification for separate high-risk actions such as licence upgrade or authenticator management. Extend unit/real HTTP tests for cookie survival, server expiry and staff window reauthorization.
+
+---
+
 ## Moderation staff lifecycle and revocable sessions — 2026-11-21
 
 `/admin/staff` is manager-only (`members.manage` and an ACTIVE database-backed manager), every write requires current manager password step-up, CSRF and bounded attempts. `StaffRepository` may create ONLY `role='moderator'` accounts and may suspend/restore ONLY moderator IDs; no role promotion, member changes, license/edition or billing controls. Require strong unique passwords, no raw password/email in private action logs, and keep audit history under `ac_staff_actions`. Never delete staff or protected evidence as part of suspension.

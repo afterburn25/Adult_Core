@@ -1,3 +1,13 @@
+## Persistent administrator cookies and session-scoped staff authorization — 2026-11-21
+
+Administrator login now issues an opaque HttpOnly/SameSite=Strict session cookie with a bounded 7-day lifetime (Secure on HTTPS) backed by private PHP session storage; active authentication expires after 24 hours idle or seven days total, whichever comes first. Cookie data is only a random session identifier, **not** a password or an authorization grant beyond the server session. The cookie can survive browser restarts. Logout, account suspension/role checks and moderator epoch revocation continue to gate each request.
+
+Manager-only staff actions no longer require the current password on each create/suspend/restore POST. A fresh password login unlocks a **30-minute sensitive staff window** in server session metadata; after expiry, `/admin/staff` shows a single CSRF-protected manager-password unlock form. After one valid re-verification, managers can perform multiple staff actions during the next 30 minutes without reentering that password. All routine mutations continue to require active authorized DB identity, CSRF and existing server-side role checks. Pro upgrade, MFA disable, other high-risk special operations keep their separate existing protections.
+
+Tests cover cookie expiry/HttpOnly, recreated browser with cookie, idle/absolute expiry, initial and renewed step-up, invalid CSRF/password, no per-action password, and existing moderator credential-rotation/forced-first-login lifecycle. Keep the current MySQL/MariaDB GitHub Actions green before marking acceptance. No plaintext password goes into the cookie.
+
+---
+
 ## Credential restoration and staff MFA-readiness tightening — 2026-11-21
 
 - Restoring a suspended moderator now checks the chosen replacement password against the prior password hash, rejects reuse and locks the active manager's DB role row for each privileged transactional mutation. The current account revocation epoch is still rotated.

@@ -1,3 +1,10 @@
+## Persistent admin login and reusable staff edit authorization — 2026-11-21
+
+- Change the administrator's opaque PHP session ID cookie from browser-session-only to a bounded 7-day persistent cookie; enforce 24-hour idle and 7-day absolute server-side authentication timeouts, with HttpOnly/SameSite Strict and HTTPS Secure protection.
+- Automatically authorize sensitive moderator staff edits for 30 minutes after sign-in; provide a single CSRF-protected manager-password re-verification form once the window expires. Do not demand the password in every create/suspend/restore form.
+- Store only a server-side timestamp in the private session; no plaintext credentials or stand-alone remember-me token in the browser.
+- Preserve logout, moderator suspension/rotation/MFA locks, role authorization, CSRF and separate high-risk action protections. Update unit/HTTP tests for expiry and simulated browser restart.
+
 ## Staff restoration hardening and MFA enrollment indicator — 2026-11-21
 
 - Reject restoring a moderator with the old password; retain new-password epoch rotation and status checks.

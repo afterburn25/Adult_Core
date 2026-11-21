@@ -2,6 +2,14 @@
 
 This is a self-hosted, manager-controlled workflow. It is **not** an external staff identity provider, email-invitation service, age/performer verification provider or production security certification.
 
+## Staying signed in while editing
+
+Administrators use a single secure **session-ID cookie**, not a stored password or a separate browser credential. This cookie can survive closing and reopening the browser for up to **7 days**, but authentication ends earlier if idle for **24 hours**, the account is revoked, or you sign out. Cookies are HttpOnly, SameSite Strict and Secure on HTTPS.
+
+Your password login automatically unlocks staff changes for **30 minutes**. While that window is active, adding, suspending and restoring moderators requires the normal form/CSRF checks but **no repeated manager-password entry**. If 30 minutes elapse, open **Admin → Moderation team**, enter your current password in the **Unlock staff changes** form once, then continue. A separate 30-minute window begins after verification.
+
+This is a bounded convenience feature. It does **not** remove password or MFA checks for unrelated high-risk tasks, and never extends a revoked or expired session.
+
 ## Initial setup
 
 Apply the additive migration in **Admin → Setup** after an off-server backup. `StaffSchema` adds `ac_staff_actions` (numeric actor/target/action/UTC metadata; no passwords) and `ac_users.staff_session_epoch` (an integer revocation counter). Both Lite and Pro use the same code and licensing; staff management does not affect edition capabilities.
@@ -18,7 +26,7 @@ The moderator's menu contains **Moderation**, **Account security** and **Sign ou
 
 ## Suspend and restore
 
-Only a manager can suspend an active moderator at `/admin/staff` with a fresh manager-password check. Suspended staff cannot log in, and existing sessions are refused on their next request. Suspension increments the private account's session epoch.
+Only a manager can suspend an active moderator at `/admin/staff` during a current 30-minute manager authorization window. Re-confirm the manager password only once when the window has expired. Suspended staff cannot log in, and existing sessions are refused on their next request. Suspension increments the private account's session epoch.
 
 A manager can restore a suspended moderator only while setting a **different** 16–72-byte password (the exact previous password is rejected) and confirming the manager password again. Restoration increments the epoch a second time. Even if an old browser never contacted the site while the account was suspended, its original authenticated session can **never** be revived by restoration. Pending moderator MFA challenges bind the epoch captured after password verification and likewise cannot survive the suspension/restoration cycle. Staff who have MFA enabled still need their valid authenticator/recovery codes after restoration; a credential change does not silently disable MFA.
 

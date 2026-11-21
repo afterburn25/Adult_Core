@@ -1,3 +1,7 @@
+## Persistent signed-in administrator sessions
+
+The admin browser keeps only a secure opaque session cookie, not a password. It survives browser restarts for up to seven days (24-hour idle expiry). Staff actions are unlocked for 30 minutes after sign-in or one manager-password confirmation, without repeating the password on every edit. Signing out and account revocation still terminate access. See [staff session and lifecycle guidance](docs/STAFF_MODERATION.md).
+
 ## Staff and moderation-team accounts — development
 
 Administrators can now manage restricted moderators under `/admin/staff` with password re-verification, suspension/credential rotation and protected audit trails. Moderators can change their initial password in `/admin/security`; old session cookies and pending MFA challenges are invalidated by staff status/credential changes. **No automated staff-email identity checks or public adult-content approvals are provided.** See [staff setup and safety runbook](docs/STAFF_MODERATION.md).

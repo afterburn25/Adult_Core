@@ -1,3 +1,11 @@
+## Persistent admin cookie and no repeated per-edit password — 2026-11-21
+
+Login is now backed by a persistent opaque PHP session cookie (7-day expiry, 24-hour idle/7-day absolute server timeout, HttpOnly, SameSite Strict and Secure on HTTPS). The cookie survives browser restart but stores no credentials, and logout/revocation still cancel it. Routine admin actions rely on the existing verified session and CSRF protection.
+
+Sensitive `/admin/staff` changes may be performed repeatedly for 30 minutes after a fresh login or a one-time current-password confirmation. The staff page shows the unlock form only when this bounded window has expired, and otherwise shows action forms without redundant manager-password fields. This is a convenience improvement, not infinite authentication, and unrelated higher-risk operations maintain their separate safeguards. Local security and authenticated HTTP tests must remain green on both MySQL and MariaDB.
+
+---
+
 ## Moderator account restoration and MFA operator readiness — 2026-11-21
 
 Additional hardening rejects reuse of the old moderator password on restoration, locks manager authorization within the staff-change transaction, and displays a nonsecret MFA enrollment indicator on the manager's staff page. This is only a status cue: MFA enrollment does not verify staff email ownership or satisfy external identity/consent obligations.
