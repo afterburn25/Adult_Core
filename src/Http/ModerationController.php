@@ -19,6 +19,8 @@ use Throwable;
 /** Admin-only quarantine and report triage. Does not approve or publish media. */
 final class ModerationController
 {
+    private string $currentRole='admin';
+
     public function __construct(private readonly string $root) {}
 
     /**
@@ -69,6 +71,7 @@ final class ModerationController
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $method, array $admin): void
     {
+        $this->currentRole=$admin['role'];
         if (!RolePolicy::allows($admin['role'], 'content.moderate')) {
             $this->render(403,'Access denied','<p>Moderation permission required.</p>'); return;
         }
@@ -333,7 +336,8 @@ final class ModerationController
         echo Layout::admin($title,
             '<div class="admin-heading page-heading"><div><p class="eyebrow">TRUST &amp; SAFETY</p><h1>'
             . self::e($title) . '</h1></div><span class="page-heading-tag">Restricted workflow</span></div>' . $body,
-            '/admin/moderation', AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
+            '/admin/moderation', AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown',
+            $this->currentRole);
     }
 
     private static function e(string $v):string {return htmlspecialchars($v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}

@@ -406,7 +406,7 @@ final class ModerationRepository
         if ($id < 1) throw new RuntimeException('Administrator privileges required.');
         $q=$this->pdo->prepare("SELECT role FROM ac_users WHERE id=? AND status='active' LIMIT 1");
         $q->execute([$id]);
-        if (!in_array($q->fetchColumn(), ['admin','owner'], true)) throw new RuntimeException('Administrator privileges required.');
+        if (!in_array($q->fetchColumn(), ['admin','owner','moderator'], true)) throw new RuntimeException('Administrator privileges required.');
     }
 
     private function audit(int $contentId, ?int $reportId, int $actorId, string $action, string $note): void

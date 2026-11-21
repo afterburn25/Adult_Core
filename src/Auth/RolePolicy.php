@@ -10,7 +10,7 @@ final class RolePolicy
     private const PERMISSIONS = [
         'owner' => ['admin.access', 'admin.dashboard.view', 'site.settings.manage', 'modules.manage', 'members.manage', 'content.moderate'],
         'admin' => ['admin.access', 'admin.dashboard.view', 'site.settings.manage', 'modules.manage', 'members.manage', 'content.moderate'],
-        'moderator' => ['content.moderate'],
+        'moderator' => ['admin.access', 'content.moderate'],
         'member' => [],
     ];
 

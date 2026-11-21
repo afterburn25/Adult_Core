@@ -126,7 +126,7 @@ final class Layout
      * This method is called only by authenticated admin routes. The caller remains
      * responsible for validating the session, role and CSRF before dispatch.
      */
-    public static function admin(string $title, string $content, string $currentPath = '/admin', ?string $csrf = null, string $edition = 'unknown'): string
+    public static function admin(string $title, string $content, string $currentPath = '/admin', ?string $csrf = null, string $edition = 'unknown', string $role = 'admin'): string
     {
         $links = [
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
@@ -141,6 +141,14 @@ final class Layout
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],
             ['url' => '/admin/setup', 'label' => 'Setup', 'icon' => 'settings'],
         ];
+        // Keep moderator navigation least-privilege; server-side route checks
+        // remain authoritative for any manually entered admin URL.
+        if ($role==='moderator') {
+            $links=[
+                ['url'=>'/admin/moderation','label'=>'Moderation','icon'=>'shield'],
+                ['url'=>'/admin/security','label'=>'Account security','icon'=>'shield'],
+            ];
+        }
         $nav = '';
         foreach ($links as $link) {
             $active = $currentPath === $link['url'] || ($currentPath === '/admin/page' && $link['url'] === '/admin/pages');
@@ -150,6 +158,7 @@ final class Layout
         }
         // Present Pro-only modules on Lite without supplying live routes or unauthorized controls.
         $upgradeUrl = 'https://cajunwebpro.com'; // Placeholder until the verified upgrade URL exists.
+        if ($role!=='moderator') {
         $nav .= '<div class="sidebar-group-label pro-feature-label">PRO FEATURES</div>';
         foreach (['Video streaming', 'Live broadcasts', 'Real-time chat', 'Video processing'] as $proFeature) {
             $nav .= '<div class="admin-nav-link pro-feature-locked" aria-disabled="true">'
@@ -160,6 +169,7 @@ final class Layout
             $nav .= '<a class="pro-upgrade-link" href="' . $upgradeUrl . '" target="_blank" rel="noopener noreferrer">'
                 . 'Buy Pro license <span aria-hidden="true">↗</span></a>'
                 . '<a class="pro-upgrade-link" href="/admin/upgrade">Activate Pro on this site <span aria-hidden="true">↗</span></a>';
+        }
         }
         $logout = is_string($csrf) && preg_match('/^[a-f0-9]{64}$/D', $csrf) === 1
             ? '<form method="post" action="/admin/logout" class="logout-form"><input type="hidden" name="csrf" value="' . self::escape($csrf) . '">'

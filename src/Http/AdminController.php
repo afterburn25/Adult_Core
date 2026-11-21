@@ -89,6 +89,11 @@ final class AdminController
             $this->upgradePage($method, $admin);
             return;
         }
+        if ($path === '/admin' && $admin['role'] === 'moderator') {
+            if ($method!=='GET') { $this->methodNotAllowed('GET'); return; }
+            $this->redirect('/admin/moderation',302);
+            return;
+        }
         if ($path === '/admin/design' || $path === '/admin/design/upload' || str_starts_with($path, '/admin/design/asset/')) {
             (new DesignController($this->root))->handle($path, $method, $admin);
             return;
@@ -314,7 +319,8 @@ final class AdminController
     {
         $admin = $this->currentAdmin();
         if ($admin !== null) {
-            $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
+            $this->redirect((new LicenseManager($this->root))->status() === 'valid'
+                ? ($admin['role']==='moderator' ? '/admin/moderation' : '/admin') : '/admin/license');
             return;
         }
         if (AdminSession::pendingMfaId() !== null) {
@@ -348,7 +354,8 @@ final class AdminController
                             return;
                         }
                         AdminSession::authenticate($account['id']);
-                        $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
+                        $this->redirect((new LicenseManager($this->root))->status() === 'valid'
+                            ? ($account['role']==='moderator' ? '/admin/moderation' : '/admin') : '/admin/license');
                         return;
                     }
                 } catch (\RuntimeException $e) {

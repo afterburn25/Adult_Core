@@ -41,7 +41,9 @@ final class MfaController
                         if ($admin !== null && (new AdminMfa($pdo,$this->root))->enabledFor($id)
                             && (new AdminMfa($pdo,$this->root))->consume($id,trim($factor))) {
                             AdminSession::authenticate($id,null,true);
-                            $route=(new LicenseManager($this->root))->status()==='valid'?'/admin':'/admin/license';
+                            $route=(new LicenseManager($this->root))->status()==='valid'
+                                ? ($admin['role']==='moderator'?'/admin/moderation':'/admin')
+                                : '/admin/license';
                             header('Location: '.$route,true,303);return;
                         }
                         $error='Invalid authenticator or recovery code.';
@@ -66,7 +68,7 @@ final class MfaController
     /** @param array{id:int,email:string,role:string} $admin */
     public function security(string $method,array $admin): void
     {
-        if (!RolePolicy::allows($admin['role'],'site.settings.manage')) { http_response_code(403); return; }
+        if (!RolePolicy::allows($admin['role'],'admin.access')) { http_response_code(403); return; }
         if (!in_array($method,['GET','POST'],true)) { header('Allow: GET, POST');http_response_code(405);return; }
         $error=null;$codes=[];
         try {
@@ -150,11 +152,11 @@ final class MfaController
             }
             $html.='</section>';
             if (($_GET['disabled'] ?? '')==='1') $html.='<p role="status">Authenticator disabled.</p>';
-            echo Layout::admin('Account security',$html,'/admin/security',AdminSession::csrf(),(new LicenseManager($this->root))->config()['edition']??'unknown');
+            echo Layout::admin('Account security',$html,'/admin/security',AdminSession::csrf(),(new LicenseManager($this->root))->config()['edition']??'unknown',$admin['role']);
         } catch (Throwable) {
             http_response_code(503);
             echo Layout::admin('Security unavailable','<section class="panel"><h1>Security settings unavailable</h1><p>Restore the database or private application key before continuing.</p></section>',
-                '/admin/security',AdminSession::csrf());
+                '/admin/security',AdminSession::csrf(),'unknown',$admin['role']);
         }
     }
 
