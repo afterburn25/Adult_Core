@@ -1,3 +1,9 @@
+## Disposable HTTP fixture timeout stabilization — 2026-11-21
+
+A MariaDB 10.11 run intermittently timed out while the authenticated `/admin/setup` request was applying many additive local migrations, despite earlier and later builds passing the same functionality. The test-only urllib transport deadline is now 12 seconds (previously 4) for actual loopback requests, keeping all response codes, CSRF/MFA, negative tests, deployment locks and content-access checks unchanged. This does not raise public PHP/proxy request limits or certify real cPanel/VPS installs. CI must rerun successfully to accept the updated fixture.
+
+---
+
 ## Serialized local membership-tier labels and raw input protection — 2026-11-21
 
 TierCatalog now locks the site's existing installation row with `SELECT ... FOR UPDATE` before either create or rename, serializing the local 50-row limit and case-insensitive name uniqueness check across concurrent administrator sessions. The installation row is not modified and no license or subscription action is introduced. Tier name validation now examines untrimmed bytes so trailing NUL/newline controls cannot be normalized into accepted labels. Unit/source checks and disposable MySQL/MariaDB regressions cover valid labels, malformed controls, duplicate case variants and zero accidental membership grants. The catalog still creates disabled labels only; approved adult payment checkout and provider-authenticated entitlement issuance remain blocked.

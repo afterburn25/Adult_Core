@@ -22,6 +22,9 @@ import urllib.parse
 import urllib.request
 
 SOURCE = pathlib.Path(__file__).resolve().parents[1]
+# Disposable CI hosts can take several seconds to apply 20+ additive schema
+# migrations. This is only a test transport deadline, not a production timeout.
+HTTP_TIMEOUT = 12
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -52,7 +55,7 @@ def main():
             def req(path, data=None):
                 payload = urllib.parse.urlencode(data).encode() if data is not None else None
                 try:
-                    resp = opener.open(f'http://127.0.0.1:{port}{path}', data=payload, timeout=4)
+                    resp = opener.open(f'http://127.0.0.1:{port}{path}', data=payload, timeout=HTTP_TIMEOUT)
                 except urllib.error.HTTPError as err:
                     resp = err
                 with resp:
@@ -60,7 +63,7 @@ def main():
 
             def req_binary(path):
                 try:
-                    resp = opener.open(f'http://127.0.0.1:{port}{path}', timeout=4)
+                    resp = opener.open(f'http://127.0.0.1:{port}{path}', timeout=HTTP_TIMEOUT)
                 except urllib.error.HTTPError as err:
                     resp = err
                 with resp:
@@ -110,7 +113,7 @@ def main():
             restart_browser=urllib.request.build_opener(NoRedirect,
                 urllib.request.HTTPCookieProcessor(restart_jar))
             try:
-                restarted=restart_browser.open(f'http://127.0.0.1:{port}/admin',timeout=4)
+                restarted=restart_browser.open(f'http://127.0.0.1:{port}/admin',timeout=HTTP_TIMEOUT)
             except urllib.error.HTTPError as err:
                 restarted=err
             with restarted:
@@ -276,7 +279,7 @@ def main():
                 def make_req(path,data=None):
                     payload=urllib.parse.urlencode(data).encode() if data is not None else None
                     try:
-                        response=browser.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=4)
+                        response=browser.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=HTTP_TIMEOUT)
                     except urllib.error.HTTPError as err:
                         response=err
                     with response:
@@ -375,7 +378,7 @@ def main():
             def mod_req(path, data=None):
                 payload=urllib.parse.urlencode(data).encode() if data is not None else None
                 try:
-                    response=mod_opener.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=4)
+                    response=mod_opener.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=HTTP_TIMEOUT)
                 except urllib.error.HTTPError as err:
                     response=err
                 with response:
@@ -798,7 +801,7 @@ def main():
                 parts.append(f'--{boundary}--\r\n'.encode())
                 request=urllib.request.Request(f'http://127.0.0.1:{port}/admin/design/upload',
                     data=b''.join(parts),headers={'Content-Type':f'multipart/form-data; boundary={boundary}'})
-                try: resp=opener.open(request,timeout=4)
+                try: resp=opener.open(request,timeout=HTTP_TIMEOUT)
                 except urllib.error.HTTPError as err: resp=err
                 with resp: return resp.status,resp.read().decode('utf-8', errors='replace')
             metadata = b'GPSComment=private'
@@ -958,7 +961,7 @@ def main():
                     f'http://127.0.0.1:{port}/admin/moderation',
                     data=b''.join(parts),
                     headers={'Content-Type':f'multipart/form-data; boundary={boundary}'})
-                try: response=opener.open(request,timeout=4)
+                try: response=opener.open(request,timeout=HTTP_TIMEOUT)
                 except urllib.error.HTTPError as err: response=err
                 with response:
                     return response.status,response.read().decode('utf-8',errors='replace')
