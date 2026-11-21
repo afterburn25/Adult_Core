@@ -114,6 +114,29 @@ final class LocalCreators
         return $q->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Local owner/admin can inspect only saved planning text on THIS site.
+     * It does not contain original media, identity evidence, or access keys.
+     *
+     * @return array{profile:array<string,mixed>,drafts:list<array<string,mixed>>}|null
+     */
+    public function privatePlansForOwner(int $actorId,int $creatorId): ?array
+    {
+        $this->requireManager($actorId,false);
+        if ($creatorId<1) return null;
+        $q=$this->pdo->prepare("SELECT c.id,c.display_name,c.status,u.email
+            FROM ac_creator_profiles c JOIN ac_users u ON u.id=c.member_id
+            WHERE c.id=? LIMIT 1");
+        $q->execute([$creatorId]);
+        $profile=$q->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($profile)) return null;
+        $q=$this->pdo->prepare("SELECT id,title,summary,status,revision,updated_at
+            FROM ac_creator_drafts WHERE creator_id=? AND status='private'
+            ORDER BY id DESC LIMIT 50");
+        $q->execute([$creatorId]);
+        return ['profile'=>$profile,'drafts'=>$q->fetchAll(PDO::FETCH_ASSOC)];
+    }
+
     /** @return list<array<string,mixed>> */
     public function audit(int $actorId): array
     {

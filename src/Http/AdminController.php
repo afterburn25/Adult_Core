@@ -119,6 +119,10 @@ final class AdminController
             (new ModerationController($this->root))->draftPage($path,$method,$admin);
             return;
         }
+        if (str_starts_with($path,'/admin/creators/drafts/')) {
+            (new CreatorAdminController($this->root))->drafts($path,$method,$admin);
+            return;
+        }
         if ($path === '/admin/creators') {
             (new CreatorAdminController($this->root))->handle($method,$admin);
             return;

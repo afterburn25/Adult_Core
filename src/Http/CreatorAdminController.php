@@ -22,6 +22,67 @@ final class CreatorAdminController
 {
     public function __construct(private readonly string $root) {}
 
+    /**
+     * Read-only local owner review of private creator plans.
+     * A suspended creator's retained plans may still be inspected by
+     * the owner, but no draft status can be changed or made public here.
+     *
+     * @param array{id:int,email:string,role:string} $admin
+     */
+    public function drafts(string $path,string $method,array $admin): void
+    {
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        if (!RolePolicy::allows($admin['role'],'members.manage')) {
+            $this->render(403,'Access denied','<p>Local manager permission required.</p>');
+            return;
+        }
+        if ($method!=='GET') {
+            header('Allow: GET');
+            $this->render(405,'Method not allowed','<p>Owner draft review is read-only.</p>');
+            return;
+        }
+        if (preg_match('#^/admin/creators/drafts/([1-9][0-9]{0,17})$#D',$path,$match)!==1) {
+            $this->render(404,'Not found','<p>Private planning drafts unavailable.</p>');
+            return;
+        }
+        try {
+            $pdo=Connection::open($this->root);
+            $check=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+            $check->execute([CreatorSchema::VERSION]);
+            if ((int)$check->fetchColumn()!==1) {
+                $this->render(503,'Setup required','<p>Apply the local creator migration first.</p>');
+                return;
+            }
+            $data=(new LocalCreators($pdo))->privatePlansForOwner($admin['id'],(int)$match[1]);
+            if ($data===null) {
+                $this->render(404,'Not found','<p>Private planning drafts unavailable.</p>');
+                return;
+            }
+            $profile=$data['profile'];
+            $html='<p class="intro">Owner-only, read-only saved plans from this installation. '
+                .'No media, identity evidence, performer consent, approval or publishing controls '
+                .'are available here.</p>'
+                .'<section class="panel"><h2>'.self::e((string)$profile['display_name']).'</h2>'
+                .'<p>Local member: '.self::e((string)$profile['email'])
+                .' · Workspace: '.self::e((string)$profile['status']).'</p></section>'
+                .'<section class="panel"><h2>Private planning drafts</h2>';
+            if ($data['drafts']===[]) $html.='<p>No saved private drafts.</p>';
+            foreach ($data['drafts'] as $draft) {
+                $html.='<article class="panel"><h3>'.self::e((string)$draft['title'])
+                    .'</h3><p>Status: private, unpublished.</p>'
+                    .'<p>'.nl2br(self::e((string)$draft['summary'])).'</p>'
+                    .'<p class="muted">Draft #'.(int)$draft['id']
+                    .' · Last changed '.self::e((string)$draft['updated_at']).' UTC</p>'
+                    .'</article>';
+            }
+            $html.='</section><p><a href="/admin/creators">Return to local creators</a></p>';
+            $this->render(200,'Private creator plans',$html);
+        } catch (Throwable) {
+            $this->render(503,'Private creator plans unavailable','<p>Could not load saved plans.</p>');
+        }
+    }
+
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $method,array $admin): void
     {
@@ -96,6 +157,7 @@ final class CreatorAdminController
                 $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$row['email']).'</td>'
                     .'<td>'.self::e((string)$row['display_name']).'</td>'
                     .'<td>'.self::e($status).'</td><td>'.(int)$row['draft_count'].'</td><td>';
+                $html.='<p><a href="/admin/creators/drafts/'.$id.'">View private plans</a></p>';
                 if (in_array($status,['enabled','suspended'],true)) {
                     $action=$status==='enabled'?'suspend':'restore';
                     $html.='<form method="post" action="/admin/creators">'
