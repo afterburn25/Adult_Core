@@ -30,6 +30,11 @@ foreach($report['workstreams'] as $item){
 if ($ids!==range(1,10)) {
     throw new RuntimeException('Release matrix must enumerate exactly the ten ordered workstreams.');
 }
+$blockers=ReleaseReadiness::blockers();
+if (count($blockers)!==10 || !str_contains($blockers[0], 'Cajun Web Pro')
+    || !str_contains($blockers[9], 'Independent security')) {
+    throw new RuntimeException('The production release checker must block all ten workstreams.');
+}
 $script=dirname(__DIR__).'/scripts/release-matrix.php';
 $cmd=escapeshellarg(PHP_BINARY).' '.escapeshellarg($script).' --json';
 $lines=[];$exit=0;
