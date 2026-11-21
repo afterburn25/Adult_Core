@@ -84,15 +84,15 @@ try {
     // Mixed success and temporary issuer failure must not create any schema.
     // Product uniqueness is unverified until all four SKU checks complete.
     try {
-        (new InstallService($root, new \\AdultCore\\Licensing\\CajunWebClient(
+        (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
             static function (string $body): array {
                 $payload = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
                 $sku = $payload['product_id'] ?? '';
-                if ($sku === \\AdultCore\\Licensing\\CajunWebClient::SKU_PRO_MONTH) {
+                if ($sku === \AdultCore\Licensing\CajunWebClient::SKU_PRO_MONTH) {
                     return ['status' => 503, 'body' => '{}'];
                 }
                 return ['status' => 200, 'body' => json_encode([
-                    'authorized' => $sku === \\AdultCore\\Licensing\\CajunWebClient::SKU_LITE_ONCE,
+                    'authorized' => $sku === \AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE,
                 ], JSON_THROW_ON_ERROR)];
             }
         )))->install($inputs, 'lite');
