@@ -118,6 +118,19 @@ try {
         'license_key'=>'ABCD-EF12-3456-7890','domain'=>'example.test',
         'sku'=>\AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE,'edition'=>'lite','term'=>'once'
     ],true).';');
+    // Paid add-ons must have an actually completed, signed and licensed core
+    // installation. The package registry fixture alone is not enough.
+    $siteSecret = str_repeat('a',64);
+    $coreSku = \AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE;
+    $coreCache = $root.'/storage/license-cache.json';
+    $installedState = $root.'/storage/install-state.json';
+    file_put_contents($root.'/config/database.php',
+        '<?php return '.var_export(['driver'=>'mysql','database'=>'fixture','username'=>'fixture'],true).';');
+    file_put_contents($installedState, \AdultCore\Installer\InstallationState::encode('lite',$siteSecret));
+    file_put_contents($coreCache, \AdultCore\Licensing\LicenseState::encode(
+        'ABCD-EF12-3456-7890','example.test',$siteSecret,'valid',time(),time(),$coreSku));
+    verifyPackageTest('Paid module fixture has a signed, valid core license',
+        (new \AdultCore\Licensing\LicenseManager($root))->status('example.test') === 'valid');
     $paidSku='SOFTWARE-ADULT-CORE-MODULE-CHAT';
     $paidZip=$fixtureDir.'/paid-chat.zip';
     $paidManifest=manifestFixture('paid-chat');
