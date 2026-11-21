@@ -12,7 +12,7 @@ The enabled member opens **Member account → Manage your private creator drafts
 
 The same local administrator can suspend or restore a creator's private planning workspace. Every status action is checked against the current revision, and suspension immediately denies creator workspace access without deleting saved private drafts or blocking ordinary member sign-in. Owner/admin actions and creator draft edits write numeric-only records to the local `ac_creator_actions` table, avoiding draft content and user emails in the audit.
 
-The owner sees only private draft **counts** on the creator-management page; one creator cannot read or edit another creator's drafts. No vendor shares this local database or issues a cross-installation account. The role capability is managed in the local MySQL/MariaDB database under an active local owner/admin session and CSRF token, **without requiring the admin password on every change**.
+The owner sees private draft **counts** on the creator-management page. By selecting **View private plans**, a local owner/admin can inspect read-only saved draft titles and descriptions through an authenticated, no-store, noindex URL; suspended creators' retained plans remain available to local owners for incident review. This view cannot publish or modify drafts. One creator cannot read or edit another creator's drafts. No vendor shares this local database or issues a cross-installation account. The role capability is managed in the local MySQL/MariaDB database under an active local owner/admin session and CSRF token, **without requiring the admin password on every change**.
 
 ## What this does not authorize
 

@@ -53,6 +53,11 @@ $ok(!str_contains($source,'INSERT INTO ac_content')
     && !str_contains($source,"'published',"),
     'Creator drafts never implicitly publish, upload or verify age');
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/CreatorAdminController.php');
+$ok(str_contains($controller,'privatePlansForOwner')
+    && str_contains($controller,"'/admin/creators/drafts/")
+    && str_contains($controller,'Cache-Control: private, no-store')
+    && str_contains($controller,'X-Robots-Tag: noindex, nofollow'),
+    'Local owner read-only planning view protects sensitive drafts');
 $ok(str_contains($controller,'AdminSession::csrfValid')
     && str_contains($controller,"'members.manage'")
     && !str_contains($controller,"action==='approve'")

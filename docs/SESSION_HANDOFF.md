@@ -1,3 +1,9 @@
+## Local owner-only read-only creator planning review — 2026-11-21
+
+Added `LocalCreators::privatePlansForOwner()` and authenticated `GET /admin/creators/drafts/ID`, with local `members.manage` role checks, bounded draft list, HTML-escaped titles/summaries, noindex/no-store, and no edit/publish methods. The manager's local creator list now links to private plans, including retained drafts after a creator is suspended. A moderator cannot view these plans, and other creators' member sessions cannot access them. Disposable MySQL and real authenticated HTTP tests check owner, moderator, stale/unknown IDs, method denial and suspended access. Still no SaaS, adult-media publishing, independent age/consent or commercial launch approval.
+
+---
+
 ## Owner-managed creator planning — 2026-11-21
 
 - After explicit user correction that Adult_Core is **self-hosted and not SaaS**, added `CreatorSchema` local tables, `LocalCreators` owner-only grant/suspend/restore operations and owner role checks. This is **not** a creator application or vendor authorization. It allows only email-confirmed local members to receive private text-planning tools, leaves the account `role='member'`, and never touches `ac_age_verifications`, `ac_content` or payment.

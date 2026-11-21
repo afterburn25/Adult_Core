@@ -986,7 +986,22 @@ def main():
                        r'<td>'+re.escape(creator_id)
                        +r'</td><td>member@test.example</td>.*?<td>enabled</td><td>1</td>',
                        creator_admin,flags=re.DOTALL) is not None
-                   and 'New private title' not in creator_admin)
+                   and 'New private title' not in creator_admin
+                   and f'href="/admin/creators/drafts/{creator_id}"' in creator_admin)
+            code, owner_plans=req('/admin/creators/drafts/'+creator_id)
+            ensure('Local owner can privately review escaped creator planning text',
+                   code == 200 and 'Private creator plans' in owner_plans
+                   and 'New private title' in owner_plans
+                   and 'Status: private, unpublished.' in owner_plans
+                   and '<script>alert(1)</script>' not in owner_plans)
+            code, _=mod_req('/admin/creators/drafts/'+creator_id)
+            ensure('Moderator cannot inspect local creator owner-only plans',code == 403)
+            code, unknown_plans=req('/admin/creators/drafts/999999999')
+            ensure('Unknown local creator plans have no metadata leakage',
+                   code == 404 and 'New private title' not in unknown_plans)
+            code, _=req('/admin/creators/drafts/'+creator_id,{
+                'csrf':creator_token.group(1),'draft_id':creator_draft_id})
+            ensure('Owner private creator draft inspection is GET-only',code == 405)
             code, _=req('/admin/creators',{
                 'csrf':creator_token.group(1),'action':'suspend',
                 'creator_id':creator_id,'revision':'1'})
@@ -994,6 +1009,10 @@ def main():
             code, creator_denied=req('/members/creator')
             ensure('Suspended creator loses access to saved draft text immediately',
                    code == 403 and 'New private title' not in creator_denied)
+            code, suspended_owner_plans=req('/admin/creators/drafts/'+creator_id)
+            ensure('Site owner retains private plans for review after creator suspension',
+                   code == 200 and 'New private title' in suspended_owner_plans
+                   and 'suspended' in suspended_owner_plans)
             code, _=req('/members/creator',{
                 'csrf':creator_csrf.group(1),'action':'save_draft',
                 'draft_id':'','revision':'','title':'Attempt while suspended',

@@ -516,6 +516,18 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Cross-creator draft edit accepted.') throw $e;
     }
+    $ownerPlans=$creators->privatePlansForOwner((int)$valid['id'],$creatorId);
+    if (!is_array($ownerPlans) || count($ownerPlans['drafts'])!==1
+        || $ownerPlans['drafts'][0]['title']!=='Updated private draft'
+        || $creators->privatePlansForOwner((int)$valid['id'],99999999)!==null) {
+        throw new RuntimeException('Local owner private draft review missing or exposed wrong content.');
+    }
+    try {
+        $creators->privatePlansForOwner($moderatorId,$creatorId);
+        throw new RuntimeException('Moderator read privileged owner draft plans.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator read privileged owner draft plans.') throw $e;
+    }
     $managed=$creators->managed((int)$valid['id']);
     if (count($managed)!==2 || (int)$managed[1]['id']!==$creatorId ||
         (int)$managed[1]['draft_count']!==1) {
