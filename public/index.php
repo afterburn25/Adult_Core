@@ -54,6 +54,10 @@ if ($state !== InstallationGate::READY) {
             'Edition upgrade recovery required',
             'A Lite-to-Pro upgrade was interrupted. The website is locked to protect existing data. Use SSH or the hosting terminal to run php scripts/recover-edition-upgrade.php --rollback, then review the verified Lite installation before retrying.',
         ],
+        InstallationGate::LICENSE_UPDATE_PENDING => [
+            'License update recovery required',
+            'A license replacement was interrupted. All website and administrator access is locked until an operator runs php scripts/recover-license-update.php --rollback from the server terminal and reviews the restored license.',
+        ],
         InstallationGate::INVALID_STATE => [
             'Installation state invalid',
             'Installation state or private configuration is missing, unsigned or invalid. Access remains locked. Restore a trusted backup and do not delete files to bypass installation.',
