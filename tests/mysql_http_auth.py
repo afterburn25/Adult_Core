@@ -2039,6 +2039,72 @@ def main():
             ensure('Self-service rotation does not grant verified/paid adult access',
                    code==200 and 'Account status: <strong>pending</strong>' in updated_member
                    and 'Private content and paid access remain unavailable' in updated_member)
+            ensure('Account offers member-controlled all-device sign-out',
+                   'href="/members/sessions"' in updated_member)
+            separate_device_jar=http.cookiejar.CookieJar()
+            separate_device_browser=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(separate_device_jar))
+            code, device_login_form=independent_member_req(
+                '/members/login',browser=separate_device_browser)
+            separate_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',device_login_form)
+            ensure('Independent second member device has its own login session',
+                   code==200 and separate_csrf is not None)
+            code, _=independent_member_req('/members/login',{
+                'csrf':separate_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-member-rotated-password'
+            },browser=separate_device_browser)
+            ensure('Local member can sign in separately on another device',code==303)
+            code, other_authenticated=independent_member_req(
+                '/members',browser=separate_device_browser)
+            ensure('Other device is independently signed in before revocation',
+                   code==200 and 'Account status: <strong>pending</strong>' in other_authenticated)
+            code, sessions_form=independent_member_req('/members/sessions')
+            sessions_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',sessions_form)
+            ensure('Only signed-in member sees current-password device security form',
+                   code==200 and sessions_csrf is not None
+                   and 'name="current_password"' in sessions_form
+                   and 'Sign out all member sessions' in sessions_form)
+            code, _=independent_member_req('/members/sessions',{
+                'csrf':'invalid','current_password':'disposable-member-rotated-password'})
+            ensure('All-device member session revocation requires CSRF',code==403)
+            code, wrong_device_password=independent_member_req('/members/sessions',{
+                'csrf':sessions_csrf.group(1),'current_password':'not-current-password'})
+            ensure('All-device member revocation refuses incorrect password',
+                   code==422 and 'Current member password is incorrect.' in wrong_device_password)
+            code, still_signed_in=independent_member_req(
+                '/members',browser=separate_device_browser)
+            ensure('Denied device action leaves independently authenticated browser active',
+                   code==200)
+            code, _=independent_member_req('/members/sessions',{
+                'csrf':sessions_csrf.group(1),
+                'current_password':'disposable-member-rotated-password'})
+            ensure('Verified all-device sign-out succeeds without a password change',
+                   code==303)
+            code, self_signed_out=independent_member_req('/members')
+            code_other, other_signed_out=independent_member_req(
+                '/members',browser=separate_device_browser)
+            ensure('Session generation revokes current and separate signed-in browsers',
+                   code==302 and code_other==302)
+            code, device_success_login=independent_member_req('/members/login')
+            device_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',
+                                        device_success_login)
+            ensure('A one-use server notice confirms actual device revocation',
+                   code==200 and device_login_csrf is not None
+                   and 'All existing member sessions were signed out.' in device_success_login
+                   and 'Your password was not changed.' in device_success_login)
+            code, replay_device_notice=independent_member_req('/members/login?signed_out=1')
+            ensure('GET parameters and a second view cannot forge session revocation',
+                   code==200 and 'All existing member sessions were signed out.' not in replay_device_notice)
+            code, _=independent_member_req('/members/login',{
+                'csrf':device_login_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-member-rotated-password'})
+            ensure('All-device signout preserved existing member password',code==303)
+            code, back_pending=independent_member_req('/members')
+            ensure('All-device signout does not verify age or grant paid adult access',
+                   code==200 and 'Account status: <strong>pending</strong>' in back_pending
+                   and 'Private content and paid access remain unavailable' in back_pending)
 
             subprocess.check_output(php_fixture+['seed-content-queue'],cwd=root)
             code, content_first=req('/admin/moderation')

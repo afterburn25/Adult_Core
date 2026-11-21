@@ -1,3 +1,9 @@
+## Two independent authenticated browsers prove all-device member revocation — 2026-11-21
+
+The real disposable PHP HTTP suite now logs the same pending local member into *two separate cookie jars* after password rotation, then exercises the new `/members/sessions` form. Invalid CSRF and wrong current password leave the other browser authenticated. Successful server-verified all-device revocation redirects, denies both the original and separately issued cookies, displays a one-time server-authoritative success notice on the next login form (which cannot be spoofed with `?signed_out=1`), and accepts the unchanged password for fresh login. The account remains `pending`; no verification provider, payment processor, protected media, owner/admin credential or SaaS tenant is touched. Both MySQL 8 and MariaDB 10.11 CI are required before acceptance.
+
+---
+
 ## Protected all-device member sign-out user interface — 2026-11-21
 
 Added Account → Sign out of all devices at the exact `/members/sessions` public front-controller route. A currently authenticated pending/active local member can open a no-store GET form and submit current password plus member CSRF, under the existing rate-limiter. `MemberSessionRevocation::revokeAll()` verifies the session generation under database row locks and commits a server-side revocation before the current browser signs out and redirects to login. A one-time success notice is held in the member session rather than inferred from a forgeable URL query. No password replacement, role change, age/consent certification, merchant charge or adult-content approval is added. Added route dispatch and notice safety tests. Real independently signed-in two-browser HTTP regression is next.
