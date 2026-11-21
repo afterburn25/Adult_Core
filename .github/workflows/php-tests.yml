@@ -66,6 +66,8 @@ jobs:
         run: php tests/mfa_tests.php
       - name: Cajun Web Pro licensing contract and gate tests
         run: php tests/licensing_tests.php
+      - name: Interrupted license update signed rollback and CLI recovery
+        run: php tests/license_update_recovery_tests.php
       - name: Lite-to-Pro edition upgrade safety checks
         run: php tests/upgrade_tests.php
       - name: Loopback HTTP subscription activation and issuer lifecycle contract
