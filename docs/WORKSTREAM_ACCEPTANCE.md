@@ -19,9 +19,9 @@ Both intentionally exit nonzero while production is not certified. Never bypass 
 | 4 | Member billing | Verified-event inbox and conflict-replay-denying MySQL test; paid access policy defaults to deny | Approved processor, provider-specific signed webhooks, active subscriptions, renewal, refund, dispute, chargeback, settlement and cancellation |
 | 5 | Private creator content | Quarantined draft/report/moderation foundation, protected media, entitlement-filtered member library with no unsafe previews | Controlled uploader, permissioned review/publish/takedown, full content state lifecycle, media scanning and lawful verification |
 | 6 | Pro video/streaming | Narrow signed HMAC jobs, replay-conflict protected receipt and agent preflight | Production FFmpeg worker/queues, secure segmented playback, live streaming, authorization expiration, VPS load/soak tests |
-| 7 | Add-ons and updates | Signed data-only packages, edition compatibility, paid module activation recovery | Trusted execution API/sandbox design, signed version updates with tested rollback and migration compatibility |
+| 7 | Add-ons and updates | Signed data-only packages, edition compatibility, paid module recovery and non-mutating signed update compatibility preview | Trusted execution API/sandbox design, signed version updates with tested rollback and migration compatibility |
 | 8 | Design and member UX | Responsive admin, design studio, draft pages, member accounts and private library | Complete page builder, tier/creator dashboard, usable mobile/accessibility and cross-browser acceptance |
-| 9 | Operations and disaster recovery | Authenticated encrypted archive/vault, CLI restore fixture, host preflight and maintenance gates | Real cPanel/VPS restore drills, monitoring, incident response, offsite retention, tested source/package updates |
+| 9 | Operations and disaster recovery | Authenticated encrypted archive/vault, CLI restore fixture, host preflight, source ZIP checksum verification and maintenance gates | Real cPanel/VPS restore drills, monitoring, incident response, offsite retention, tested source/package updates |
 | 10 | Security, compliance, release | Automated regressions, ten-workstream blocker CLI and fail-closed readiness checker | Independent security assessment, privacy/consent/legal review, accessibility, performance, incident and support signoff |
 
 ## Operator-controlled actions
@@ -32,7 +32,7 @@ For **#2 and #9**, first run the read-only checks in [DEPLOYMENT_PREFLIGHT.md](D
 
 For **#3 and #4**, record the chosen contracted third-party providers and review their actual signed callback protocols and regulatory/acceptable-use terms before enabling uploads, subscriptions or adult-media access. No generic HMAC utility, local sample callback or signed receipt should count as provider integration. Apply the correct legal and operational controls before public access.
 
-For **#5 through #8**, continue implementation in small reviewable commits with executable tests. The private library is text-only for permitted records; no creator upload, external verification, adult membership checkout or executable third-party add-on capability is implied. No publication or billing is enabled by this matrix.
+For **#5 through #8**, continue implementation in small reviewable commits with executable tests. The private library is text-only for permitted records; the signed add-on update form performs a **preflight only** and cannot replace packages. No creator upload, external verification, adult membership checkout or executable third-party add-on capability is implied. No publication or billing is enabled by this matrix.
 
 For **#10**, require independent, documented acceptance of the other nine tracks and the controls in [RELEASE_GATES.md](RELEASE_GATES.md). Keep the release checker nonzero until those gates have verifiable signoffs and production incident-recovery procedures.
 
@@ -42,3 +42,7 @@ For **#10**, require independent, documented acceptance of the other nine tracks
 - Keep private keys, API secrets, license snapshots, performer records, backups and payment metadata out of GitHub source, Actions logs and public web paths.
 - A green CI workflow proves only that the tested local contract passed. It does **not** imply valid payments, performed identity checks, lawful consent or actual production deployment.
 - Maintain the installed software's fail-closed routes when age, consent, moderation, payment or license state is incomplete. Neither member registration nor an uploaded file authorizes adult delivery.
+
+## Distribution archive acceptance
+
+The developer-only `php scripts/build-release.php /absolute/path/release.zip` command builds **one** Lite/Pro source ZIP outside the source/web root and emits a `.zip.sha256` digest file. Its CI contract reopens the archive, checks that required runtime classes and both edition descriptors are included, and checks that runtime private configuration and customer storage are not packaged. The checksum is **not** a release signature and does not establish trusted publisher identity, safely installed updates, or production host certification. The operator must independently check release provenance, final source revision, archive integrity, TLS deployment and real host behavior.
