@@ -1,3 +1,9 @@
+## Reversible private-name clearing without stale-tab replay — 2026-11-21
+
+The m22 private member profile backend now supports an explicit `clear(memberId,expectedRevision)` transition. It locks the currently active local member and nickname row, refuses absent/stale/unchanged/staff/suspended targets, and writes an **empty private name with incremented revision**, rather than deleting the row and resetting the optimistic version to zero. The member may later choose a new name using the preserved revision; an old browser tab cannot recreate private text after clearing without reloading. No actual legal identity/evidence is deleted, no public profile exists, and merchant/content permissions are unchanged. SQL regressions exercise stale clearing, staff denial and safe re-entry.
+
+---
+
 ## m22 private member profiles encrypted backup recovery — 2026-11-21
 
 The existing disposable `.acfull` encrypted full-site backup → empty database → restore test now applies m22 twice, creates and edits a strictly private local member name (revision 2), and verifies the exact name, revision, member ID and migration marker survive restoration byte-for-byte with no new identity/consent, billing or member activation. The backup engine automatically includes `ac_member_profiles` among its normal InnoDB site tables; no secret copying or public media/export is introduced. Actual offsite/live cPanel/VPS restore acceptance remains outstanding.

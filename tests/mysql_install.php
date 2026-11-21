@@ -737,6 +737,33 @@ try {
         'display_name'=>'Updated <private>','revision'=>2]) {
         throw new RuntimeException('Denied profile edit modified private member data.');
     }
+    foreach ([
+        static fn()=> $profiles->clear((int)$member['id'],1),
+        static fn()=> $profiles->clear((int)$valid['id'],1),
+        static fn()=> $profiles->clear((int)$member['id'],0),
+    ] as $invalidClear) {
+        try {
+            $invalidClear();
+            throw new RuntimeException('Invalid member profile clear accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Invalid member profile clear accepted.') throw $e;
+        }
+    }
+    $profiles->clear((int)$member['id'],2);
+    if ($profiles->current((int)$member['id'])!==['display_name'=>'','revision'=>3]) {
+        throw new RuntimeException('Private nickname clearing failed to preserve monotonic revision.');
+    }
+    try {
+        $profiles->clear((int)$member['id'],2);
+        throw new RuntimeException('Stale duplicate clear was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale duplicate clear was accepted.') throw $e;
+    }
+    $profiles->save((int)$member['id'],3,'Restored private nickname');
+    if ($profiles->current((int)$member['id'])!==[
+        'display_name'=>'Restored private nickname','revision'=>4]) {
+        throw new RuntimeException('Private nickname could not be set again after clearing.');
+    }
     $safety=new LocalMemberSafety($pdo);
     $generationBefore=(new PasswordRecovery($pdo))->generation((int)$member['id']);
     if ($safety->change((int)$valid['id'],(int)$member['id'],

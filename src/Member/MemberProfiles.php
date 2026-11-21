@@ -47,6 +47,52 @@ final class MemberProfiles
             'revision'=>(int)$row['revision']]:null;
     }
 
+    /**
+     * Explicitly clear a previously chosen private nickname. Keep a new
+     * revision row so an old open tab cannot silently recreate stale text.
+     * An empty stored name is not a public alias, creator name or deletion
+     * of a legally retained identity/consent record.
+     */
+    public function clear(int $memberId,int $expectedRevision): int
+    {
+        if ($memberId<1 || $expectedRevision<1 || $expectedRevision>=999999999
+            || !MemberProfileSchema::installed($this->pdo)) {
+            throw new RuntimeException('Private member profile update denied.');
+        }
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT role,status FROM ac_users WHERE id=? FOR UPDATE');
+            $q->execute([$memberId]);
+            $member=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($member) || $member['role']!=='member'
+                || !in_array($member['status'],['pending','active'],true)) {
+                throw new RuntimeException('Private member profile update denied.');
+            }
+            $q=$this->pdo->prepare('SELECT revision,display_name
+                FROM ac_member_profiles WHERE user_id=? FOR UPDATE');
+            $q->execute([$memberId]);
+            $profile=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($profile) || (int)$profile['revision']!==$expectedRevision) {
+                throw new RuntimeException('Member profile changed; reload before saving.');
+            }
+            if ($profile['display_name']==='') {
+                throw new RuntimeException('Private display name is already empty.');
+            }
+            $q=$this->pdo->prepare("UPDATE ac_member_profiles SET display_name='',
+                revision=revision+1,updated_at=UTC_TIMESTAMP()
+                WHERE user_id=? AND revision=?");
+            $q->execute([$memberId,$expectedRevision]);
+            if ($q->rowCount()!==1) {
+                throw new RuntimeException('Member profile changed; reload before saving.');
+            }
+            $this->pdo->commit();
+            return $expectedRevision+1;
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
     public function save(int $memberId,int $expectedRevision,mixed $input): int
     {
         $name=self::validateDisplayName($input);
