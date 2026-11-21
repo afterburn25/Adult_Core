@@ -1,3 +1,9 @@
+## Correct all-device HTTP redirect assertion — 2026-11-21
+
+The first independent two-browser session-revocation test passed direct SQL/unit checks but used HTTP 302 in its old-cookie denial assertion. `MemberController::redirect()` intentionally uses HTTP **303 See Other** throughout login/logout/security flows, including on denied stale-session requests. The test now requires the actual 303 response from **both** browser sessions after the atomic generation increment. Production authentication logic is unchanged. Re-run the full MySQL/MariaDB suites before accepting the browser regression.
+
+---
+
 ## Owner dashboard read-only work overview — 2026-11-21
 
 The self-hosted owner/admin `/admin` dashboard now displays *actual site-local* counts for pending member accounts, unpublished plain-text website pages, open member safety reports and submitted private creator text plans. `OwnerWorkSummary` uses only fixed aggregate COUNT queries gated by each additive schema marker; missing migrations show **Not configured**, not a misleading zero. The response never selects or reveals emails, password hashes, private creator plan bodies, performer records, payment details or protected media. Every tile links to an existing role-protected management list, but no approval, account activation, adult publishing, subscription grant or SaaS integration has been added. The page prominently states that locally pending members are not independently age-verified. Unit, disposable MySQL/MariaDB, real authenticated HTTP and unified source ZIP checks cover counts, missing data and data minimization. Real external release gates remain unapproved.

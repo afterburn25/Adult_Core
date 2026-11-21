@@ -2094,7 +2094,7 @@ def main():
             code_other, other_signed_out=independent_member_req(
                 '/members',browser=separate_device_browser)
             ensure('Session generation revokes current and separate signed-in browsers',
-                   code==302 and code_other==302)
+                   code==303 and code_other==303)
             code, device_success_login=independent_member_req('/members/login')
             device_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',
                                         device_success_login)
