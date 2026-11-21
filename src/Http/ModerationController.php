@@ -146,7 +146,7 @@ final class ModerationController
             } else { $html.='Closed'; }
             $html.='</td></tr>';
         }
-        $html.='</tbody></table></section><p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Uploaded media, ID documents and performer evidence are not accepted by this prototype.</p>';
+        $html.='</tbody></table></section><p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Draft images can be staged privately but remain pending and unpublished. Identity documents and performer verification evidence are never accepted by this admin page.</p>';
         return $html;
     }
 
