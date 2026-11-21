@@ -593,6 +593,9 @@ def main():
             ensure('Valid logout redirects', code == 303)
             code, body = req('/admin')
             ensure('Logged-out session denied', code == 302)
+            code, _, _, logged_out_preview = req_binary('/admin/moderation/image/' + pending_media_id)
+            ensure('Logged-out administrator cannot retrieve pending image bytes',
+                   code == 302 and not logged_out_preview.startswith(b'\x89PNG'))
 
             # Disposable test only: seed an independently guarded approved
             # gallery, confirm real binary delivery, then revoke consent.
