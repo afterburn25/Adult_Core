@@ -46,6 +46,6 @@ $check(str_contains($security,"action==='change_password'")
     && str_contains($security,'AdminSession::revoke()')
     && str_contains($source,'staff_session_epoch=staff_session_epoch+1'),
     'Self-service moderator password rotation invalidates all sessions');
-$check(StaffSchema::VERSION==='m11_staff_audit_v1',
+$check(StaffSchema::VERSION==='m11_staff_audit_v2',
     'Staff audit schema version is explicit');
 echo "Passed {$checks} staff lifecycle safety checks.\n";
