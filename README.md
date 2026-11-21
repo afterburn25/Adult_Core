@@ -1,3 +1,7 @@
+## Export redacted Site Health checks (development)
+
+Owners can download a local, read-only JSON self-check report from **Admin → Site health** without revealing member or licensing secrets. The export explicitly states that it does not certify production launch or authorize adult-media release.
+
 ## Member password change (development)
 
 Signed-in members can choose **Change your password** on their local account page. They must enter the current password and confirm a new password. All existing member sessions and reset links are invalidated after a successful change. This never verifies age, activates paid access, changes the member's pending state or publishes content.

@@ -1,3 +1,9 @@
+## Redacted, owner-only local health report export — 2026-11-21
+
+The existing authenticated GET-only `/admin/health` now supports an optional `?format=json` attachment download. The versioned `adult-core-local-health-v1` JSON includes only fixed non-sensitive local check labels, outcomes and requirements plus `production_ready:false` and an explicit no-certification message. It never serializes vendor license keys, registered domains, database paths/credentials, member emails, password hashes or performer evidence. The same owner/admin session, edition and role gates apply; unknown formats return 422, and JSON responses retain no-store/noindex/nosniff. HTML offers an export link, and real authenticated HTTP/source tests assert redaction and fail-closed formatting. This is diagnostic assistance for individually installed sites, not an external audit or proof of production readiness.
+
+---
+
 ## Member password route registered in the public front controller — 2026-11-21
 
 The first authenticated browser test found `/members/password` was not in `public/index.php`'s exact member-route dispatch allowlist; the backend and direct SQL/unit tests had passed but the new form returned 404. The front controller now explicitly routes it to the existing HTTPS-guarded MemberController; a source regression checks this dispatch alongside the real HTTP password-rotation flow. No login, independent age/consent, license or protected media authorization rules are changed.

@@ -31,12 +31,34 @@ final class HealthController
             $this->render(405,'Method not allowed','<p>Diagnostics are read-only.</p>');
             return;
         }
+        $format=$_GET['format']??'html';
+        if (!is_string($format) || !in_array($format,['html','json'],true)) {
+            $this->render(422,'Invalid diagnostics format',
+                '<p>Choose the standard page or the redacted JSON export.</p>');
+            return;
+        }
         try {
             $pdo=Connection::open($this->root);
             $checks=(new SiteHealth($this->root,$pdo))->checks(
                 is_string($_SERVER['DOCUMENT_ROOT']??null)
                     ? (string)$_SERVER['DOCUMENT_ROOT'] : null);
             $passed=SiteHealth::allLocalChecksPass($checks);
+            if ($format==='json') {
+                // Versioned data-only export. No paths, credentials, member
+                // identifiers, license details or provider evidence; this
+                // cannot serve as production/independent audit certification.
+                header('Content-Type: application/json; charset=utf-8');
+                header('Content-Disposition: attachment; filename="adult-core-local-health.json"');
+                header('X-Content-Type-Options: nosniff');
+                echo json_encode([
+                    'schema'=>'adult-core-local-health-v1',
+                    'local_pass'=>$passed,
+                    'production_ready'=>false,
+                    'certification'=>'Local self-check only; independent release gates remain open.',
+                    'checks'=>$checks,
+                ],JSON_THROW_ON_ERROR);
+                return;
+            }
             $html='<p class="intro">Local checks for this independently hosted Lite/Pro installation. '
                 .'Nothing is changed or sent to a vendor. This screen never displays private paths, '
                 .'license keys, passwords, performer evidence or member data.</p>'
@@ -53,7 +75,9 @@ final class HealthController
             }
             $html.='</tbody></table></section><p>'
                 .'<a href="/admin/setup">Review local migrations</a> · '
-                .'<a href="/admin/license">Review license state</a></p>'
+                .'<a href="/admin/license">Review license state</a> · '
+                .'<a href="/admin/health?format=json" download="adult-core-local-health.json">'
+                .'Export redacted diagnostics (JSON)</a></p>'
                 .'<p class="muted">This check does not test actual cPanel/Apache HTTPS deployment, '
                 .'VPS Pro agents or streaming, external providers, disaster recovery or an independent audit. '
                 .'It cannot unlock protected media or entitlements.</p>';

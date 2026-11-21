@@ -59,6 +59,12 @@ uiCheck(!\AdultCore\Support\SiteHealth::allLocalChecksPass([])
     && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>'true']])
     && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>true],['pass'=>false]]),
     'Local health aggregation must fail closed on empty, malformed or failed checks');
+$healthController=(string)file_get_contents(dirname(__DIR__).'/src/Http/HealthController.php');
+uiCheck(str_contains($healthController,'adult-core-local-health-v1')
+    && str_contains($healthController,"'production_ready'=>false")
+    && str_contains($healthController,'Content-Disposition: attachment')
+    && str_contains($healthController,'Redacted diagnostics'),
+    'Owner local health export is explicitly noncertifying and data-only');
 uiCheck(\AdultCore\Support\SiteHealth::editionMatches('lite',['edition'=>'lite'])
     && \AdultCore\Support\SiteHealth::editionMatches('pro',['edition'=>'pro'])
     && !\AdultCore\Support\SiteHealth::editionMatches('lite',['edition'=>'pro'])

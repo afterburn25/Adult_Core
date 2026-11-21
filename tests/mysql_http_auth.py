@@ -7,6 +7,7 @@ repository. The fixture deletes only its ac_ tables after the test.
 import base64
 import hashlib
 import hmac
+import json
 import http.cookiejar
 import struct
 import os
@@ -239,6 +240,18 @@ def main():
             code, _, health_headers, _=req_binary('/admin/health')
             ensure('Private local diagnostics cannot be browser cached',
                    code==200 and 'no-store' in health_headers)
+            code, redacted_json=req('/admin/health?format=json')
+            local_report=json.loads(redacted_json) if code==200 else {}
+            ensure('Redacted local health JSON export never claims production approval',
+                   code==200 and local_report.get('schema')=='adult-core-local-health-v1'
+                   and local_report.get('production_ready') is False
+                   and isinstance(local_report.get('checks'),list)
+                   and 'password_hash' not in redacted_json
+                   and 'ABCD-EF12-3456-7890' not in redacted_json
+                   and 'owner@example.test' not in redacted_json)
+            code, bad_health_format=req('/admin/health?format=provider-approved')
+            ensure('Health export forbids unsupported or untrusted report formats',
+                   code==422 and 'Invalid diagnostics format' in bad_health_format)
             code, _=req('/admin/health',{'csrf':brand_csrf.group(1)})
             ensure('Read-only local health refuses POST',code==405)
             code, migrated_setup=req('/admin/setup')
