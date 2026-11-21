@@ -367,6 +367,36 @@ def main():
             ensure('Performer roster selector lists drafts with no roster',
                    f'id="roster-draft"' in moderation
                    and 'Choose a draft without a roster' in moderation)
+            ensure('Future tier assignment is staging-only on the draft',
+                   'name="assign_draft_tier"' not in moderation
+                   and 'value="assign_draft_tier"' in moderation
+                   and 'Staging only — no access granted' in moderation)
+            code, _ = req('/admin/moderation', {
+                'csrf':'bad','action':'assign_draft_tier','content_id':draft_id,
+                'expected_tier_id':'','tier_id':tier_id
+            })
+            ensure('Future tier association requires moderator CSRF',code == 403)
+            code, _ = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'assign_draft_tier',
+                'content_id':draft_id,'expected_tier_id':'','tier_id':tier_id
+            })
+            ensure('Private draft accepts only staged future tier association',code == 303)
+            code, moderation=req('/admin/moderation')
+            ensure('Draft remains pending and the future tier is selected',
+                   code == 200 and 'draft / pending' in moderation
+                   and f'name="expected_tier_id" value="{tier_id}"' in moderation)
+            code, stale_tier = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'assign_draft_tier',
+                'content_id':draft_id,'expected_tier_id':'','tier_id':''
+            })
+            ensure('Stale draft tier association cannot overwrite',
+                   code == 422 and 'Draft tier changed; reload' in stale_tier)
+            code, invalid_tier = req('/admin/moderation', {
+                'csrf':moderation_token.group(1),'action':'assign_draft_tier',
+                'content_id':draft_id,'expected_tier_id':tier_id,'tier_id':'999999999'
+            })
+            ensure('Draft refuses nonexistent tier',
+                   code == 422 and 'Choose an existing enabled membership tier' in invalid_tier)
             # Draft edits require administrator CSRF and the exact previously
             # displayed title. A concurrent moderator edit must not overwrite.
             code, _ = req('/admin/moderation', {

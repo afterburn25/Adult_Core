@@ -509,6 +509,36 @@ try {
         || !in_array('draft_renamed',array_column($actions,'action'),true)) {
         throw new RuntimeException('Private title and image decisions lacked audit history.');
     }
+    // Tier association is staging-only. Never expose the draft or create
+    // members/payment evidence when selecting a future required tier.
+    $moderation->assignDraftTier($draft,(int)$valid['id'],null,$newTierId);
+    $q=$pdo->prepare('SELECT tier_id,status,visibility,review_status FROM ac_content WHERE id=?');
+    $q->execute([$draft]);$tierDraftState=$q->fetch(PDO::FETCH_ASSOC);
+    if ((int)$tierDraftState['tier_id']!==$newTierId
+        || $tierDraftState['status']!=='draft'
+        || $tierDraftState['visibility']!=='private'
+        || $tierDraftState['review_status']!=='pending'
+        || $policy->canView((int)$member['id'],$draft)) {
+        throw new RuntimeException('Assigning a future tier enabled unpublished media.');
+    }
+    try {
+        $moderation->assignDraftTier($draft,(int)$valid['id'],null,99999999);
+        throw new RuntimeException('Stale draft tier assignment accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale draft tier assignment accepted.') throw $e;
+    }
+    try {
+        $moderation->assignDraftTier($draft,(int)$valid['id'],$newTierId,99999999);
+        throw new RuntimeException('Unregistered tier assigned to private draft.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unregistered tier assigned to private draft.') throw $e;
+    }
+    $moderation->assignDraftTier($draft,(int)$valid['id'],$newTierId,null);
+    $q=$pdo->prepare('SELECT tier_id FROM ac_content WHERE id=?');
+    $q->execute([$draft]);
+    if ($q->fetchColumn()!==null) {
+        throw new RuntimeException('Private draft tier could not be unassigned.');
+    }
     $roster=$moderation->declarePerformers($draft,(int)$valid['id'],2);
     if (count($roster)!==2 || count(array_unique($roster))!==2) throw new RuntimeException('Performer roster was not declared.');
     try { $moderation->declarePerformers($draft,(int)$valid['id'],1); throw new RuntimeException('Duplicate roster unexpectedly created.'); }

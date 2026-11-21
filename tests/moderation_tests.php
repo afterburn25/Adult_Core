@@ -19,6 +19,8 @@ expect(str_contains((string)file_get_contents(dirname(__DIR__).'/src/Http/Modera
     "value=\"rename_draft\""),'Private draft editor has an explicit guarded POST action');
 expect(str_contains((string)file_get_contents(dirname(__DIR__).'/src/Http/ModerationController.php'),
     "value=\"reject_draft_image\""),'Image rejection form uses explicit POST action');
+expect(str_contains((string)file_get_contents(dirname(__DIR__).'/src/Http/ModerationController.php'),
+    "value=\"assign_draft_tier\""),'Future tier association remains a guarded draft-only action');
 expect(ModerationRepository::validateNote('  Reason for quarantine.  ')==='Reason for quarantine.','Review note trimmed');
 expect(ModerationRepository::validateReportReason('  I need this reviewed.  ')==='I need this reviewed.','Report reason trimmed');
 // Moderation evidence is a read-only cue, not publishing authority.
