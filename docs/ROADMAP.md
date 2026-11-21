@@ -1,3 +1,11 @@
+## Paid add-on license recovery safety — 2026-11-21 (development only)
+
+Signed, separately purchased module entitlements now require a valid core license and ready installation before use. New add-on activations create a private per-module pending marker before rewriting the separate module key/configuration and HMAC receipt; an interrupted update makes only the affected add-on unavailable until an authenticated administrator revalidates the add-on key through **Repair paid module license**. Backup creation refuses module-activation pending markers; encrypted archives exclude nested module-license journals/locks. Test coverage includes simulated interrupted writes, tampered/symlinked paths, UI repair forms, reactivation and backup behavior. [GitHub Actions 44886306977](https://github.com/afterburn25/Adult_Core/actions/runs/44886306977) passed for source/test commit `f2e6b73a`.
+
+The pair of module license files is **not transactionally atomic** and an in-flight request may finish despite a newly created marker. This is NOT real purchased-module activation, production cPanel/Pro VPS deployment, processor approval, contracted verification, or release certification.
+
+---
+
 ## 0.8.12 staging-host HTTPS acceptance (development-only)
 
 Added an opt-in read-only HTTPS routing/private-path check for an operator-controlled staging domain. CI uses offline fake transports and a localhost PHP preinstall route round trip; this **does not satisfy** the pending real cPanel/VPS hosting, real CWP catalog license, subscription sandbox, Pro worker or compliance acceptance. See `docs/STAGING_HOST_HTTP_ACCEPTANCE.md`.
