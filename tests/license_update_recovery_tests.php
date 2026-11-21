@@ -9,6 +9,7 @@ use AdultCore\Installer\InstallationGate;
 use AdultCore\Installer\InstallationState;
 use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Licensing\LicenseManager;
+use AdultCore\Licensing\LicenseState;
 use AdultCore\Licensing\LicenseUpdateRecovery;
 
 $n = 0;
@@ -153,6 +154,18 @@ try {
     (new LicenseUpdateRecovery($root))->rollback();
     $check('Rollback to cacheless history removes replaced cache', !file_exists($cachePath)
         && $gate->status() === InstallationGate::READY);
+
+    // An explicitly revoked/denied historical receipt must remain denied
+    // after rollback; recovery never fabricates a positive license verdict.
+    $deniedCache = LicenseState::encode($key, $domain, $secret, 'denied',
+        time(), time() - 60, CajunWebClient::SKU_LITE_ONCE);
+    file_put_contents($cachePath, $deniedCache);
+    AtomicFile::write($marker, LicenseUpdateRecovery::snapshot($once->config(), $deniedCache, $secret));
+    file_put_contents($cachePath, LicenseState::encode($key, $domain, $secret, 'valid',
+        time(), time(), CajunWebClient::SKU_LITE_ONCE));
+    (new LicenseUpdateRecovery($root))->rollback();
+    $check('Rollback preserves signed explicit denial rather than creating authority',
+        file_get_contents($cachePath) === $deniedCache && $once->status($domain) === 'denied');
 
     $cli = file_get_contents(dirname(__DIR__).'/scripts/recover-license-update.php');
     $check('Recovery script is console-only and requires explicit rollback option',
