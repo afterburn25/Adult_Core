@@ -1,3 +1,11 @@
+## Optimistic public page and Design Studio revision protection — development (2026-11-21)
+
+The repeatable additive m16 migration adds a monotonic `ac_pages.revision` integer, including for legacy pages. Owner/admin page edits require the revision displayed when the editor opened; the repository atomically increments it only if it still matches. A stale tab or missing revision cannot overwrite newer text, slug or draft/published status. Visual Design Studio also carries this revision and rolls back theme/image placement changes if the homepage text was edited since the form opened. Both interfaces ask to reload rather than silently lose updates. Install the new revision column via **Admin → Setup** after a verified backup; public pages continue rendering from the existing safe plain-text templates and only published records. Lite/Pro license entitlements, age/performer consent, protected media and payment release gates are unchanged.
+
+Disposable SQL/HTTP regressions verify idempotent upgrades, stale-form denial, unchanged unpublished page privacy, Design Studio rollback and latest-revision success. Real cPanel/VPS, independent adult identity/consent providers, merchant billing and production certification remain incomplete.
+
+---
+
 ## Bounded private text-review queue navigation — 2026-11-21
 
 - Replace fixed first-50-only moderation queue with 50-row keyset pages, URL-safe validated cursors and navigation for local submitted text plans, preserving numeric role/CSRF restrictions.

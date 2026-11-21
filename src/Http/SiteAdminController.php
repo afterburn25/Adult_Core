@@ -13,6 +13,7 @@ use AdultCore\Creator\CreatorFeedbackSchema;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
+use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
@@ -51,6 +52,12 @@ final class SiteAdminController
                 $this->render(503, 'Setup required', '<p>The site schema is not yet installed. <a href="/admin/setup">Complete site setup</a>.</p>');
                 return;
             }
+            if (in_array($path,['/admin/pages','/admin/page','/admin/page/preview'],true)
+                && !PageRevisionSchema::installed($pdo)) {
+                $this->render(503,'Page editor setup required',
+                    '<p>Back up the database, then apply the additive page-revision migration in <a href="/admin/setup">Site setup</a>.</p>');
+                return;
+            }
             if ($path === '/admin/page/preview') {
                 if ($method!=='GET') {
                     header('Allow: GET');
@@ -81,6 +88,7 @@ final class SiteAdminController
         if ($method === 'POST') {
             // Additive DDL only. A partly-applied migration can be safely re-run.
             SiteSchema::migrate($pdo);
+            PageRevisionSchema::migrate($pdo);
             AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
@@ -175,23 +183,37 @@ final class SiteAdminController
             $title = $_POST['title'] ?? null;
             $body = $_POST['body'] ?? null;
             $status = $_POST['status'] ?? null;
+            $rawRevision=$_POST['revision']??null;
+            $revision=$id>0 && is_string($rawRevision)
+                ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
+                : null;
             if (!is_string($slug) || !is_string($title) || !is_string($body) || !is_string($status)) {
                 $error = 'Invalid page fields.';
+            } elseif ($id>0 && !is_int($revision)) {
+                $error = 'Page revision required; reload before saving.';
             } else {
                 try {
-                    $repo->save($id, trim($slug), trim($title), $body, $status);
+                    $repo->save($id, trim($slug), trim($title), $body, $status, $revision);
                     header('Location: /admin/pages?result=saved', true, 303); return;
+                } catch (RuntimeException $e) {
+                    $error=in_array($e->getMessage(),[
+                        'Page changed; reload before saving.',
+                        'Page revision required; reload before saving.',
+                    ],true)?$e->getMessage()
+                        :'Could not save page. Check fields and ensure the slug is unique.';
                 } catch (Throwable) {
                     $error = 'Could not save page. Check fields and ensure the slug is unique.';
                 }
             }
             $entry = ['slug'=>is_string($slug)?$slug:'','title'=>is_string($title)?$title:'',
-                'body'=>is_string($body)?$body:'','status'=>is_string($status)?$status:'draft'];
+                'body'=>is_string($body)?$body:'','status'=>is_string($status)?$status:'draft',
+                'revision'=>is_int($revision)?$revision:(int)($entry['revision']??0)];
         }
-        $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft'];
+        $entry ??= ['slug'=>'','title'=>'','body'=>'','status'=>'draft','revision'=>0];
         $html = $error ? '<div class="alert-error" role="alert">' . self::e($error) . '</div>' : '';
         $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
+            . ($id>0 ? '<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">' : '')
             . '<label for="page-slug">Slug (home = homepage)</label><input id="page-slug" name="slug" maxlength="80" required value="' . self::e((string) $entry['slug']) . '">'
             . '<label for="page-title">Title</label><input id="page-title" name="title" maxlength="190" required value="' . self::e((string) $entry['title']) . '">'
             . '<label for="page-body">Page copy (plain text)</label><textarea id="page-body" name="body" rows="12" maxlength="30000">' . self::e((string) $entry['body']) . '</textarea>'

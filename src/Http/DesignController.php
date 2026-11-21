@@ -14,6 +14,7 @@ use AdultCore\Design\CutoutPlacement;
 use AdultCore\Design\ThemeCatalog;
 use AdultCore\UI\Layout;
 use AdultCore\Website\PageRepository;
+use AdultCore\Website\PageRevisionSchema;
 use PDO;
 use RuntimeException;
 use Throwable;
@@ -59,6 +60,11 @@ final class DesignController
             if (!CutoutPlacement::installed($pdo)) {
                 $this->render(503, 'Setup required', '<p>Back up the database, then apply the additive cutout-placement migration from <a href="/admin/setup">Site setup</a> before editing.</p>'); return;
             }
+            if (!PageRevisionSchema::installed($pdo)) {
+                $this->render(503,'Page revision setup required',
+                    '<p>Back up the database, then apply the additive page-revision migration in <a href="/admin/setup">Site setup</a> before editing.</p>');
+                return;
+            }
             $repo = new DesignRepository($pdo);
             if ($method === 'POST') {
                 if ($path === '/admin/design/upload') {
@@ -100,16 +106,27 @@ final class DesignController
             $assetId = (int)$choice;
         }
         $pageRepo = new PageRepository($pdo);
+        $rawRevision=$_POST['page_revision']??null;
+        $expectedRevision=is_string($rawRevision)
+            ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
+            : false;
+        if (!is_int($expectedRevision)) {
+            throw new RuntimeException('Homepage changed; reload Design Studio before saving.');
+        }
         $home = $pdo->query("SELECT id, status FROM ac_pages WHERE slug='home' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         if (!is_array($home)) throw new RuntimeException('Create the homepage first in Pages.');
         PageRepository::validate('home',$title,$body,(string)$home['status']);
         $pdo->beginTransaction();
         try {
             $repo->save($theme,$accent,$side,$size,$assetId,$placement);
-            $pageRepo->save((int)$home['id'],'home',trim($title),$body,(string)$home['status']);
+            $pageRepo->save((int)$home['id'],'home',trim($title),$body,(string)$home['status'],$expectedRevision);
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
+            if ($e instanceof RuntimeException
+                && $e->getMessage()==='Page changed; reload before saving.') {
+                throw new RuntimeException('Homepage changed; reload Design Studio before saving.');
+            }
             throw $e;
         }
     }
@@ -117,7 +134,7 @@ final class DesignController
     private function studio(PDO $pdo, DesignRepository $repo): void
     {
         $current = $repo->current();
-        $home = $pdo->query("SELECT id,title,body,status FROM ac_pages WHERE slug='home' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $home = $pdo->query("SELECT id,title,body,status,revision FROM ac_pages WHERE slug='home' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
         $title = is_array($home) ? (string)$home['title'] : 'Your members-only space';
         $body = is_array($home) ? (string)$home['body'] : 'An intimate, beautifully designed membership experience.';
         $selected = $current['hero_asset_id'] ?? null;
@@ -134,6 +151,7 @@ final class DesignController
         $html .= '<div class="design-studio"><section class="panel studio-controls"><h2>Theme & palette</h2><p class="muted">Four original themes—one selection each. Switching themes keeps their distinct layout and background styling; the model cutout is optional.</p>'
             . '<form id="design-form" method="post" action="/admin/design" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . $csrf . '">'
+            . '<input type="hidden" name="page_revision" value="'.(int)($home['revision']??0).'">'
             . '<fieldset class="theme-picker"><legend>Choose a layout</legend>';
         foreach (ThemeCatalog::THEMES as $id=>$item) {
             $selectedTheme = $current['theme_key'] === $id;

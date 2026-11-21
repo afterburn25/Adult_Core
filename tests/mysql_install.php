@@ -20,6 +20,7 @@ use AdultCore\Installer\InstallService;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRepository;
+use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Design\DesignSchema;
 use AdultCore\Design\DesignRepository;
 use AdultCore\Design\CutoutPlacement;
@@ -234,6 +235,10 @@ try {
     // M6/M7 additive migrations and site/member access against actual MySQL.
     SiteSchema::migrate($pdo);
     SiteSchema::migrate($pdo);  // Repeat-safe.
+    PageRevisionSchema::migrate($pdo);
+    PageRevisionSchema::migrate($pdo); // Legacy and interrupted updates are repeat-safe.
+    $revisionColumns=$pdo->query("SHOW COLUMNS FROM ac_pages LIKE 'revision'")->fetchAll(PDO::FETCH_ASSOC);
+    if (count($revisionColumns)!==1) throw new RuntimeException('Page revision migration is not repeat-safe.');
     DesignSchema::migrate($pdo);
     DesignSchema::migrate($pdo);
     CutoutPlacement::migrate($pdo);
@@ -366,6 +371,32 @@ try {
     $repo->save(0, 'about', 'About the club', "A safe welcome\nNo HTML", 'published');
     if (($repo->published('about')['title'] ?? '') !== 'About the club') {
         throw new RuntimeException('Public-page publishing failed.');
+    }
+    $aboutId=(int)$pdo->query("SELECT id FROM ac_pages WHERE slug='about'")->fetchColumn();
+    $aboutRevision=(int)($repo->byId($aboutId)['revision']??0);
+    if ($aboutRevision!==1) throw new RuntimeException('New pages must start at revision one.');
+    $repo->save($aboutId,'about','About the club','Updated welcome','draft',$aboutRevision);
+    if (($repo->byId($aboutId)['revision']??null)!=2 || $repo->published('about')!==null) {
+        throw new RuntimeException('Revised page did not persist a safe draft transition.');
+    }
+    foreach ([
+        ['stale revision',1],
+        ['missing revision',null],
+    ] as [$label,$revision]) {
+        try {
+            $repo->save($aboutId,'about','Overwritten private text','Stale attempt','published',$revision);
+            throw new RuntimeException($label.' silently overwrote newer page state.');
+        } catch (RuntimeException $e) {
+            if (str_contains($e->getMessage(),'silently overwrote')) throw $e;
+        }
+    }
+    if (($repo->byId($aboutId)['title']??'')!=='About the club'
+        || $repo->published('about')!==null) {
+        throw new RuntimeException('Stale or missing page revision changed the website.');
+    }
+    $repo->save($aboutId,'about','About the club',"A safe welcome\nNo HTML",'published',2);
+    if (($repo->byId($aboutId)['revision']??null)!=3 || $repo->published('about')===null) {
+        throw new RuntimeException('Fresh revision did not restore public plain-text page.');
     }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);

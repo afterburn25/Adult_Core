@@ -478,11 +478,38 @@ def main():
             ensure('Malformed draft preview ID is neutral not-found',code == 404)
             code, _ = req('/admin/page/preview?id='+saved_draft_id,{'csrf':edit_csrf.group(1)})
             ensure('Private draft preview is read-only GET',code == 405)
+            # Two page editor tabs cannot silently overwrite each other's saved
+            # draft text, status, or public visibility.
+            code, draft_form=req('/admin/page?id='+saved_draft_id)
+            first_revision=re.search(r'name="revision" value="(\d+)"',draft_form)
+            ensure('Existing page editor supplies an opaque monotonic revision',
+                   code==200 and first_revision is not None)
+            draft_revision=first_revision.group(1)
+            code, _=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'revision':draft_revision,'slug':'secret-preview',
+                'title':'Updated safe draft','body':'Author one wins','status':'draft'
+            })
+            ensure('First page editor tab saves revision',code==303)
+            code, stale_page=req('/admin/page?id='+saved_draft_id,{
+                'csrf':edit_csrf.group(1),'revision':draft_revision,'slug':'secret-preview',
+                'title':'Stale public overwrite','body':'Should never publish','status':'published'
+            })
+            ensure('Stale page revision is refused rather than accidentally published',
+                   code==200 and 'Page changed; reload before saving.' in stale_page)
+            code, public_draft=req('/p/secret-preview')
+            ensure('Concurrent stale publication attempt leaves private page unavailable',
+                   code==404)
+            code, updated_preview=req('/admin/page/preview?id='+saved_draft_id)
+            ensure('Newest page text survives refused stale writer',
+                   code==200 and 'Updated safe draft' in updated_preview
+                   and 'Stale public overwrite' not in updated_preview)
             # Authenticated Visual Design Studio: correct theme and escaped homepage content.
             code, studio = req('/admin/design')
             ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)
             studio_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', studio)
-            ensure('Studio has anti-CSRF token', studio_csrf is not None)
+            studio_revision=re.search(r'name="page_revision" value="(\d+)"',studio)
+            ensure('Studio has anti-CSRF token and homepage revision',
+                   studio_csrf is not None and studio_revision is not None)
             ensure('Live drag/resize slider controls are rendered',
                    all(f'name="{field}"' in studio for field in ('cutout_x','cutout_y','cutout_width')))
             code, invalid= req('/admin/design', {
@@ -510,6 +537,7 @@ def main():
                 'csrf':studio_csrf.group(1), 'theme':'rose-ivory', 'accent':'#ae758b',
                 'image_side':'left', 'image_size':'medium', 'hero_asset':'none',
                 'cutout_x':'24','cutout_y':'70','cutout_width':'61',
+                'page_revision':studio_revision.group(1),
                 'title':'Hello <studio>', 'body':'A safe and elegant welcome'
             })
             ensure('Valid design saves with redirect', code == 303)
@@ -526,14 +554,30 @@ def main():
             home_match = re.search(r'(?s)<tr><td>Hello &lt;studio&gt;</td><td>home</td><td>draft</td><td><a href="/admin/page\?id=(\d+)"', pages)
             ensure('Design saves escaped homepage but keeps draft', code == 200 and home_match is not None)
             home_id=home_match.group(1)
+            code, home_editor=req('/admin/page?id='+home_id)
+            home_revision=re.search(r'name="revision" value="(\d+)"',home_editor)
+            ensure('Homepage editor carries current revision',code==200 and home_revision is not None)
             code, _ = req('/admin/page?id='+home_id, {
                 'csrf':studio_csrf.group(1),'id':home_id,'slug':'home',
+                'revision':home_revision.group(1),
                 'title':'Hello <studio>', 'body':'A safe and elegant welcome', 'status':'published'
             })
             ensure('Homepage publishing is separate explicit action', code == 303)
             code, public_home = req('/')
             ensure('Published homepage uses selected layout and escapes text',
                    code == 200 and 'theme-rose-ivory' in public_home and 'Hello &lt;studio&gt;' in public_home and 'Hello <studio>' not in public_home)
+            code, stale_studio=req('/admin/design',{
+                'csrf':studio_csrf.group(1),'theme':'noir-gold','accent':'#d9ae75',
+                'image_side':'right','image_size':'large','hero_asset':'none',
+                'cutout_x':'50','cutout_y':'50','cutout_width':'80',
+                'page_revision':studio_revision.group(1),
+                'title':'Stale studio overwrite','body':'Must not replace newer page'
+            })
+            ensure('Stale Design Studio form rolls back its theme and homepage text',
+                   code==422 and 'Homepage changed; reload Design Studio' in stale_studio)
+            code, still_home=req('/')
+            ensure('Stale studio POST did not change public page',code==200
+                   and 'Hello &lt;studio&gt;' in still_home and 'Stale studio overwrite' not in still_home)
             code, unsigned_asset = req('/admin/design/asset/999')
             ensure('Authorized but missing uploaded image is 404', code == 404)
             # Real multipart uploads: a transparent PNG defaults private, even on a published homepage.
@@ -569,12 +613,16 @@ def main():
             ids = re.findall(r'name="hero_asset" value="(\d+)"', studio)
             ensure('Private image appears in authenticated library', code == 200 and len(ids)>=1 and 'Private preview only' in studio)
             private_id=ids[0]
+            private_revision=re.search(r'name="page_revision" value="(\d+)"',studio)
+            ensure('Private image workspace carries refreshed homepage revision',
+                   private_revision is not None)
             code, private_image=req('/admin/design/asset/'+private_id)
             ensure('Administrator can preview private image', code == 200 and 'PNG' in private_image)
             code, _ = req('/admin/design', {
                 'csrf':studio_csrf.group(1),'theme':'velvet-plum','accent':'#f19ad0',
                 'image_side':'right','image_size':'large','hero_asset':private_id,
                 'cutout_x':'42','cutout_y':'38','cutout_width':'88',
+                'page_revision':private_revision.group(1),
                 'title':'Member studio','body':'Private image stays hidden'
             })
             ensure('Private image selected in visual editor', code == 303)
@@ -587,11 +635,15 @@ def main():
             code, studio = req('/admin/design')
             ids=re.findall(r'name="hero_asset" value="(\d+)"',studio)
             public_id=ids[0]
+            public_revision=re.search(r'name="page_revision" value="(\d+)"',studio)
+            ensure('Public-safe image workspace carries updated homepage revision',
+                   public_revision is not None)
             ensure('Public-safe image is new and listed', code == 200 and public_id != private_id and 'Public-safe asset' in studio)
             code, _=req('/admin/design', {
                 'csrf':studio_csrf.group(1),'theme':'noir-gold','accent':'#d9ae75',
                 'image_side':'left','image_size':'medium','hero_asset':public_id,
                 'cutout_x':'37','cutout_y':'71','cutout_width':'62',
+                'page_revision':public_revision.group(1),
                 'title':'Private boutique','body':'Design publishing is explicit'
             })
             ensure('Explicit approved image selection saved', code == 303)

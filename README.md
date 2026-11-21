@@ -1,3 +1,7 @@
+## Safer concurrent page editing (m16, development)
+
+The public-page editor and homepage Design Studio now require a current revision token for each existing page. An older browser tab cannot silently overwrite a newer title, body, published/draft status or visual design changes. Apply the additive **Admin → Setup** migration (after backup) before editing existing pages. No age/consent verification, payments, public adult media or production signoff is implied. See [site release acceptance](docs/WORKSTREAM_ACCEPTANCE.md).
+
 ## Private creator feedback timeline
 
 Each local site's text-only creator review retains separate private feedback snapshots by submitted draft revision. Only that site's enabled creator and owner/admin can inspect their permitted review history; no SaaS creator accounts or public media are involved. Apply the additive site-setup migration first. See [Local creator management and review](docs/LOCAL_CREATORS.md).

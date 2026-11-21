@@ -34,7 +34,7 @@ final class PageRepository
     public function byId(int $id): ?array
     {
         if ($id < 1) return null;
-        $s = $this->pdo->prepare('SELECT id,slug,title,body,status FROM ac_pages WHERE id=? LIMIT 1');
+        $s = $this->pdo->prepare('SELECT id,slug,title,body,status,revision FROM ac_pages WHERE id=? LIMIT 1');
         $s->execute([$id]);
         $row = $s->fetch(PDO::FETCH_ASSOC);
         return is_array($row) ? $row : null;
@@ -56,16 +56,27 @@ final class PageRepository
         return $this->pdo->query("SELECT slug,title FROM ac_pages WHERE status='published' ORDER BY (slug='home') DESC, title LIMIT 30")->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function save(int $id, string $slug, string $title, string $body, string $status): void
+    public function save(int $id, string $slug, string $title, string $body, string $status, ?int $expectedRevision=null): void
     {
         self::validate($slug, $title, $body, $status);
         if ($id > 0) {
-            $s = $this->pdo->prepare('UPDATE ac_pages SET slug=?,title=?,body=?,status=?,updated_at=UTC_TIMESTAMP() WHERE id=?');
-            $s->execute([$slug, $title, $body, $status, $id]);
-            if ($s->rowCount() === 0 && $this->byId($id) === null) {
-                throw new RuntimeException('Page not found.');
+            if ($expectedRevision===null || $expectedRevision<1) {
+                throw new RuntimeException('Page revision required; reload before saving.');
+            }
+            // Compare-and-swap is atomic even across separate admin sessions
+            // and within one second, unlike updated_at timestamp comparisons.
+            $s=$this->pdo->prepare('UPDATE ac_pages SET
+                slug=?,title=?,body=?,status=?,revision=revision+1,
+                updated_at=UTC_TIMESTAMP() WHERE id=? AND revision=?');
+            $s->execute([$slug,$title,$body,$status,$id,$expectedRevision]);
+            if ($s->rowCount()!==1) {
+                if ($this->byId($id)===null) throw new RuntimeException('Page not found.');
+                throw new RuntimeException('Page changed; reload before saving.');
             }
             return;
+        }
+        if ($expectedRevision!==null) {
+            throw new RuntimeException('New pages cannot supply an existing page revision.');
         }
         $s = $this->pdo->prepare('INSERT INTO ac_pages (slug,title,body,status,updated_at,created_at) VALUES (?,?,?,?,UTC_TIMESTAMP(),UTC_TIMESTAMP())');
         $s->execute([$slug, $title, $body, $status]);

@@ -1,3 +1,11 @@
+## Optimistic public page and Design Studio revision protection — development (2026-11-21)
+
+The repeatable additive m16 migration adds a monotonic `ac_pages.revision` integer, including for legacy pages. Owner/admin page edits require the revision displayed when the editor opened; the repository atomically increments it only if it still matches. A stale tab or missing revision cannot overwrite newer text, slug or draft/published status. Visual Design Studio also carries this revision and rolls back theme/image placement changes if the homepage text was edited since the form opened. Both interfaces ask to reload rather than silently lose updates. Install the new revision column via **Admin → Setup** after a verified backup; public pages continue rendering from the existing safe plain-text templates and only published records. Lite/Pro license entitlements, age/performer consent, protected media and payment release gates are unchanged.
+
+Disposable SQL/HTTP regressions verify idempotent upgrades, stale-form denial, unchanged unpublished page privacy, Design Studio rollback and latest-revision success. Real cPanel/VPS, independent adult identity/consent providers, merchant billing and production certification remain incomplete.
+
+---
+
 ## Revision-specific private creator feedback retention — development only (2026-11-21)
 
 An additive m15 local creator feedback-history table now snapshots each request-changes or reject decision, private note, reviewer, and submitted draft revision in the same transaction. An active local creator can inspect their own last 100 private decisions even after editing/resubmitting; owner/admin can see last 100 locally retained decisions in the protected read-only creator detail view, including suspended creator profiles. Text stays HTML-escaped in a no-store/noindex environment. The existing numeric-only action log remains text-free. The m15 upgrade can retain the **current** m14 review note when its last numeric decision event verifies reviewer, decision and time. It does not fabricate earlier overwritten feedback or review provenance when the corresponding event is absent. Lite and Pro remain one self-hosted software package, selected by the customer's software license.

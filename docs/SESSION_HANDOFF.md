@@ -1,3 +1,11 @@
+## Optimistic public page and Design Studio revision protection — development (2026-11-21)
+
+The repeatable additive m16 migration adds a monotonic `ac_pages.revision` integer, including for legacy pages. Owner/admin page edits require the revision displayed when the editor opened; the repository atomically increments it only if it still matches. A stale tab or missing revision cannot overwrite newer text, slug or draft/published status. Visual Design Studio also carries this revision and rolls back theme/image placement changes if the homepage text was edited since the form opened. Both interfaces ask to reload rather than silently lose updates. Install the new revision column via **Admin → Setup** after a verified backup; public pages continue rendering from the existing safe plain-text templates and only published records. Lite/Pro license entitlements, age/performer consent, protected media and payment release gates are unchanged.
+
+Disposable SQL/HTTP regressions verify idempotent upgrades, stale-form denial, unchanged unpublished page privacy, Design Studio rollback and latest-revision success. Real cPanel/VPS, independent adult identity/consent providers, merchant billing and production certification remain incomplete.
+
+---
+
 ## Local moderator text-review keyset paging — 2026-11-21
 
 Added `CreatorDraftReview::queuePage(actor, after)` with 50 private text submissions/page, timestamp+ID stable ordering, bounded opaque URL-safe cursors and mandatory fresh role check. `queue()` remains a compatible first-page helper. The moderator `/admin/creator-review` shows a Next link and first-page navigation; malformed cursor produces an explicit 422. Additive m15 migration adds an indexed `(status, updated_at, id)` lookup for supported MySQL/MariaDB. SQL regression seeds 51 submitted plans across two local creators and verifies complete, duplicate-free coverage, invalid cursor denial and no public media. This remains a self-hosted text-review tool, not provider-approved adult content publishing.
