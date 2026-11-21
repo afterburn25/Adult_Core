@@ -557,3 +557,13 @@ body:not(.public-site):not(.admin-site):not(.member-site):not(.admin-guest) main
 /* First-party administrator MFA: long recovery code display, no external scripts. */
 .mfa-setup-secret code{display:inline-block;max-width:100%;overflow-wrap:anywhere;padding:0.8rem 1rem;border:1px solid var(--border,#394153);border-radius:0.75rem;font-size:1.1rem;letter-spacing:.12em;background:rgba(140,140,160,.10)}
 .mfa-recovery-codes{white-space:pre-wrap;overflow-wrap:anywhere;user-select:text;padding:1.2rem;line-height:1.9;border-radius:.75rem;background:rgba(140,140,160,.10);border:1px solid var(--border,#394153);font-size:1rem;letter-spacing:.1em}
+
+/* Entitlement-filtered private member library and gallery detail.
+   Images remain served exclusively through the authenticated /media/ route. */
+.member-library{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:14px;list-style:none;padding:0;margin:16px 0}
+.member-library li{border:1px solid var(--line);border-radius:12px;padding:14px;min-width:0}
+.member-library li a{display:block;overflow-wrap:anywhere;font-weight:700}
+.member-library li small{display:block;margin-top:6px;color:var(--muted)}
+.member-library-images{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,16rem),1fr));gap:16px;align-items:start}
+.member-library-images img{width:100%;max-width:100%;height:auto;max-height:34rem;object-fit:contain;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
+.member-library-images img:hover{filter:none}
