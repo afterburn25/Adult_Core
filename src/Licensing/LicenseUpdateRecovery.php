@@ -90,6 +90,13 @@ final class LicenseUpdateRecovery
         if (!is_file($marker) || is_link($marker) || !is_readable($marker)) {
             throw new RuntimeException('A regular private pending license update is required.');
         }
+        // Snapshot includes the previous private key: never process it if
+        // group/other users could read it. The owner must secure permissions
+        // and investigate exposure before retrying console recovery.
+        $mode = @fileperms($marker);
+        if ($mode === false || ($mode & 0077) !== 0) {
+            throw new RuntimeException('Private rollback snapshot permissions are unsafe.');
+        }
         $storage = $this->root . '/storage';
         $update = @fopen($storage . '/.license-update.lock', 'c+');
         if (!is_resource($update)) throw new RuntimeException('License update lock unavailable.');
