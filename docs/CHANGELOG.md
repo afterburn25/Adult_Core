@@ -1,3 +1,10 @@
+## 0.8.6.6-license-health-dev — 2026-11-20
+
+- Added an administrator Check license now button, limited to site managers, with CSRF and IP rate limiting.
+- Distinguishes a positive vendor response, explicit denial and temporary issuer errors while preserving signed cache/grace rules and never echoing a license key.
+- Added revocation, recovery, cached-result and vendor-outage unit checks; extended authenticated HTTP checks for invalid CSRF and actions.
+- Documented four Cajun Web Pro catalog entries and owner-controlled staging tasks without enabling live billing.
+
 ## 0.8.6.5-upgrade-dev — In-place Lite-to-Pro transition (2026-11-20)
 
 - Added authenticated `/admin/upgrade` with step-up password check, CSRF, rate limiting, backup acknowledgement and Pro host/agent readiness.

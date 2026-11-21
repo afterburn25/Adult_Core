@@ -1,3 +1,7 @@
+## License health and Cajun Web Pro catalog readiness (0.8.6.6 development)
+
+The same universal installer accepts four separately licensed Lite/Pro one-time or monthly SKU types. The administrator can open /admin/license and click Check license now to verify with the licensing authority without displaying the stored key. Exact product definitions and still-pending live publication, billing and staging requirements are in docs/CWP_CATALOG_SETUP.md.
+
 ## Lite → Pro in-place upgrade (0.8.6.5-upgrade-dev)
 
 One Adult_Core installation remains on the original database and host; the Cajun Web Pro Pro-edition license, not a browser dropdown, authorizes the transition. An authenticated administrator opens `/admin/upgrade`, provides a separately purchased Pro one-time or monthly key, reenters their password, and confirms a verified **external** site+database backup. The site verifies the Pro agent and required host capabilities before changing the single installation's edition, cached license and signed state. No member, page, theme, moderation, or media records are migrated or deleted. Pro-only navigation remains **In development**; this is not production streaming support. Emergency rollback of an interrupted upgrade is CLI-only: `php scripts/recover-edition-upgrade.php --rollback`; the public site stays locked while the maintenance sentinel exists. This does not replace external backup/restore certification. See `docs/LITE_TO_PRO_UPGRADE.md`.

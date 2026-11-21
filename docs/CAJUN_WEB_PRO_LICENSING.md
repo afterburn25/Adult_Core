@@ -1,3 +1,7 @@
+## Manual license health check (0.8.6.6-license-health-dev)
+
+The administrator license screen now has Check license now, a site-settings-authorized CSRF-protected, rate-limited POST. It bypasses the hourly signed cache without bypassing domain, SKU, HMAC receipt, lock, or bounded outage-grace rules. The current attempt is classified independently as valid, denied or transient without exposing a key or changing the installed edition. Four product records and real subscription testing remain pending on Cajun Web Pro; see docs/CWP_CATALOG_SETUP.md.
+
 # Adult_Core licensing — Cajun Web Pro integration (0.8.6.5-upgrade-dev)
 
 **One universal Adult_Core installer. The verified license KEY determines Lite/Pro and billing term.** Never choose an edition from host type, a browser dropdown, or a query string. Licensed Pro still requires the actual Pro agent/persistent process capabilities; a Pro key on a Lite-only server blocks installation, never silently downgrades. Licenses are issued and billed exclusively in [Cajun_Web](https://github.com/afterburn25/Cajun_Web) (`site/api/validate.php`, software catalog and license/recurring billing modules).

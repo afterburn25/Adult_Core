@@ -1,3 +1,7 @@
+# Cajun Web Pro licensing health — 0.8.6.6-license-health-dev
+
+Implemented in development: authorized manual validation with signed revocation tracking, IP rate limit and explicit issuer-error reporting. Four Lite/Pro one-time/monthly product requirements and staging acceptance are documented in docs/CWP_CATALOG_SETUP.md. Live product registration, prices, production subscriptions, real customer licenses and hosting/compliance certifications are still pending.
+
 # Lite-to-Pro verified transition — 0.8.6.5-upgrade-dev (2026-11-20)
 
 **Implemented in development:** admin `/admin/upgrade` can accept a separately issued Pro one-time/monthly key on the same domain and preserve the existing installation, database, member/page/content/design rows and original install timestamp. Checks require Pro-host capabilities, verified product SKU, authenticated settings administrator, step-up password, CSRF, rate limit and off-site backup acknowledgement. A private snapshot plus fail-closed upgrade-pending gate and CLI rollback guard interruptions. This update does not provide a complete backup/restore engine, production worker, real vendor checkout, independent security audit or production migration certification. Cross-product paid module licenses remain independent. More: `docs/LITE_TO_PRO_UPGRADE.md`.
