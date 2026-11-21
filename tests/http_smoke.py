@@ -191,9 +191,9 @@ def run():
             assert_http("failed login never grants admin access", "/admin", 302)
 
             state.unlink()
-            assert_http("early folder deletion blocks site", "/", 503, "Installer missing")
-            assert_http("early folder deletion blocks admin", "/admin", 503, "Installer missing")
-            assert_http("early folder deletion blocks packages", "/admin/packages", 503, "Installer missing")
+            assert_http("missing marker with private config blocks site", "/", 503, "Installation state invalid")
+            assert_http("missing marker with private config blocks admin", "/admin", 503, "Installation state invalid")
+            assert_http("missing marker with private config blocks packages", "/admin/packages", 503, "Installation state invalid")
 
             print(f"Passed {checks} HTTP smoke checks.")
         finally:
