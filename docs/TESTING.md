@@ -1,3 +1,10 @@
+## Backup-and-restore security and real MySQL fixture — 0.8.8-backup-dev
+
+Run `php tests/backup_tests.php` for wrong-key/truncation/tamper/replay/path checks and `php tests/mysql_backup_restore.php` with the **same disposable-only MySQL environment** required by `tests/mysql_install.php` for DDL/rows/files round-trip. The test uses an explicit synthetic license and removes only disposable tables and fixture directories. Do not use customer data. Independent real Lite shared-host and Pro VPS recovery drills still required.
+
+
+---
+
 ## Administrator MFA (0.8.7-mfa-dev)
 
 Run `php tests/mfa_tests.php` for TOTP test vectors, clock windows and session controls. Disposable MySQL integration tests in `php tests/mysql_install.php` validate persisted encrypted MFA, replay, recovery and removal detection. Real PHP HTTP integration in `python3 tests/mysql_http_auth.py` exercises enrollment, passwords, challenge, CSRF, backup codes, replay and disabling. Both integration suites *refuse* any database without `AC_TEST_DB_CONFIRM=YES_THIS_IS_A_DISPOSABLE_DATABASE` and environment-provided credentials. No live licensing endpoint or merchant gateway is used.

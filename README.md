@@ -1,3 +1,10 @@
+## Development encrypted full-site recovery — 0.8.8-backup-dev
+
+New CLI-only `scripts/backup-site.php` creates an AES-256-GCM streaming `.acfull` archive of MySQL table schemas and rows plus private media, signed licensing/MFA data and settings; `scripts/restore-site.php` accepts it **only** on a clean, same-version source with a separately configured empty database. The original `install/` deletion rule, Lite/Pro license distinctions and private hosting requirements remain. Do not mistake this for approved production backup automation, online updates, or compliance readiness. Read [`docs/PORTABLE_BACKUP_RECOVERY.md`](docs/PORTABLE_BACKUP_RECOVERY.md) before using either command.
+
+
+---
+
 ## Administrator MFA milestone — 0.8.7-mfa-dev
 
 The owner can enroll standard authenticator-app (TOTP) MFA under `/admin/security`. Once enabled, `/admin/mfa` requires a fresh authenticator or single-use recovery code after password verification, including on Lite and Pro. Secrets are AES-256-GCM encrypted using the private application key and recovery codes are stored as keyed hashes; previous password-only sessions cannot stay privileged. This is a development feature, not an audited production release. **Existing sites must apply additive `/admin/setup` migration first; preserve tested off-server backups.** See [Administrator MFA guide](docs/ADMIN_MFA.md). Cajun Web Pro licensing/subscription catalog activation and production deployment remain pending.

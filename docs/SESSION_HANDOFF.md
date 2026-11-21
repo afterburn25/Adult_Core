@@ -1,3 +1,10 @@
+## Current implementation handoff — 0.8.8-backup-dev (portable encrypted disaster recovery)
+
+`src/Backup/StreamArchive.php` is a versioned AES-256-GCM streaming record envelope with per-archive HKDF, monotonic sequence and authenticated end marker. `src/Backup/SiteBackup.php` strictly whitelists private paths, stores InnoDB schema/rows and private files, authenticates and stages all recoverable files before writing to an EMPTY new database, and leaves `storage/.backup-restore-pending` to lock HTTP on partial DB restore. `scripts/backup-site.php` and `scripts/restore-site.php` are CLI-only and accept a separate offline 32-byte key; target DB config is provided separately and must remain untouched. `install/` remains until manual removal after operator verification. Existing legacy `.acbak` is unchanged. CI must include `tests/backup_tests.php` and `tests/mysql_backup_restore.php` (disposable real MySQL). **Not production ready** until independent shared-host + Pro VPS restore drills, external backups/PITR and security acceptance. Read `docs/PORTABLE_BACKUP_RECOVERY.md`.
+
+
+---
+
 # Current handoff — Administrator MFA (0.8.7-mfa-dev)
 
 Implementation extends the published 0.8.6.7 subscription HTTP-contract milestone in `afterburn25/Adult_Core`. New `src/Auth/{Totp,AdminMfa,AdminMfaSchema}.php` and `src/Http/MfaController.php` implement optional but enforcement-persistent admin MFA. Login checks `AdminMfa::enabledFor()` only after verifying password and starts a 5-minute challenge session if enabled; login never calls `authenticate()` before a valid second factor. `/admin/security` requires role permission, CSRF and password reauthentication. Rate-limited TOTP/recovery consumption runs in a MySQL row-lock transaction. `/admin/setup` migrates older installs; `Schema::create` creates MFA table for fresh installs. Recovery codes are displayed only once; private key is required to recover encrypted secrets. See `docs/ADMIN_MFA.md` for deployment controls. CI and exact GitHub result must be checked after publishing. Do not claim license billing, backups or production acceptance completed.

@@ -48,6 +48,8 @@ jobs:
         run: php tests/verification_tests.php
       - name: Release manifest and encrypted snapshot authentication
         run: php tests/release_security_tests.php
+      - name: Encrypted portable recovery integrity and unsafe-path tests
+        run: php tests/backup_tests.php
       - name: Shared UI design system and escaping tests
         run: php tests/ui_tests.php
       - name: Visual Design Studio safety tests
@@ -73,6 +75,15 @@ jobs:
 
       - name: Real HTTP administrator login/logout integration test (disposable CI database)
         run: python3 tests/mysql_http_auth.py
+        env:
+          AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
+          AC_TEST_DB_HOST: 127.0.0.1
+          AC_TEST_DB_NAME: adultcore_ci
+          AC_TEST_DB_USER: adultcore
+          AC_TEST_DB_PASSWORD: adultcorepass
+
+      - name: Full encrypted backup and fresh-database restore (disposable CI database)
+        run: php tests/mysql_backup_restore.php
         env:
           AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
           AC_TEST_DB_HOST: 127.0.0.1

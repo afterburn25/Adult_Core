@@ -1,3 +1,10 @@
+# Current milestone — encrypted portable backup and empty-site restore (0.8.8-backup-dev)
+
+Development implementation: streaming encrypted `.acfull` backup covers Adult_Core MySQL schema/rows and private media/license/MFA files; CLI-only verified restore targets a fresh same-version source plus completely empty dedicated MySQL database and preserves the installer gate. See `docs/PORTABLE_BACKUP_RECOVERY.md` for explicit limits and destructive-DDL warnings. Complete production backup/restore is **not yet certified**: offsite retention, write quiescence, cPanel/VPS drills, large data, database PITR and independent security review remain. Cajun Web Pro real product registration/billing and adult identity/consent/processor gates remain unchanged.
+
+
+---
+
 # Current development milestone — 0.8.7-mfa-dev
 
 Implemented: administrator authenticator MFA enrollment and challenged login, encrypted TOTP secret storage, single-use recovery codes, replay protection, reauthentication for disabling, and additive schema preparation, with local tests and CI acceptance required. This is **not production certification**. Next security work: full backup/restore drills and session revocation/password rotation; Cajun Web Pro still needs actual catalog products and verified paid sandbox renewals; age/identity, consent and billing gates remain blocked. See `docs/ADMIN_MFA.md`.

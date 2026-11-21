@@ -1,6 +1,13 @@
-## 0.8.6.6 administrator license-health security
+## Encrypted recovery hardening — 0.8.8-backup-dev
 
-Only site.settings.manage administrators can submit the CSRF-protected manual issuer check or license replacement. Both are rate-limited, never expose the key and do not change edition without the verified upgrade workflow. Forced checks retain domain/SKU restrictions, nonblocking lock and HMAC-signed cached states. HTTP 200 authorized:false denies access; HTTP 429/5xx/TLS errors are inconclusive and never become revocation.
+CLI-only `.acfull` backup uses an **independent offline AES-256-GCM key**, authenticated sequenced streaming records, mandatory final record, file hashes, and strict source/destination path policy. Encrypted archives include sensitive user data, license keys and MFA secrets; store offline under controlled retention and never expose via `public/`. Restore is deliberately destructive only to a fresh, empty dedicated DB/target; MySQL DDL cannot be rolled back, so a pending marker blocks every HTTP route after an interrupted import. Preserve the marker until the failed target is wiped and rebuilt; never delete it to bypass the safety gate. See `docs/PORTABLE_BACKUP_RECOVERY.md`.
+
+
+---
+
+## 0.8.6.6 administrator license health check
+
+Only an existing authenticated administrator with `site.settings.manage` may submit the CSRF-protected `/admin/license` recheck or replacement form. Both use an IP-based limiter; no license key is echoed or logged. Manual forced revalidation bypasses the one-hour client cache, but keeps the domain check, per-installation nonblocking refresh lock, HMAC-signed receipt, direct issuer denial, and bounded signed last-positive outage grace. Inconclusive vendor 429/5xx/TLS failures never become explicit `denied`. No external payment account or key is created by a check. Live issuer/catalog acceptance and independent security review remain open.
 
 ## Edition transition safety — 0.8.6.5-upgrade-dev
 

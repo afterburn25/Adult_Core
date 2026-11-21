@@ -1,3 +1,10 @@
+## Current security increment: full-site encrypted disaster recovery — 0.8.8-backup-dev
+
+Do not weaken the `SiteBackup` fresh-empty-database restore boundary, `Storage/.backup-restore-pending` fail-closed marker, independently stored backup key, encrypted streaming record verification, private-file traversal limits or MySQL DDL nontransactional warning. Restore **never** merges into an existing installation. Keep `install/` present after restoration for operator verification; manually delete it before normal access. `config/database.php` must be newly provisioned on the destination and excluded from archived files. Real MySQL CI and independent Lite/Pro host drills are mandatory before production use. See `docs/PORTABLE_BACKUP_RECOVERY.md`.
+
+
+---
+
 ## Current milestone: administrator MFA — 0.8.7-mfa-dev
 
 Keep `src/Auth/{AdminMfa,AdminMfaSchema,Totp}.php`, `src/Http/MfaController.php`, `/admin/mfa`, `/admin/security`, and the login/session enforcement together. Password success NEVER authenticates an enrolled administrator until a TOTP or single-use recovery code is consumed. Maintain app-key AES-GCM encryption, `FOR UPDATE` replay protection, post-enrollment enforced marker, reauthentication and CSRF controls, and signed commercial-license gate exception for the *challenge only*. Existing-site setup is additive, and owner cannot bypass via membership recovery. See `docs/ADMIN_MFA.md`; production and Cajun Web Pro real billing gates stay open.

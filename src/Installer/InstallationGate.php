@@ -22,6 +22,7 @@ final class InstallationGate
     public const INSTALLER_MISSING = 'installer_missing';
     public const INVALID_STATE = 'invalid_state';
     public const EDITION_UPGRADE_PENDING = 'edition_upgrade_pending';
+    public const BACKUP_RESTORE_PENDING = 'backup_restore_pending';
 
     public function __construct(private readonly string $projectRoot)
     {
@@ -29,6 +30,11 @@ final class InstallationGate
 
     public function status(): string
     {
+        // Never serve a half-restored site, even if an operator removed install/ early.
+        if (file_exists($this->projectRoot . '/storage/.backup-restore-pending')
+            || is_link($this->projectRoot . '/storage/.backup-restore-pending')) {
+            return self::BACKUP_RESTORE_PENDING;
+        }
         // An interrupted cross-DB/filesystem edition transition must never serve requests.
         // Recovery is deliberately CLI-only: no browser path can waive this marker.
         if (file_exists($this->projectRoot . '/storage/.edition-upgrade-pending')

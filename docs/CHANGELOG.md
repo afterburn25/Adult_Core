@@ -1,3 +1,13 @@
+## 0.8.8-backup-dev — Encrypted full-site restore development milestone
+
+- Add a streaming AES-256-GCM authenticated archive for all Adult_Core InnoDB DDL/rows and explicitly allowed private media/config files (including signed licensing, design, MFA material), excluding sessions and old DB credentials.
+- Add CLI-only export and fresh, empty same-version restore; archive preflight authenticates all records, private file paths/checksums and signed installation state before database DDL import.
+- Add permanent fail-closed backup-restore pending marker if restoration fails mid-import, since MySQL DDL cannot be rolled back atomically. No browser bypass, live overwrites or automatic installer removal.
+- Add non-MySQL archive/security tests and disposable-MySQL content/member/media roundtrip CI. Independent hosted/Pro recovery certification remains open.
+
+
+---
+
 ## 0.8.7-mfa-dev — Administrator authenticator MFA (2026-11-20)
 
 - Add additive `ac_admin_mfa` state with encrypted 160-bit TOTP secrets, 30-second RFC 6238 codes, ±1-step skew allowance and transactional replay prevention.

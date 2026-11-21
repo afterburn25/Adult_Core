@@ -1,21 +1,15 @@
-# Release engineering foundations — 0.8.2-dev
+# Backup and update engineering
 
-**Not a production backup, recovery, or updater system.** This stage adds authenticated cryptographic primitives and a small-database backup export only. Production 1.0 remains blocked.
+## Development full-site recovery tool — 0.8.8-backup-dev
 
-## Encrypted database snapshot (CLI-only, small databases)
+`src/Backup/{StreamArchive,SiteBackup}.php` and the CLI-only `scripts/{backup-site,restore-site}.php` add a streaming encrypted `.acfull` archive of the Adult_Core database DDL/rows and private config, signed state and media, with fresh-empty-target restore. Read [PORTABLE_BACKUP_RECOVERY.md](PORTABLE_BACKUP_RECOVERY.md) carefully before use. Do not run restoration on a live database; MySQL DDL is not rollback-safe. The archive excludes code binaries, database connection settings, login sessions and temporary locks and requires an independently stored offline key. This is a development disaster-recovery capability, **not production-grade certification**.
 
-`src/Backup/EncryptedSnapshot.php` uses AES-256-GCM authenticated encryption with a unique random nonce and a domain-specific AAD. Only a 32-byte random hex key is accepted. The backup key must be stored **offline**, not committed, not in `config/app-key.php` and not placed on the same server as the backups. File formats are versioned and authenticated. Tests check roundtrip, wrong key, modified ciphertext, weak keys and oversized input.
+## Legacy small database snapshot — 0.8.2-dev
 
-`AC_BACKUP_KEY=... php scripts/backup-db.php /secure/offsite/location.acbak` exports the `ac_` MySQL table rows and encrypts the JSON before writing it to a new file with restricted permissions. The script refuses output under `public/` and refuses overwrite. It is intentionally bounded by size/memory; **no restore is implemented** and media files, server settings, encryption keys and complete DDL are not included. It is only a development snapshot and must not be the only disaster-recovery mechanism.
+`src/Backup/EncryptedSnapshot.php` and `scripts/backup-db.php` remain available for backwards-compatible small-database **row-only** exports. They do not include DDL, private files or a restore command; never mistake `.acbak` for `.acfull`. These artifacts are independently keyed and versioned. AES-256-GCM authenticates the bounded JSON (max 16 MiB unencrypted), and the output path must be new and outside the public document root.
 
-For real production backups, use provider-native database backups (including DDL), encrypted offsite object storage with key rotation, media/private evidence backups, tested restore to a separate server, point-in-time recovery, retention, and an operator-approved recovery runbook.
+## Update and release signing
 
-## Signed release manifest
+`src/Release/SignedManifest.php` verifies detached RSA-SHA256 against an offline trusted public key and validates path and SHA-256 digest metadata. It does **not** download, verify or apply full release archives, or execute an updater. Release signing private keys never belong in the distributed app.
 
-`src/Release/SignedManifest.php` verifies a detached RSA-SHA256 signature over exact JSON bytes with a trusted offline public key, validates each file's relative path and SHA-256 digest metadata, and rejects duplicated or traversal paths. It does **not** download releases, verify actual archive file contents or execute an update. Release signing private keys must never be distributed with the app.
-
-Production update tooling still needs secure pinning of the release trust anchor, safe extraction, per-file digest validation, atomic staging, DB migration/backup compatibility, coordinated maintenance mode, rollback and failure injection tests.
-
-## Release gates
-
-Run `php scripts/release-check.php`: a nonzero exit means the build is **not eligible for a production 1.0 label**. Never change the gate just to make CI green. Use [`RELEASE_GATES.md`](RELEASE_GATES.md) as the checklist of externally verified acceptance requirements.
+Before production 1.0: finish independent hosting-specific backup restoration, offsite retention/rotation, integrity monitoring, point-in-time recovery and full release/update rollback with separately reviewed signatures and migration boundaries. `php scripts/release-check.php` must remain a genuine blocking gate.
