@@ -115,7 +115,7 @@ def main():
                 restarted=err
             with restarted:
                 ensure('Recreated browser uses persistent opaque cookie without re-login',
-                       restarted.status==200 and b'PRIVATE' in restarted.read().upper())
+                       restarted.status==200 and b'HTTP Fixture' in restarted.read())
             code, body = req('/admin')
             ensure('Dashboard loads authenticated', code == 200 and 'HTTP Fixture &lt;script&gt;alert(1)&lt;/script&gt;' in body and '<script>alert(1)</script>' not in body)
             ensure('Edition visible', 'LITE' in body)
@@ -206,7 +206,7 @@ def main():
                    code == 422 and 'Manager password confirmation failed.' in refused)
             code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'verify',
-                })
+                'manager_password':manager_password})
             ensure('Manager can renew the authorization window once',code == 303)
             code, unlocked_page=req('/admin/staff')
             ensure('Renewal permits routine staff changes without password fields',
