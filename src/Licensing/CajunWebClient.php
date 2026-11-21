@@ -91,13 +91,22 @@ final class CajunWebClient
     /** @return array{status:int,body:string} */
     private function request(string $body): array
     {
+        return self::postToEndpoint(self::ENDPOINT, $body);
+    }
+
+    /** Shared bounded HTTPS transport used by production and the opted-in staging probe. */
+    public static function postToEndpoint(string $endpoint, string $body): array
+    {
+        // Neither production nor the operator CLI may send a key to an arbitrary host.
+        $endpoint = CwpStagingAudit::endpoint($endpoint, true);
+        if (strlen($body) > 4096) throw new InvalidArgumentException('Licensing payload too large.');
         $context = stream_context_create([
             'http' => ['method' => 'POST', 'header' => "Content-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\n",
                 'content' => $body, 'timeout' => 4, 'ignore_errors' => true,
                 'follow_location' => 0, 'max_redirects' => 0],
             'ssl' => ['verify_peer' => true, 'verify_peer_name' => true, 'allow_self_signed' => false],
         ]);
-        $handle = @fopen(self::ENDPOINT, 'rb', false, $context);
+        $handle = @fopen($endpoint, 'rb', false, $context);
         if (!is_resource($handle)) throw new \RuntimeException('License validation service unavailable.');
         try {
             $headers = stream_get_meta_data($handle)['wrapper_data'] ?? [];

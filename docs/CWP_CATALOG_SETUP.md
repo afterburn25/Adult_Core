@@ -1,3 +1,7 @@
+## Optional read-only staging authority preflight (0.8.10)
+
+Once the owner has provisioned an **actual staging-only** customer grant and reviewed test hostname, `php scripts/audit-cwp-staging.php` can test one SKU + registered hostname and two negative controls with three trusted HTTPS validation calls. See `docs/CWP_STAGING_PREFLIGHT.md`. It cannot create a product, key, paid invoice, subscription, or gateway receipt and cannot replace the real Authorize.Net sandbox lifecycle.
+
 ## 0.8.6.7 loopback subscription contract coverage
 
 A stateful, real HTTP **local simulator** now verifies Adult_Core's client behavior for the four SKU products across simulated activation, paid-through expiry, renewal, cancellations, revocation, domain changes and 429/5xx outages. Run `python3 tests/cwp_subscription_contract.py`; see `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`. The test does **not** seed live Cajun Web Pro catalog data, call its API, handle a real payment or check the actual authoritative checkout/renewal code. Explicitly verify a real sandbox issuer and payment renewal separately before launch. Swapping a site license does not cancel the original monthly billing agreement.

@@ -1,3 +1,7 @@
+## Cajun Web Pro staging diagnostic (0.8.10)
+
+Run `php tests/cwp_staging_audit_tests.php` for 44+ offline key-file/endpoint policy and negative-control tests. The real `scripts/audit-cwp-staging.php` is opt-in and never called by CI with a customer key; it is not a merchant sandbox test. See `docs/CWP_STAGING_PREFLIGHT.md`.
+
 ## Backup-and-restore security and real MySQL fixture — 0.8.8-backup-dev
 
 Run `php tests/backup_tests.php` for wrong-key/truncation/tamper/replay/path checks and `php tests/mysql_backup_restore.php` with the **same disposable-only MySQL environment** required by `tests/mysql_install.php` for DDL/rows/files round-trip. The test uses an explicit synthetic license and removes only disposable tables and fixture directories. Do not use customer data. Independent real Lite shared-host and Pro VPS recovery drills still required.

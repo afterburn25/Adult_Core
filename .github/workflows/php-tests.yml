@@ -64,6 +64,8 @@ jobs:
         run: php tests/upgrade_tests.php
       - name: Loopback HTTP subscription activation and issuer lifecycle contract
         run: python3 tests/cwp_subscription_contract.py
+      - name: Opt-in Cajun Web Pro staging probe security tests (offline)
+        run: php tests/cwp_staging_audit_tests.php
       - name: HTTP lifecycle smoke tests
         run: python3 tests/http_smoke.py
       - name: Real MySQL installation integration test (disposable CI database)

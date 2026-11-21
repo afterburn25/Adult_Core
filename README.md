@@ -1,3 +1,7 @@
+## Read-only Cajun Web Pro staging audit (0.8.10 development)
+
+For approved staging-only verification of already-issued Lite/Pro one-time and monthly license keys, `scripts/audit-cwp-staging.php` performs three bounded HTTPS product/domain checks without issuing a key, enrolling or cancelling a subscription, or charging anything. It requires a private key file outside the repo and explicit opt-in; see `docs/CWP_STAGING_PREFLIGHT.md`. Live Cajun Web Pro catalog onboarding and merchant sandbox acceptance are **still pending**.
+
 ## New in 0.8.9-backup-ops-dev — verified backup vault and maintenance operations
 
 Private CLI tooling now verifies existing `.acfull` archives in place, copies them into a separately supplied restricted backup vault, rotates only old verified vault archives and preserves corrupted copies for operator review. `scripts/backup-job.php` can be scheduled **only after the operator has actually drained traffic, stopped uploads/writers and (on Pro) stopped workers**; it adds a 503 maintenance gate for new HTTP requests, but is not a substitute for quiescence. No cloud service or automated remote upload is claimed. See [`docs/BACKUP_OPERATIONS.md`](docs/BACKUP_OPERATIONS.md) and [`docs/PORTABLE_BACKUP_RECOVERY.md`](docs/PORTABLE_BACKUP_RECOVERY.md). Real shared-host/VPS disaster recovery and live Cajun Web Pro paid subscriptions remain unverified.

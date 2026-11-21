@@ -1,3 +1,10 @@
+## 0.8.10-cwp-staging-dev — Read-only issuer staging acceptance kit
+
+- Add operator-only, explicitly confirmed diagnostic for one owner-issued Cajun Web Pro staging key; validates product/domain acceptance and two negative authorization controls over strict trusted HTTPS with no redirects, three calls total and no mutation/billing endpoints.
+- Require private license-key file outside checkout, never transmit a key in argv; prevent accidental primary-host calls without extra approval and refuse foreign hosts, query parameters, cleartext transport and links.
+- Add deterministic offline tests for endpoint policies, permissions, unauthorized SKU/domain, master-grant overreach, malformed response and 429/5xx inconclusive handling; CI retains existing MySQL/browser suites.
+- **No live product creation, actual payment, subscription enrollment, merchant sandbox testing or production release.** Staging service and credentials must be authorized separately.
+
 ## 0.8.9-backup-ops-dev — Verified backup operations and private vault retention
 
 - Add CLI read-only authenticated archive verifier: validates version/edition, schema/row ordering, safe private-file paths, chunk lengths/hashes, signed installation state, mandatory files and authenticated terminal counters; never exports secrets.

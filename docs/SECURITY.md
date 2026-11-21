@@ -1,3 +1,7 @@
+## Read-only licensing staging diagnostic (0.8.10)
+
+No customer license key appears on a command line, HTTP page, program output or CI fixture. Operator-supplied files must be private and outside the checkout. The audit permits only HTTPS Cajun Web Pro API endpoints; redirect/foreign hosts are refused, production host requires explicit secondary opt-in, and only three product/domain validation requests are made. This is a diagnostic, not proof of subscription renewal or financial settlement. Do not run on live customer accounts without owner authorization.
+
 ## 0.8.9 backup vault and scheduled-job controls
 
 Cryptographically verified archives remain sensitive, encrypted containers. A read-only inspector checks authenticated record order, row encoding, media hashes and the signed installation state without printing recovered secrets. Vault shipping uses private staging, postcopy validation and byte identity; only older verified, expected-name archives can be pruned after a new copy is durable. A site maintenance marker causes 503 on public/admin routes and survives hard crashes, but is **not** a database/filesystem transaction or guarantee that earlier requests and Pro workers have stopped. Production use requires independently arranged write quiescence, offsite replication, key escrow, alerting and recovery drills; do not keep keys under `public/`, in Git or in crontab. See `docs/BACKUP_OPERATIONS.md`.

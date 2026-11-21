@@ -1,3 +1,7 @@
+## 0.8.10 staging probe checkpoint
+
+Implemented CLI-only **read-only** CWP staging key product/domain acceptance probe with strict trusted HTTPS and opt-in. The four Adult_Core edition × term SKUs and one installer are unchanged. Actual CWP product rows, issuer-authorized staging keys, Authorize.Net sandbox enrollment/renewal/cancel, external Lite/Pro hosting tests and release safety/compliance remain **open**; the probe does not substitute for merchant acceptance. See `docs/CWP_STAGING_PREFLIGHT.md`.
+
 # 0.8.9 development checkpoint — backup verification, private vault and controlled scheduling
 
 Encrypted archival verification and verified vault rotation are now development features. Operators can schedule the CLI job **only with actual host-side draining, stopped file/DB writers and stopped Pro workers**; the new HTTP maintenance gate alone does not guarantee a consistent cross-file/database snapshot. Retention is count-based in an operator-provided private directory, not remote upload, immutable storage or true PITR. Real cPanel and Pro VPS disaster drills, cloud/remote replication, external monitoring, billing sandbox activation and independent compliance/security review remain open. See `docs/BACKUP_OPERATIONS.md`.
