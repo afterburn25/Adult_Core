@@ -156,6 +156,31 @@ try {
     verifyPackageTest('Module receipt does not expose key', !str_contains((string)file_get_contents($licenseCache),'AAAA-BBBB-CCCC-DDDD'));
     $moduleLicenses = new \AdultCore\Licensing\ModuleLicenseManager($root,$licenseClient);
     $moduleDir = dirname($licenseCache);
+    $modulePending = $moduleDir.'/.pending-paid-chat';
+    $moduleConfigFile = $moduleDir.'/paid-chat.php';
+    file_put_contents($modulePending, "simulated activation interruption\n");
+    verifyPackageTest('Incomplete addon activation disables valid cached module',
+        !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    verifyPackageTest('Incomplete module activation blocks snapshot backups',
+        !(new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
+    $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD');
+    verifyPackageTest('Verified retry clears pending module activation',
+        !file_exists($modulePending) && $paidStore->isRunnable('module','paid-chat','lite',$caps));
+    // Crash after writing a different config, before its matching cache: the
+    // pending marker must prevent an old positive receipt from authorizing it.
+    file_put_contents($moduleConfigFile,'<?php return '.var_export([
+        'key'=>'XXXX-YYYY-ZZZZ-9999','sku'=>$paidSku,'domain'=>'example.test'
+    ],true).';');
+    file_put_contents($modulePending, "simulated half-written activation\n");
+    verifyPackageTest('Half-written module license cannot use old receipt',
+        !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD');
+    verifyPackageTest('Reverified module activation repairs interrupted pair',
+        !file_exists($modulePending)
+        && $paidStore->isRunnable('module','paid-chat','lite',$caps)
+        && (require $moduleConfigFile)['key'] === 'AAAA-BBBB-CCCC-DDDD');
+    verifyPackageTest('Completed module recovery restores backup eligibility',
+        (new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
     $moduleLock = $moduleDir.'/.lock';
     $moduleLockBackup = $moduleLock.'.original';
     if (!rename($moduleLock, $moduleLockBackup) || !@symlink($moduleLockBackup, $moduleLock)) {
