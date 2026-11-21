@@ -477,6 +477,9 @@ def main():
             csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', moderation).group(1)
             code, _ = req('/admin/moderation', {'csrf': csrf, 'action': 'reject', 'content_id': draft_id, 'note': 'Reject for further safety review'})
             ensure('Admin rejection recorded', code == 303)
+            code, blocked = upload_draft(moderation_token.group(1), sample_png())
+            ensure('Rejected content cannot accept additional private image uploads',
+                   code == 422 and 'Only private, unreviewed drafts accept images' in blocked)
             code, moderation = req('/admin/moderation')
             ensure('Rejected content remains blocked', code == 200 and 'rejected / rejected' in moderation)
             # Real authenticated two-factor enrollment, verification, recovery and replay.
