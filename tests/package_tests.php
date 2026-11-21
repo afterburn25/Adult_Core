@@ -173,7 +173,9 @@ try {
         && !str_contains($packageHtml, 'AAAA-BBBB-CCCC-DDDD'));
     verifyPackageTest('Incomplete module activation blocks snapshot backups',
         !(new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
-    $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD');
+    // Match the admin repair action: reenable the already enabled package
+    // with a newly supplied key, without first toggling it off.
+    $paidStore->changeStatus('module','paid-chat',true,'lite',$caps,'AAAA-BBBB-CCCC-DDDD');
     verifyPackageTest('Verified retry clears pending module activation',
         !file_exists($modulePending) && $paidStore->isRunnable('module','paid-chat','lite',$caps));
     // Crash after writing a different config, before its matching cache: the
