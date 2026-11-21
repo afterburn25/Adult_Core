@@ -344,6 +344,22 @@ def main():
                 php_fixture+['draft-media-id',draft_id],cwd=root,text=True).strip()
             ensure('Pending image has a private database ID',
                    re.fullmatch(r'[1-9][0-9]*',pending_media_id) is not None)
+            code, moderation = req('/admin/moderation')
+            ensure('Moderator sees a guarded preview link rather than a public media URL',
+                   code == 200
+                   and f'href="/admin/moderation/image/{pending_media_id}"' in moderation
+                   and f'src="/media/{pending_media_id}"' not in moderation)
+            code, preview_type, preview_cache, private_preview = req_binary(
+                '/admin/moderation/image/' + pending_media_id)
+            ensure('Moderator can privately inspect pending image with no-store headers',
+                   code == 200 and preview_type.startswith('image/png')
+                   and 'no-store' in preview_cache
+                   and private_preview.startswith(b'\x89PNG\r\n\x1a\n'))
+            code, _, _, missing_preview = req_binary('/admin/moderation/image/99999999')
+            ensure('Unknown draft-image preview is unavailable',
+                   code == 404 and not missing_preview.startswith(b'\x89PNG'))
+            code, _ = req('/admin/moderation/image/' + pending_media_id, {'unsafe': 'POST'})
+            ensure('Administrator draft-image preview accepts GET only', code == 405)
             code, _, _, anonymous_pending_media=req_binary('/media/'+pending_media_id)
             ensure('Private pending media cannot be accessed anonymously',
                    code == 403 and not anonymous_pending_media.startswith(b'\x89PNG'))
@@ -474,6 +490,9 @@ def main():
             csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', moderation).group(1)
             code, _ = req('/admin/moderation', {'csrf': csrf, 'action': 'reject', 'content_id': draft_id, 'note': 'Reject for further safety review'})
             ensure('Admin rejection recorded', code == 303)
+            code, _, _, rejected_preview = req_binary('/admin/moderation/image/' + pending_media_id)
+            ensure('Rejecting a draft revokes private administrator preview',
+                   code == 404 and not rejected_preview.startswith(b'\x89PNG'))
             code, blocked = upload_draft(moderation_token.group(1), sample_png())
             ensure('Rejected content cannot accept additional private image uploads',
                    code == 422 and 'Only private, unreviewed drafts accept images' in blocked)
