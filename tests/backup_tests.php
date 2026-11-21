@@ -28,9 +28,28 @@ try {
     $bytes=file_get_contents($path);$rows=explode("\n",trim($bytes));
     file_put_contents($tmp.'/truncated.acfull',implode("\n",array_slice($rows,0,-1))."\n");
     backupReject(static fn()=>StreamArchive::read($tmp.'/truncated.acfull',$key,static fn(array $r)=>null),'Truncated archive denied');
-    $broken=$rows;$broken[2]=substr_replace($broken[2],'0',60,1);
+    // Change an actual encrypted byte deterministically. Replacing one
+    // randomly generated base64 character with '0' was flaky: it could
+    // already be '0', leaving the authenticated archive unchanged.
+    $broken=$rows;
+    $encrypted=json_decode($broken[2],true,8,JSON_THROW_ON_ERROR);
+    $ciphertext=base64_decode($encrypted['ciphertext'],true);
+    if(!is_string($ciphertext)||$ciphertext==='')throw new RuntimeException('Missing ciphertext test fixture.');
+    $ciphertext[0]=chr(ord($ciphertext[0]) ^ 1);
+    $encrypted['ciphertext']=base64_encode($ciphertext);
+    $broken[2]=json_encode($encrypted,JSON_THROW_ON_ERROR);
     file_put_contents($tmp.'/modified.acfull',implode("\n",$broken)."\n");
     backupReject(static fn()=>StreamArchive::read($tmp.'/modified.acfull',$key,static fn(array $r)=>null),'Tampered ciphertext denied');
+    // A deterministic authentication-tag mutation must also be refused.
+    $tagged=$rows;
+    $authentication=json_decode($tagged[2],true,8,JSON_THROW_ON_ERROR);
+    $tag=base64_decode($authentication['tag'],true);
+    if(!is_string($tag)||$tag==='')throw new RuntimeException('Missing tag test fixture.');
+    $tag[0]=chr(ord($tag[0]) ^ 1);
+    $authentication['tag']=base64_encode($tag);
+    $tagged[2]=json_encode($authentication,JSON_THROW_ON_ERROR);
+    file_put_contents($tmp.'/tag-modified.acfull',implode("\n",$tagged)."\n");
+    backupReject(static fn()=>StreamArchive::read($tmp.'/tag-modified.acfull',$key,static fn(array $r)=>null),'Tampered authentication tag denied');
     $replay=$rows;$replay[2]=$replay[1];
     file_put_contents($tmp.'/replay.acfull',implode("\n",$replay)."\n");
     backupReject(static fn()=>StreamArchive::read($tmp.'/replay.acfull',$key,static fn(array $r)=>null),'Replayed/reordered encrypted record denied');
