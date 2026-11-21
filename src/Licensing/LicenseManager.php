@@ -14,7 +14,13 @@ final class LicenseManager
     public const REFRESH_SECONDS = 3600;
     public const TRANSIENT_GRACE_SECONDS = 72 * 3600;
 
+    private ?string $lastAuthorityResponse = null;
+
     public function __construct(private readonly string $root, private readonly ?CajunWebClient $client = null) {}
+
+    /** Last response from this request only; never persisted or shown with a license key. */
+    public function lastAuthorityResponse(): ?string { return $this->lastAuthorityResponse; }
+
 
     private function authority(): CajunWebClient { return $this->client ?? new CajunWebClient(); }
 
@@ -67,9 +73,13 @@ final class LicenseManager
         }
     }
 
-    /** @return 'valid'|'license_required'|'domain_mismatch'|'denied'|'unavailable' */
-    public function status(?string $host = null): string
+    /** @return 'valid'|'license_required'|'domain_mismatch'|'denied'|'unavailable'
+     * Force refresh is reserved for an authenticated, CSRF-protected administrator action.
+     * It still honors domain checks, single-flight locking and signed cache storage.
+     */
+    public function status(?string $host = null, bool $forceRefresh = false): string
     {
+        $this->lastAuthorityResponse = null;
         $record = $this->config();
         if ($record === null) return 'license_required';
         try {
@@ -84,8 +94,8 @@ final class LicenseManager
         $cached = $this->cache($record, $appKey);
         $now = time();
         if ($cached !== null) {
-            if ($cached['verdict'] === 'denied' && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return 'denied';
-            if ($cached['verdict'] === 'valid' && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return 'valid';
+            if (!$forceRefresh && $cached['verdict'] === 'denied' && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return 'denied';
+            if (!$forceRefresh && $cached['verdict'] === 'valid' && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return 'valid';
         }
         // A single in-flight network refresh per installation. No nonblocking
         // request can bypass the grace bound or a recorded explicit denial.
@@ -94,8 +104,9 @@ final class LicenseManager
         try {
             if (!flock($fp, LOCK_EX | LOCK_NB)) return $this->transientVerdict($cached, $now);
             $cached = $this->cache($record, $appKey);
-            if ($cached !== null && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return $cached['verdict'];
+            if (!$forceRefresh && $cached !== null && $cached['checked_at'] + self::REFRESH_SECONDS > $now) return $cached['verdict'];
             $verdict = $this->authority()->validate($record['license_key'], $record['domain'], $record['sku']);
+            $this->lastAuthorityResponse = $verdict;
             if ($verdict === 'valid' || $verdict === 'denied') {
                 $last = $verdict === 'valid' ? $now : ($cached['last_success'] ?? 0);
                 $raw = LicenseState::encode($record['license_key'], $record['domain'], $appKey, $verdict, $now, $last, $record['sku']);

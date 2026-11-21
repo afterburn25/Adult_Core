@@ -59,6 +59,24 @@ try{
     $manager->persistInitial($record,$secret);
     file_put_contents($root.'/storage/install-state.json',InstallationState::encode('lite',$secret));
     $check('Licensed Lite monthly can operate',$manager->status('example.test')==='valid');
+    $calls = 0;
+    $issuer = new CajunWebClient(static function (string $body) use (&$calls): array {
+        $calls++;
+        return ['status'=>200, 'body'=>'{"authorized":false}'];
+    });
+    $forced = new LicenseManager($root,$issuer);
+    $check('Recent signed valid receipt is used without vendor call', $forced->status('example.test') === 'valid' && $calls === 0);
+    $check('Manual check bypasses fresh cache and records revocation', $forced->status('example.test', true) === 'denied' && $calls === 1
+        && $forced->lastAuthorityResponse() === 'denied');
+    $check('Subsequent requests honor signed revocation', $manager->status('example.test') === 'denied');
+    $check('Manual refresh can restore reactivated license', $manager->status('example.test',true)==='valid');
+    $temporarilyUnavailable = new LicenseManager($root,new CajunWebClient(static fn(string $body):array=>[
+        'status'=>503,'body'=>'{"authorized":false}'
+    ]));
+    $check('Manual check distinguishes temporary issuer outage', $temporarilyUnavailable->status('example.test',true)==='valid'
+        && $temporarilyUnavailable->lastAuthorityResponse()==='transient');
+    $check('Temporary failure does not replace positive receipt', $manager->status('example.test')==='valid');
+
     $check('Site remains host locked to domain',$manager->status('other.example')==='domain_mismatch');
     $check('Private config uses resolved edition',$manager->config()['sku']===CajunWebClient::SKU_LITE_MONTH);
     try{(new LicenseManager($root,$made(CajunWebClient::SKU_PRO_MONTH)))->replaceLicense($key,$domain);$ok=false;}catch(RuntimeException){$ok=true;}
