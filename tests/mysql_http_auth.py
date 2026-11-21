@@ -307,6 +307,46 @@ def main():
             draft_match = re.search(r'<tr><td>(\d+)</td><td>Hidden safety demo</td><td>draft / pending', moderation)
             ensure('Moderation draft is private pending', code == 200 and draft_match is not None)
             draft_id = draft_match.group(1)
+            # Admin-only multipart upload can stage a private pending image
+            # but can never bypass performer consent or moderation gates.
+            def upload_draft(csrf_value, data, draft=draft_id):
+                boundary='ACPrivateDraftImageBoundary'
+                fields=[('csrf',csrf_value),('action','upload_draft_image'),('content_id',draft)]
+                parts=[]
+                for field,value in fields:
+                    parts.append((f'--{boundary}\r\nContent-Disposition: form-data; '
+                                  f'name="{field}"\r\n\r\n{value}\r\n').encode())
+                parts.append((f'--{boundary}\r\nContent-Disposition: form-data; '
+                              'name="draft_image"; filename="pending.png"\r\n'
+                              'Content-Type: image/png\r\n\r\n').encode()+data+b'\r\n')
+                parts.append(f'--{boundary}--\r\n'.encode())
+                request=urllib.request.Request(
+                    f'http://127.0.0.1:{port}/admin/moderation',
+                    data=b''.join(parts),
+                    headers={'Content-Type':f'multipart/form-data; boundary={boundary}'})
+                try: response=opener.open(request,timeout=4)
+                except urllib.error.HTTPError as err: response=err
+                with response:
+                    return response.status,response.read().decode('utf-8',errors='replace')
+            code, _ = upload_draft('bad-csrf', sample_png())
+            ensure('Pending media upload requires valid admin CSRF', code == 403)
+            code, _ = upload_draft(moderation_token.group(1), b'<?php echo "unsafe";')
+            ensure('Pending media upload rejects non-image payload bytes', code == 422)
+            code, _ = upload_draft(moderation_token.group(1), sample_png())
+            ensure('Valid draft image is staged privately without approval', code == 303)
+            code, moderation = req('/admin/moderation')
+            ensure('Admin queue shows image pending rather than approved',
+                   code == 200 and 'Pending images' in moderation
+                   and re.search(r'<td>'+re.escape(draft_id)
+                       +r'</td><td>Hidden safety demo</td>.*?<td>1 pending</td>',moderation,
+                       flags=re.DOTALL) is not None)
+            pending_media_id=subprocess.check_output(
+                php_fixture+['draft-media-id',draft_id],cwd=root,text=True).strip()
+            ensure('Pending image has a private database ID',
+                   re.fullmatch(r'[1-9][0-9]*',pending_media_id) is not None)
+            code, _, _, anonymous_pending_media=req_binary('/media/'+pending_media_id)
+            ensure('Private pending media cannot be accessed anonymously',
+                   code == 403 and not anonymous_pending_media.startswith(b'\x89PNG'))
             csrf_roster = re.search(r'name="csrf" value="([a-f0-9]{64})"', moderation)
             ensure('Performer roster form has CSRF', csrf_roster is not None)
             code, _ = req('/admin/moderation', {
@@ -346,6 +386,9 @@ def main():
                    and '<img' not in library)
             code, rejected_post = req('/members/library', {'test': 'unsafe'})
             ensure('Member library forbids mutating HTTP methods', code == 405)
+            code, _, _, pending_image_bytes = req_binary('/media/'+pending_media_id)
+            ensure('Member signup and login never authorize unreviewed uploaded images',
+                   code == 404 and not pending_image_bytes.startswith(b'\x89PNG'))
             code, forbidden_detail = req(f'/members/library/{draft_id}')
             ensure('Pending member does not see draft gallery detail',
                    code == 404 and 'Private test draft' not in forbidden_detail
