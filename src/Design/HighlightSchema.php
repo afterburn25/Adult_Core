@@ -40,12 +40,16 @@ final class HighlightSchema
                 || !is_string($item['body']??null)) {
                 throw new RuntimeException('Invalid homepage card text.');
             }
-            $title=trim($item['title']);
-            $body=trim($item['body']);
-            if ($title==='' || $body==='' || strlen($title)>80 || strlen($body)>240
-                || preg_match('//u',$title)!==1 || preg_match('//u',$body)!==1
-                || preg_match('/[\x00-\x1f\x7f]/',$title)===1
-                || preg_match('/[\x00-\x1f\x7f]/',$body)===1) {
+            // Validate raw bytes before trim: trim removes trailing NULs and
+            // newlines, which must not be smuggled into an accepted value.
+            $rawTitle=$item['title'];
+            $rawBody=$item['body'];
+            $title=trim($rawTitle);
+            $body=trim($rawBody);
+            if ($title==='' || $body==='' || strlen($rawTitle)>80 || strlen($rawBody)>240
+                || preg_match('//u',$rawTitle)!==1 || preg_match('//u',$rawBody)!==1
+                || preg_match('/[\x00-\x1f\x7f]/',$rawTitle)===1
+                || preg_match('/[\x00-\x1f\x7f]/',$rawBody)===1) {
                 throw new RuntimeException('Homepage card text is empty, too long or contains invalid characters.');
             }
             // HTML markup remains inert plain text; the public renderer escapes it.

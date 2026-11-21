@@ -37,6 +37,8 @@ foreach ([
     [['title'=>'Only one','body'=>'Missing two']],
     [['title'=>'','body'=>'Valid'],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
     [['title'=>"Line\nBreak",'body'=>'Valid'],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
+    [['title'=>'Ending'."\0",'body'=>'Valid'],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
+    [['title'=>'Valid','body'=>'Ending'."\0"],['title'=>'A','body'=>'B'],['title'=>'C','body'=>'D']],
 ] as $invalidCards) {
     try {
         HighlightSchema::validate($invalidCards);
