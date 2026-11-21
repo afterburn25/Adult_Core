@@ -115,6 +115,18 @@ file_put_contents($fixtureRoot . '/config/app-key.php', "<?php return '" . $appK
 file_put_contents($fixtureRoot . '/config/database.php', "<?php return ['driver' => 'mysql', 'database' => 'fixture', 'username' => 'fixture'];");
 file_put_contents($stateFile, InstallationState::encode('lite', $appKey, '2026-11-20T00:00:00Z'));
 assertCheck('Signed completion state accepted', $gate->status() === InstallationGate::CLEANUP_REQUIRED);
+if (function_exists('symlink')) {
+    $secretPath = $fixtureRoot . '/config/app-key.php';
+    $symlinkTarget = $fixtureRoot . '/storage/secret-original.php';
+    rename($secretPath, $symlinkTarget);
+    if (@symlink($symlinkTarget, $secretPath)) {
+        assertCheck('Symlinked application secret cannot establish ready state',
+            $gate->status() === InstallationGate::INVALID_STATE);
+        unlink($secretPath);
+    }
+    rename($symlinkTarget, $secretPath);
+}
+
 unlink($fixtureRoot . '/config/database.php');
 assertCheck('Missing DB config invalidates signed marker', $gate->status() === InstallationGate::INVALID_STATE);
 file_put_contents($fixtureRoot . '/config/database.php', "<?php return ['driver' => 'mysql', 'database' => 'fixture', 'username' => 'fixture'];");
@@ -137,15 +149,27 @@ try {
     assertCheck('Site access guard allows completed clean installs', false);
 }
 unlink($stateFile);
-assertCheck('Deleting installer too early does not bypass setup', $gate->status() === InstallationGate::INSTALLER_MISSING);
+assertCheck('Missing marker with existing private config is invalid, not fresh setup',
+    $gate->status() === InstallationGate::INVALID_STATE);
 try {
     $gate->assertSiteAccessible();
-    assertCheck('Installer removal alone never unlocks site', false);
+    assertCheck('Private files without marker never unlock the site', false);
 } catch (RuntimeException) {
-    assertCheck('Installer removal alone never unlocks site', true);
+    assertCheck('Private files without marker never unlock the site', true);
 }
 unlink($fixtureRoot . '/config/app-key.php');
 unlink($fixtureRoot . '/config/database.php');
+assertCheck('Missing installer and no private state stays locked',
+    $gate->status() === InstallationGate::INSTALLER_MISSING);
+// Even a remnant license file blocks the clean setup path after a failed install.
+file_put_contents($fixtureRoot . '/config/license.php', '<?php return [];');
+assertCheck('Orphaned private license without marker means invalid state',
+    $gate->status() === InstallationGate::INVALID_STATE);
+unlink($fixtureRoot . '/config/license.php');
+file_put_contents($fixtureRoot . '/storage/license-cache.json', '{}');
+assertCheck('Orphaned license cache without marker means invalid state',
+    $gate->status() === InstallationGate::INVALID_STATE);
+unlink($fixtureRoot . '/storage/license-cache.json');
 rmdir($fixtureRoot . '/config');
 rmdir($fixtureRoot . '/storage');
 rmdir($fixtureRoot);
