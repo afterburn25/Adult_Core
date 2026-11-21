@@ -172,7 +172,7 @@ final class MemberController
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
                     . (MemberProfileSchema::installed($pdo)
-                        ? '<p>Private display name: <strong>'.self::e($profileText['display_name']??'Not set')
+                        ? '<p>Private display name: <strong>'.self::e(($profileText['display_name']??'')!=='' ? $profileText['display_name'] : 'Not set')
                             .'</strong>. <a href="/members/profile">Edit your private profile</a></p>'
                         : '<p>Private member profiles require local site setup.</p>')
                     . '<p><a href="/members/password">Change your password</a></p>'
@@ -328,7 +328,14 @@ final class MemberController
                 ? (int)$rawRevision : -1;
             try {
                 if ($revision<0) throw new RuntimeException('Invalid member profile revision.');
-                $repo->save((int)$member['id'],$revision,$_POST['display_name']??null);
+                $action=$_POST['action']??'save';
+                if ($action==='save') {
+                    $repo->save((int)$member['id'],$revision,$_POST['display_name']??null);
+                } elseif ($action==='clear') {
+                    $repo->clear((int)$member['id'],$revision);
+                } else {
+                    throw new RuntimeException('Invalid private profile action.');
+                }
                 MemberSession::markProfileSaved();
                 $this->redirect('/members/profile');
                 return;
@@ -338,6 +345,8 @@ final class MemberController
                     'Member profile changed; reload before saving.',
                     'Display name is unchanged.',
                     'Use a single-line display name of 2–100 UTF-8 bytes.',
+                    'Invalid private profile action.',
+                    'Private display name is already empty.',
                 ];
                 $error=in_array($e->getMessage(),$allowed,true)
                     ? $e->getMessage():'Private member profile change unavailable.';
@@ -361,7 +370,18 @@ final class MemberController
             .'<input id="private-display-name" name="display_name" maxlength="100" required '
             .'value="'.self::e($saved['display_name']??'').'">'
             .'<button class="install-button" type="submit">Save private display name</button>'
-            .'</form></section><p><a href="/members">Back to your account</a></p>';
+            .'</form>';
+        if ($saved!==null && $saved['display_name']!=='') {
+            $html.='<form method="post" action="/members/profile" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                .'<input type="hidden" name="action" value="clear">'
+                .'<input type="hidden" name="revision" value="'.(int)$saved['revision'].'">'
+                .'<p>Remove this optional name from your account. '
+                .'The revision stays protected against stale edits.</p>'
+                .'<button class="button-secondary" type="submit">Clear private display name</button>'
+                .'</form>';
+        }
+        $html.='</section><p><a href="/members">Back to your account</a></p>';
         $this->view($error!==''?422:200,'Private member profile',$html);
     }
 

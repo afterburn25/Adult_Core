@@ -1,3 +1,9 @@
+## Member-controlled private display name clearing — 2026-11-21
+
+The m22 member profile page now includes an explicit CSRF-protected **Clear private display name** form only when a name exists, plus an allowlisted `action=save|clear` handler. Clear calls the transactional `MemberProfiles::clear()` and increments revision rather than deleting the row; a stale saved form cannot silently recreate the old name, and the account shows *Not set* while the membership remains pending/active as previously recorded. The member can choose a different nickname later. Browser regression tests cover forbidden `publish`, stale clear, successful clear, UI status, stale-save denial and re-entry. No public nickname, creator verification, payments, protected media, or legal/age/consent record is changed.
+
+---
+
 ## Reversible private-name clearing without stale-tab replay — 2026-11-21
 
 The m22 private member profile backend now supports an explicit `clear(memberId,expectedRevision)` transition. It locks the currently active local member and nickname row, refuses absent/stale/unchanged/staff/suspended targets, and writes an **empty private name with incremented revision**, rather than deleting the row and resetting the optimistic version to zero. The member may later choose a new name using the preserved revision; an old browser tab cannot recreate private text after clearing without reloading. No actual legal identity/evidence is deleted, no public profile exists, and merchant/content permissions are unchanged. SQL regressions exercise stale clearing, staff denial and safe re-entry.

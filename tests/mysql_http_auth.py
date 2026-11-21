@@ -1936,6 +1936,35 @@ def main():
                    code==200 and 'Private &lt;Pixie&gt; &amp; Co' in member_profile_account
                    and 'Private <Pixie> & Co' not in member_profile_account
                    and 'Account status: <strong>pending</strong>' in member_profile_account)
+            code, deny_clear=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'action':'clear','revision':'0'})
+            ensure('Old open browser tab cannot clear a newer private nickname',
+                   code==422)
+            code, bad_action=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'action':'publish','revision':'1'})
+            ensure('Private nickname form has no publishing action',
+                   code==422 and 'Invalid private profile action' in bad_action)
+            code, _=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'action':'clear','revision':'1'})
+            ensure('Member can clear their own optional private display name',
+                   code==303)
+            code, cleared_name=independent_member_req('/members/profile')
+            ensure('Cleared private name keeps revision to reject older tabs',
+                   code==200 and 'name="revision" value="2"' in cleared_name
+                   and 'Private &lt;Pixie&gt; &amp; Co' not in cleared_name
+                   and 'value="clear"' not in cleared_name)
+            code, cleared_account=independent_member_req('/members')
+            ensure('Private nickname removal displays Not set without changing account status',
+                   code==200 and 'Private display name: <strong>Not set</strong>' in cleared_account
+                   and 'Account status: <strong>pending</strong>' in cleared_account)
+            code, _=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'revision':'1',
+                'display_name':'Stale name after clear'})
+            ensure('Stale save cannot recreate a cleared nickname',code==422)
+            code, _=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'revision':'2',
+                'display_name':'New local private nickname'})
+            ensure('Member may add a different private name after clearing',code==303)
             code, absent_private_public=req('/p/private-pixie')
             ensure('Private member nickname never creates a public page',code==404)
 
