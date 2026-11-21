@@ -83,7 +83,7 @@ if ($action === 'stage-gallery') {
         VALUES (?,'disposable-performer-record',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     $key=bin2hex(random_bytes(20));
-    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO6fQy0AAAAASUVORK5CYII=',true);
+    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4p2gOAAMXATf6OqxSAAAAAElFTkSuQmCC',true);
     if (!is_string($png) || strlen($png)<10) throw new RuntimeException('Invalid disposable PNG.');
     $mediaDirectory=dirname(__DIR__).'/storage/private-media';
     if (!is_dir($mediaDirectory) && !mkdir($mediaDirectory,0700,true)) {

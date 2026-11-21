@@ -48,6 +48,27 @@ final class PrivateMedia
         return ['path'=>$filename,'bytes'=>$bytes];
     }
 
+    /**
+     * Recheck already-stored media before any moderator/member HTTP response.
+     * Legacy approved database records may predate the metadata upload guard.
+     * This cannot replace independent content verification or AV scanning.
+     */
+    public static function safeToServe(string $path, string $mime, int $expectedBytes): bool
+    {
+        if (!self::validMime($mime) || !is_file($path) || is_link($path)
+            || $expectedBytes < 1 || $expectedBytes > 8 * 1024 * 1024) return false;
+        clearstatcache(true, $path);
+        if (@filesize($path) !== $expectedBytes) return false;
+        $actual = (new \finfo(FILEINFO_MIME_TYPE))->file($path);
+        if ($actual !== $mime) return false;
+        try {
+            ImageMetadataPolicy::assertAllowed($path, $mime);
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
+    }
+
     /** @return string 40-character opaque storage key */
     public function storeVerifiedImage(string $temporaryPath, bool $verifiedUploadedFile): string
     {

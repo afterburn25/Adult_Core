@@ -41,12 +41,22 @@ if (!is_string($png) || !is_string($webp) || !is_string($jpeg)) {
 }
 try {
     $accept($png, 'image/png');
+    $check(PrivateMedia::safeToServe($path, 'image/png', strlen($png)),
+        'Clean legacy private gallery image can be delivered');
+    $check(!PrivateMedia::safeToServe($path, 'image/jpeg', strlen($png)),
+        'Legacy private image refuses MIME mismatch');
+    $check(!PrivateMedia::safeToServe($path, 'image/png', strlen($png)+1),
+        'Legacy private image refuses altered length');
     $accept($webp, 'image/webp');
     $accept($jpeg, 'image/jpeg');
     // PNG ancillary metadata is denied before private storage, not silently
     // kept in the uploaded binary. Also deny unknown chunks.
-    $reject(substr($png, 0, 33) . $chunk('tEXt', 'GPSComment=private')
-        . substr($png, 33), 'image/png', 'PNG text metadata denied');
+    $metadataPng = substr($png, 0, 33) . $chunk('tEXt', 'GPSComment=private')
+        . substr($png, 33);
+    $reject($metadataPng, 'image/png', 'PNG text metadata denied');
+    file_put_contents($path, $metadataPng);
+    $check(!PrivateMedia::safeToServe($path, 'image/png', strlen($metadataPng)),
+        'Legacy protected media containing metadata is refused on delivery');
     $reject(substr($png, 0, 33) . $chunk('eXIf', 'GPS')
         . substr($png, 33), 'image/png', 'PNG EXIF denied');
     $reject(substr($png, 0, 33) . $chunk('iTXt', 'creator')

@@ -53,7 +53,9 @@ final class ModerationController
                 http_response_code(404); return;
             }
             $file=(new PrivateMedia($this->root))->locate((string)$asset['private_storage_key']);
-            if ($file===null) { http_response_code(404); return; }
+            if ($file===null || !PrivateMedia::safeToServe($file['path'], (string)$asset['mime_type'], $file['bytes'])) {
+                http_response_code(404); return;
+            }
             header('Content-Type: '.$asset['mime_type']);
             header('Content-Length: '.$file['bytes']);
             header('Content-Disposition: inline; filename="private-review-image"');

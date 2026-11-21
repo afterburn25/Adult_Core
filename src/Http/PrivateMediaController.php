@@ -48,7 +48,9 @@ final class PrivateMediaController
                 http_response_code(404);return;
             }
             $file=(new PrivateMedia($this->root))->locate((string)$media['private_storage_key']);
-            if ($file===null) {http_response_code(404);return;}
+            if ($file===null || !PrivateMedia::safeToServe($file['path'], (string)$media['mime_type'], $file['bytes'])) {
+                http_response_code(404); return;
+            }
             // Response headers are fixed allowlisted MIME; never use untrusted filenames.
             header('Content-Type: '.$media['mime_type']);
             header('Content-Length: '.$file['bytes']);
