@@ -24,18 +24,18 @@ $fields = [
     'license_key' => 'ABCD-EF12-3456-7890',
     'license_domain' => $mode === 'match' ? '127.0.0.1' : 'wrong.example.test',
 ];
-$issuer = new \\AdultCore\\Licensing\\CajunWebClient(static function (string $body) use ($root): array {
+$issuer = new \AdultCore\Licensing\CajunWebClient(static function (string $body) use ($root): array {
     file_put_contents($root . '/storage/issuer-called', '1');
     return ['status' => 200, 'body' => '{"authorized":false}'];
 });
 try {
-    (new \\AdultCore\\Installer\\InstallService($root, $issuer))->install($fields);
+    (new \AdultCore\Installer\InstallService($root, $issuer))->install($fields);
     http_response_code(500);
     echo 'UNEXPECTED_INSTALL';
-} catch (\\InvalidArgumentException $error) {
+} catch (\InvalidArgumentException $error) {
     http_response_code(422);
     echo 'HOST_REJECTED';
-} catch (\\RuntimeException $error) {
+} catch (\RuntimeException $error) {
     http_response_code(409);
     echo str_contains($error->getMessage(), 'License not authorized')
         ? 'ISSUER_DENIED' : 'UNEXPECTED_ERROR';
