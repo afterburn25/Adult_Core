@@ -51,6 +51,15 @@ final class InstallService
             // origin, so only actual web requests must supply a matching Host.
             // This check precedes any vendor requests or MySQL writes.
             if (PHP_SAPI !== 'cli') {
+                // Do not trust a controller to enforce HTTPS for direct web
+                // callers. Local loopback remains available for isolated CI.
+                $remote = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+                $localhost = in_array($remote, ['127.0.0.1', '::1'], true);
+                $https = isset($_SERVER['HTTPS'])
+                    && in_array(strtolower((string) $_SERVER['HTTPS']), ['on', '1'], true);
+                if (!$https && !$localhost) {
+                    throw new \InvalidArgumentException('HTTPS is required to submit installation credentials.');
+                }
                 InstallInput::assertRequestHost(
                     (string) ($fields['license_domain'] ?? ''),
                     (string) ($_SERVER['HTTP_HOST'] ?? '')
