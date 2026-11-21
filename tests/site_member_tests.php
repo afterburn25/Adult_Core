@@ -65,6 +65,27 @@ foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }
 }
 MemberAccounts::validate('user@example.com','a-long-strong-password');claim(true,'Valid member details');
+$emailHealthRoot=sys_get_temp_dir().'/adult-core-email-check-'.bin2hex(random_bytes(8));
+if (!mkdir($emailHealthRoot,0700) || !mkdir($emailHealthRoot.'/config',0700)) {
+    throw new RuntimeException('Disposable email health fixture failed.');
+}
+try {
+    claim(!\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot),
+        'Absent local email transport does not count as configured');
+    file_put_contents($emailHealthRoot.'/config/email.php',
+        "<?php return ['enabled'=>true,'from'=>'sender@example.test','base_url'=>'https://example.test'];");
+    claim(\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot),
+        'Valid local PHP mail config is recognized without sending an email');
+    file_put_contents($emailHealthRoot.'/config/email.php',
+        "<?php return ['enabled'=>true,'from'=>'invalid-sender','base_url'=>'http://example.test'];");
+    claim(!\AdultCore\Support\SiteHealth::memberEmailConfigured($emailHealthRoot),
+        'Invalid sender or HTTP-only origin must fail health safely');
+} finally {
+    @unlink($emailHealthRoot.'/config/email.php');
+    @rmdir($emailHealthRoot.'/config');
+    @rmdir($emailHealthRoot);
+}
+
 $publicRouter=(string)file_get_contents(dirname(__DIR__).'/public/index.php');
 claim(str_contains($publicRouter,"'/members/password'")
     && str_contains($publicRouter,"'/members/sessions'")

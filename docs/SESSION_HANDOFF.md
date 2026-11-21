@@ -1,3 +1,9 @@
+## Disposable PHP mail configuration unit checks — 2026-11-21
+
+`tests/site_member_tests.php` now creates a unique, disposable config directory to exercise the new local health flag: no `email.php` reports false, an enabled PHP mail config with valid sender and HTTPS origin reports true, and invalid sender/insecure origin report false without sending any email or leaking the values. The fixture cleans up its temporary file and directory and never touches installed customer configuration or production deliverability. The actual hosted mail path remains an external acceptance item.
+
+---
+
 ## Local email transport configuration in private health checks — 2026-11-21
 
 Admin → Site health and redacted owner JSON now include a boolean `Member email delivery configuration` result. The check validates the existing private optional PHP mail configuration's enabled sender and fixed HTTPS origin, but never sends a message, contacts a provider, or reveals the sender, URL, private files or customer details. Missing, disabled or invalid configuration returns `Needs attention`. Passing a config check does **not** prove mail delivery or adult-member verification. Real authenticated HTTP tests confirm the default disposable test site reports unconfigured without exposing secrets. Live cPanel/VPS delivery must still be tested by an operator.
