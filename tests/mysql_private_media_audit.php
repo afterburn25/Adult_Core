@@ -109,6 +109,19 @@ try {
     $check(is_file($path($first)),'Metadata audit never deletes a retained image');
     file_put_contents($path($first),$png);
     $check($audit->inspect(true)['ok'],'Restored clean images pass metadata mode');
+    // At most 100 registered files and 64 MiB may be inspected in a single
+    // opt-in operator pass. More data must be reported as incomplete, not OK.
+    for ($i=0;$i<101;$i++) {
+        $id=substr(hash('sha256','audit-extra-fixture-'.$i),0,40);
+        $insert->execute([$id]);
+        file_put_contents($path($id),$png);
+    }
+    $limited=$audit->inspect(true);
+    $check(!$limited['ok'] && $limited['metadata_truncated']
+        && $limited['metadata_checked']===100 && $limited['metadata_rejected']===0,
+        'Incomplete bounded scan remains fail-closed');
+    $check(!str_contains(json_encode($limited,JSON_THROW_ON_ERROR),$first),
+        'Bounded audit exposes only aggregate counts');
     echo "Passed {$ok} disposable MySQL private media integrity audit checks.\n";
 } finally {
     $pdo->exec('DROP TABLE IF EXISTS ac_media');
