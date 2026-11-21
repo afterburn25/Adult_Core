@@ -2017,8 +2017,12 @@ def main():
             ensure('Old member cookie cannot revive after password rotation',code==303)
             code, new_login=independent_member_req('/members/login')
             new_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',new_login)
-            ensure('New member sign-in token available after password rotation',
-                   code==200 and new_login_csrf is not None)
+            ensure('Member sees one-time signed-in session password change confirmation',
+                   code==200 and new_login_csrf is not None
+                   and 'Your member password was updated.' in new_login)
+            code, repeat_login=independent_member_req('/members/login?changed=1')
+            ensure('Forged success URL cannot replay one-time password change confirmation',
+                   code==200 and 'Your member password was updated.' not in repeat_login)
             code, old_password_denied=independent_member_req('/members/login',{
                 'csrf':new_login_csrf.group(1),
                 'email':'bulk-member-50@example.test',

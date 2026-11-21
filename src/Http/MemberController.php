@@ -197,7 +197,8 @@ final class MemberController
                     $_POST['current_password']??null,$_POST['new_password']??null,
                     $_POST['confirm_password']??null);
                 MemberSession::revoke();
-                $this->redirect('/members/login?changed=1');
+                MemberSession::markPasswordChanged();
+                $this->redirect('/members/login');
                 return;
             } catch (RuntimeException $e) {
                 $allowed=[
@@ -647,7 +648,12 @@ final class MemberController
             http_response_code(400);
         }
         $title=$register?'Create a member account':'Member sign in';
-        $html=($error ? '<div class="alert-error" role="alert">'.self::e($error).'</div>':'')
+        // Only the SERVER session can set this one-use notice after a
+        // successful committed rotation. A query parameter cannot forge it.
+        $changedNotice=(!$register && $method==='GET' && MemberSession::takePasswordChanged());
+        $html=($changedNotice
+            ? '<p role="status">Your member password was updated. Sign in with the new password.</p>':'')
+            . ($error ? '<div class="alert-error" role="alert">'.self::e($error).'</div>':'')
             . '<p class="intro">' . ($register
                 ? 'Registration is for adults only. This development version creates a pending account; it does not provide age verification or paid content access.'
                 : 'Sign in to view your account status. Private content is not enabled.') . '</p>'

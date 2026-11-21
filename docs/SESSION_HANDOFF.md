@@ -1,3 +1,9 @@
+## One-time server-authoritative member password rotation notice — 2026-11-21
+
+After successfully committing an own-password rotation and revoking the current member session, the member receives a server-session-backed, one-use success message on the next sign-in form. No user-controlled `?changed=1` query flag can claim a successful change. The message is consumed immediately, does not contain passwords or tokens, and does not change pending/age/payment/media entitlement state. Unit checks validate one-time session semantics; disposable real HTTP verifies the success message appears once and cannot be spoofed by a query parameter. All account and administrator replies remain no-store/noindex.
+
+---
+
 ## Exact UI assertion for health JSON export link — 2026-11-21
 
 The new local JSON export's UI source regression now matches the actual HTML label (`Export redacted diagnostics`) rather than an inconsistent capitalization. The export itself remains owner-only, GET-only, noncacheable and noncertifying; MySQL/MariaDB CI rerun required.

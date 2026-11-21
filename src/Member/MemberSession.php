@@ -68,6 +68,19 @@ final class MemberSession
         $_SESSION['member_csrf'] = bin2hex(random_bytes(32));
     }
 
+    /** Single-use success notice, set only after committed own-password edit. */
+    public static function markPasswordChanged(): void
+    {
+        $_SESSION['password_changed_notice']=true;
+    }
+
+    public static function takePasswordChanged(): bool
+    {
+        $wasChanged=($_SESSION['password_changed_notice']??false)===true;
+        unset($_SESSION['password_changed_notice']);
+        return $wasChanged;
+    }
+
     public static function logout(): void
     {
         $_SESSION=[];
