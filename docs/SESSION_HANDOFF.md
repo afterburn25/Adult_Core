@@ -1,3 +1,13 @@
+## Paid add-on core-entitlement and private-storage security — 2026-11-21
+
+- `src/Licensing/ModuleLicenseManager.php` now checks that a paid add-on has a **ready signed core installation** and a currently authorized core license, in addition to its own distinct module SKU license. A revoked core, interrupted core license update, incomplete install, interrupted edition upgrade, backup restore, or backup maintenance blocks paid module activation/runtime—even when the module's own signed cache is freshly positive. Local validated core cache and established bounded outage grace are respected, not bypassed.
+- The module manager rejects symlinked storage parents, private module-license directories, `.lock` and output files. It checks known-unsafe targets **before sending a module key** to the CWP issuer, preflights config/cache together under lock, then rechecks the storage ancestry before writing.
+- `tests/package_tests.php` now builds a signed local core fixture and checks core denial, pending operations, loss of signed marker, file/directory/lock symlinks, refusal before a module issuer request, and preservation of the opposite private file on a rejected update.
+- The complete PHP/HTTP/disposable MySQL workflow passed [run 44881459776](https://github.com/afterburn25/Adult_Core/actions/runs/44881459776) on commit `7d4207d03` for the initial core/issuer checks. Later maintenance-state, storage preflight and ancestry-recheck commits require their **own green CI verification**; latest at this checkpoint is `2c44e26ea` ([GitHub Actions](https://github.com/afterburn25/Adult_Core/actions/runs/44881683563)), which was queued at handoff authoring.
+- Do **not** claim real paid-module purchase, CWP merchant sandbox testing, production-safe activation or supported live cPanel/VPS hosting. Actual owner-controlled four-SKU catalog, staging licenses, recurring payment acceptance and real hosting checks are still open in `afterburn25/Cajun_Web#399`.
+
+---
+
 ## Edition upgrade / license replacement concurrency hardening — 2026-11-21
 
 - **Shared private file locks:** `EditionUpgrade::locked()` now acquires `.edition-upgrade.lock`, then `.license-update.lock`, then `.license-refresh.lock` (nonblocking). The same-edition `LicenseManager::replaceLicense()` and `LicenseUpdateRecovery::rollback()` already hold the last two in that order. This serializes migration/recovery, license replacement and signed-cache refresh writes, and refuses conflicting operations instead of racing private license files.
