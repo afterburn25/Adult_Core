@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -42,6 +42,22 @@ if ($action === 'issue-recovery') {
     $issued = (new PasswordRecovery($pdo))->issueForEmail('member@test.example');
     if (!is_array($issued)) throw new RuntimeException('Disposable member must be confirmed before recovery.');
     echo $issued['token'];
+    exit;
+}
+if ($action === 'draft-media-id') {
+    // Read-only test fixture probe. Returns a numeric media ID, never a key.
+    $draft=$argv[2]??null;
+    if (!is_string($draft) || preg_match('/^[1-9][0-9]{0,17}$/D',$draft)!==1) {
+        throw new RuntimeException('Invalid disposable draft identifier.');
+    }
+    $q=$pdo->prepare("SELECT m.id FROM ac_media m JOIN ac_content c ON c.id=m.content_id
+        WHERE c.id=? AND c.title='Hidden safety demo' AND c.status='draft'
+          AND c.visibility='private' AND m.review_status='pending'
+        ORDER BY m.id DESC LIMIT 1");
+    $q->execute([(int)$draft]);
+    $mediaId=$q->fetchColumn();
+    if ($mediaId===false) throw new RuntimeException('Disposable pending draft image missing.');
+    echo (int)$mediaId;
     exit;
 }
 if ($action === 'stage-gallery') {
