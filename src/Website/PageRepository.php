@@ -38,6 +38,30 @@ final class PageRepository
         return $this->pdo->query('SELECT id, slug, title, status, show_in_menu, nav_position, updated_at FROM ac_pages ORDER BY updated_at DESC, id DESC LIMIT 100')->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Stable, bounded owner-only list (50/page). Page IDs are not authority;
+     * each HTTP request still passes the site administrator role gate.
+     * No drafts or archived records are ever exposed through PublicSite.
+     *
+     * @return array{pages:list<array<string,mixed>>,next:?int}
+     */
+    public function pageList(?int $before=null): array
+    {
+        if ($before!==null && $before<1) {
+            throw new RuntimeException('Invalid page list cursor.');
+        }
+        $sql='SELECT id,slug,title,status,show_in_menu,nav_position,updated_at
+            FROM ac_pages';
+        if ($before!==null) $sql.=' WHERE id<?';
+        $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 51');
+        $q->execute($before===null?[]:[$before]);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        $next=$more && $rows!==[] ? (int)end($rows)['id'] : null;
+        return ['pages'=>$rows,'next'=>$next];
+    }
+
     /** @return array<string,mixed>|null */
     public function byId(int $id): ?array
     {

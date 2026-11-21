@@ -1,3 +1,7 @@
+## Page dashboard navigation (development)
+
+Local owners with over 50 saved pages can browse all their drafts and published pages through bounded, numeric keyset pagination under **Admin → Pages**, rather than losing older records from the page editor list. No public authorization, billing or content verification rules change.
+
 ## Local public-page navigation (m17, development)
 
 The authenticated Pages editor can hide a published page's menu link or assign a menu order (0–999); saved pages are still safely escaped and a hidden link **does not protect the direct public URL**. Draft status is required to unpublish. Apply the additive **Admin → Setup** migration after backup. Site owners on Lite/Pro manage their own navigation; this is not SaaS, adult media publication or release certification.

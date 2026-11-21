@@ -425,6 +425,29 @@ try {
     if (!in_array('about',array_column($repo->publishedMenu(),'slug'),true)) {
         throw new RuntimeException('Reenabled published page missing from menu.');
     }
+    // A local owner with more than 50 pages must be able to reach every
+    // saved draft from the authenticated list; forged cursors fail closed.
+    for ($n=0;$n<51;$n++) {
+        $repo->save(0,sprintf('page-%02d',$n),'Saved test page '.$n,
+            'Only safe private draft text','draft');
+    }
+    $first=$repo->pageList();
+    if (count($first['pages'])!==50 || $first['next']===null) {
+        throw new RuntimeException('Page list omitted next-page navigation.');
+    }
+    $second=$repo->pageList($first['next']);
+    $ids=array_merge(array_column($first['pages'],'id'),array_column($second['pages'],'id'));
+    if (count($second['pages'])!==3 || $second['next']!==null
+        || count(array_unique($ids))!==53
+        || !in_array($aboutId,array_map('intval',$ids),true)) {
+        throw new RuntimeException('Private page listing skipped or duplicated draft records.');
+    }
+    try {
+        $repo->pageList(0);
+        throw new RuntimeException('Invalid page cursor accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Invalid page cursor accepted.') throw $e;
+    }
     MembershipSchema::migrate($pdo);
     MembershipSchema::migrate($pdo);
     $pdo->prepare("UPDATE ac_users SET status='suspended' WHERE id=?")->execute([$valid['id']]);

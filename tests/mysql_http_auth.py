@@ -436,6 +436,9 @@ def main():
             ensure('Admin tier catalog does not allow billing-affecting deactivation',code == 422)
             code, pages = req('/admin/pages')
             ensure('Pages admin lists draft homepage', code == 200 and 'Welcome' in pages)
+            code, bad_pages=req('/admin/pages?before=not-an-id')
+            ensure('Forged page list cursor fails without opening protected drafts',
+                   code==422 and 'Invalid page list cursor' in bad_pages)
             code, editor = req('/admin/page')
             edit_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', editor)
             ensure('Page editor requires auth and token', code == 200 and edit_csrf is not None)

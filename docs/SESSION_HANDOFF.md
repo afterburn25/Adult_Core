@@ -1,3 +1,11 @@
+## Bounded page-management pagination — development (2026-11-21)
+
+The site owner/admin public-page dashboard now uses 50-row ID keyset pages instead of silently hiding pages beyond a fixed 100-row list. The older-pages link is numeric and bound as a SQL parameter; invalid cursors receive HTTP 422 and never expose public or private content. A return-to-newest link keeps navigation simple. The underlying public website still serves only explicitly published, escaped plain-text pages; hiding a menu link does not unpublish a page. Existing shared-host Lite and VPS Pro software distribution and license selection are unchanged.
+
+Disposable MySQL/MariaDB assertions create 51 additional saved drafts plus the homepage and an existing page, visit both slices and verify no duplicates or omissions. Real HTTP tests deny a malformed cursor. Page-list paging is local administration only, not an adult upload, verification, billing or production-readiness milestone.
+
+---
+
 ## Owner-controlled public page navigation — m17 development (2026-11-21)
 
 A repeatable, additive m17 migration adds local per-page menu visibility and a bounded 0–999 sort position. The authenticated Pages editor can hide an individual *published* page's navigation link or order visible links without changing its URL, text, membership access or publication state. Unlisted published pages remain accessible by direct URL—**menu hiding is not privacy**; setting a page to Draft is the way to unpublish it. The Home link remains fixed. Existing pages default to visible, sorted as before when assigned the default order, and sites not yet migrated retain their old published menu until local Site setup runs.
