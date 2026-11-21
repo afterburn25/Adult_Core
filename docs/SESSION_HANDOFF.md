@@ -1,3 +1,9 @@
+## Exact UI assertion for health JSON export link — 2026-11-21
+
+The new local JSON export's UI source regression now matches the actual HTML label (`Export redacted diagnostics`) rather than an inconsistent capitalization. The export itself remains owner-only, GET-only, noncacheable and noncertifying; MySQL/MariaDB CI rerun required.
+
+---
+
 ## Redacted, owner-only local health report export — 2026-11-21
 
 The existing authenticated GET-only `/admin/health` now supports an optional `?format=json` attachment download. The versioned `adult-core-local-health-v1` JSON includes only fixed non-sensitive local check labels, outcomes and requirements plus `production_ready:false` and an explicit no-certification message. It never serializes vendor license keys, registered domains, database paths/credentials, member emails, password hashes or performer evidence. The same owner/admin session, edition and role gates apply; unknown formats return 422, and JSON responses retain no-store/noindex/nosniff. HTML offers an export link, and real authenticated HTTP/source tests assert redaction and fail-closed formatting. This is diagnostic assistance for individually installed sites, not an external audit or proof of production readiness.
