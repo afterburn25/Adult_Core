@@ -107,6 +107,10 @@ try {
 }
 
 $stateFile = $fixtureRoot . '/storage/install-state.json';
+mkdir($stateFile);
+assertCheck('Unexpected directory at marker path is invalid, never fresh setup',
+    $gate->status() === InstallationGate::INVALID_STATE);
+rmdir($stateFile);
 file_put_contents($stateFile, '{broken json');
 assertCheck('Invalid completion state fails closed', $gate->status() === InstallationGate::INVALID_STATE);
 $appKey = bin2hex(random_bytes(32));
