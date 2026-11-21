@@ -50,11 +50,14 @@ final class PageRepository
         if ($before!==null && $before<1) {
             throw new RuntimeException('Invalid page list cursor.');
         }
-        $term=$search===null?'':trim($search);
-        if (strlen($term)>80 || preg_match('//u',$term)!==1
-            || preg_match('/[\x00-\x1f\x7f]/',$term)===1) {
+        // Validate BEFORE trim; PHP trim removes a leading/trailing NUL
+        // and would accidentally accept an invalid input as empty search.
+        $raw=$search??'';
+        if (strlen($raw)>80 || preg_match('//u',$raw)!==1
+            || preg_match('/[\x00-\x1f\x7f]/',$raw)===1) {
             throw new RuntimeException('Invalid page search term.');
         }
+        $term=trim($raw);
         $sql='SELECT id,slug,title,status,show_in_menu,nav_position,updated_at
             FROM ac_pages';
         $conditions=[];

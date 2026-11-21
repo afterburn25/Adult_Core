@@ -445,11 +445,13 @@ try {
     if ($repo->pageList(null,'%_')['pages']!==[]) {
         throw new RuntimeException('Search wildcard metacharacters were expanded.');
     }
-    try {
-        $repo->pageList(null,str_repeat('x',81));
-        throw new RuntimeException('Overlong private page search accepted.');
-    } catch (RuntimeException $e) {
-        if ($e->getMessage()==='Overlong private page search accepted.') throw $e;
+    foreach ([str_repeat('x',81),"\0",'word'."\0"] as $unsafeSearch) {
+        try {
+            $repo->pageList(null,$unsafeSearch);
+            throw new RuntimeException('Invalid or control-bearing page search accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Invalid or control-bearing page search accepted.') throw $e;
+        }
     }
     $first=$repo->pageList();
     if (count($first['pages'])!==50 || $first['next']===null) {
