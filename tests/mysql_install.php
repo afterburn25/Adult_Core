@@ -14,6 +14,8 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Database\Schema;
 use AdultCore\Database\Connection;
 use AdultCore\Auth\AdminAccounts;
+use AdultCore\Auth\StaffSchema;
+use AdultCore\Auth\StaffRepository;
 use AdultCore\Installer\InstallService;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Website\SiteSchema;
@@ -260,6 +262,58 @@ try {
     if ($design->publicAsset($assetId)!==null) throw new RuntimeException('Draft unpublishing failed to revoke image.');
     MemberSchema::migrate($pdo);
     MemberSchema::migrate($pdo);
+    StaffSchema::migrate($pdo);
+    StaffSchema::migrate($pdo);
+    $staff=new StaffRepository($pdo);
+    $createdStaff=$staff->createModerator((int)$valid['id'],'  STAFF.MANAGED@example.test  ','first-unique-moderator-password');
+    if ($createdStaff<1 || count($staff->recentActions((int)$valid['id']))!==1) {
+        throw new RuntimeException('Manager could not create audited restricted moderator.');
+    }
+    $managed=$auth->verifyCredentials('staff.managed@example.test','first-unique-moderator-password');
+    $firstEpoch=$auth->staffSessionEpoch($createdStaff);
+    if (($managed['role']??null)!=='moderator'
+        || (int)($managed['id']??0)!==$createdStaff || $firstEpoch!==0) {
+        throw new RuntimeException('Managed staff was not a restricted authenticated moderator.');
+    }
+    foreach (['STAFF.MANAGED@example.test','owner@example.test'] as $duplicate) {
+        try {
+            $staff->createModerator((int)$valid['id'],$duplicate,'another-strong-moderator-password');
+            throw new RuntimeException('Duplicate staff email was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Duplicate staff email was accepted.') throw $e;
+        }
+    }
+    try {
+        $staff->suspendModerator((int)$valid['id'],(int)$valid['id']);
+        throw new RuntimeException('Manager suspended admin through staff endpoint.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Manager suspended admin through staff endpoint.') throw $e;
+    }
+    $staff->suspendModerator((int)$valid['id'],$createdStaff);
+    if ($auth->authorizedById($createdStaff)!==null
+        || $auth->staffSessionEpoch($createdStaff)!==$firstEpoch+1
+        || $auth->verifyCredentials('staff.managed@example.test','first-unique-moderator-password')!==null) {
+        throw new RuntimeException('Suspending moderator did not revoke credentials/epoch.');
+    }
+    try {
+        $staff->suspendModerator((int)$valid['id'],$createdStaff);
+        throw new RuntimeException('Repeated moderator suspension succeeded.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Repeated moderator suspension succeeded.') throw $e;
+    }
+    $staff->restoreModerator((int)$valid['id'],$createdStaff,'fresh-restored-staff-password');
+    if ($auth->staffSessionEpoch($createdStaff)!==$firstEpoch+2
+        || $auth->verifyCredentials('staff.managed@example.test','first-unique-moderator-password')!==null
+        || $auth->verifyCredentials('staff.managed@example.test','fresh-restored-staff-password')===null
+        || array_column($staff->recentActions((int)$valid['id']),'action')!==['restored','suspended','created']) {
+        throw new RuntimeException('Restoring moderator failed to rotate epoch/password/audit.');
+    }
+    try {
+        $staff->createModerator($createdStaff,'unauthorized.staff@example.test','unauthorized-test-password');
+        throw new RuntimeException('Restricted moderator created another staff account.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Restricted moderator created another staff account.') throw $e;
+    }
     MemberEmailSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
@@ -772,7 +826,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');

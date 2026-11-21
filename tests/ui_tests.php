@@ -63,7 +63,8 @@ uiCheck(str_contains($moderator,'href="/admin/moderation"')
     && str_contains($moderator,'href="/admin/security"')
     && str_contains($moderator,'action="/admin/logout"'),
     'Restricted moderator workspace retains permitted review, MFA and logout');
-uiCheck(!str_contains($moderator,'href="/admin/tiers"')
+uiCheck(!str_contains($moderator,'href="/admin/staff"')
+    && !str_contains($moderator,'href="/admin/tiers"')
     && !str_contains($moderator,'href="/admin/license"')
     && !str_contains($moderator,'href="/admin/packages"')
     && !str_contains($moderator,'href="/admin/setup"')

@@ -61,6 +61,7 @@ try {
         'public/index.php', 'install/index.php',
         'src/Capability/PublicRootSafety.php', 'src/Membership/MemberLibrary.php',
         'src/Membership/TierCatalog.php', 'src/Http/TierController.php',
+        'src/Auth/StaffRepository.php','src/Auth/StaffSchema.php','src/Http/StaffController.php',
         'src/Membership/MemberSubscriptionSummary.php',
         'src/Moderation/ModerationRepository.php','src/Licensing/LicenseManager.php',
         'src/Support/ReleaseReadiness.php', 'src/Support/ReleaseMilestones.php',
