@@ -387,8 +387,8 @@ def main():
             code, rejected_post = req('/members/library', {'test': 'unsafe'})
             ensure('Member library forbids mutating HTTP methods', code == 405)
             code, _, _, pending_image_bytes = req_binary('/media/'+pending_media_id)
-            ensure('Member signup and login never authorize unreviewed uploaded images',
-                   code == 404 and not pending_image_bytes.startswith(b'\x89PNG'))
+            ensure('Pending member account cannot retrieve unreviewed uploaded images',
+                   code == 403 and not pending_image_bytes.startswith(b'\x89PNG'))
             code, forbidden_detail = req(f'/members/library/{draft_id}')
             ensure('Pending member does not see draft gallery detail',
                    code == 404 and 'Private test draft' not in forbidden_detail
