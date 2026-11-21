@@ -56,6 +56,35 @@ final class LocalMemberSafety
     }
 
     /**
+     * Review all retained local suspension/restore audit events in bounded
+     * 20-record slices. Only a currently active site manager can inspect
+     * a member's history; no password hash, verification or media is selected.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function historyPage(int $actorId,int $memberId,?int $before=null): array
+    {
+        $this->requireManager($actorId);
+        if (!MemberSafetySchema::installed($this->pdo)
+            || $memberId<1 || ($before!==null && $before<1)) {
+            throw new RuntimeException('Invalid member safety audit cursor.');
+        }
+        $sql='SELECT id,actor_id,old_status,new_status,reason,created_at
+            FROM ac_member_status_actions WHERE member_id=?';
+        $params=[$memberId];
+        if ($before!==null) {
+            $sql.=' AND id<?';
+            $params[]=$before;
+        }
+        $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 21');
+        $q->execute($params);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>20;
+        if ($more) array_pop($rows);
+        return ['items'=>$rows,
+            'next'=>$more && $rows!==[]?(int)$rows[count($rows)-1]['id']:null];
+    }
+
+    /**
      * Suspend any local member or restore ONLY to pending.
      * Every transition revokes old member sessions AND reset/confirmation
      * tokens inside the same transaction; reusing an old session after

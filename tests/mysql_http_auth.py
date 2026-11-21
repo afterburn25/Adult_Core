@@ -1920,6 +1920,24 @@ def main():
             })
             ensure('Replayed restore may not promote or alter pending member',
                    code==422 and 'Member account changed; reload before continuing.' in twice)
+            extra_audit_member=subprocess.check_output(
+                php_fixture+['seed-member-safety-audit'],cwd=root,text=True).strip()
+            ensure('Private safety fixture uses the same local member ID',
+                   extra_audit_member==sample_id.group(1))
+            code, long_audit=req(member_manage)
+            older_audit=re.search(r'id='+sample_id.group(1)
+                                  +r'&amp;audit_before=(\d+)',long_audit)
+            ensure('Old local member security actions remain accessible after 20 changes',
+                   code==200 and older_audit is not None
+                   and 'Disposable security review 10' in long_audit
+                   and 'Policy concern &lt;script&gt;private()&lt;/script&gt;' not in long_audit)
+            code, old_audit=req(member_manage+'&audit_before='+older_audit.group(1))
+            ensure('Owner can navigate to original escaped suspension reason',
+                   code==200 and 'Back to newest member safety actions' in old_audit
+                   and 'Policy concern &lt;script&gt;private()&lt;/script&gt;' in old_audit)
+            code, denied_audit=req(member_manage+'&audit_before=invalid')
+            ensure('Invalid local member safety audit cursor denied',
+                   code==422 and 'Invalid member safety audit cursor' in denied_audit)
 
             subprocess.check_output(php_fixture+['seed-content-queue'],cwd=root)
             code, content_first=req('/admin/moderation')

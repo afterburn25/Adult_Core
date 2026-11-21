@@ -99,6 +99,16 @@ final class MemberSafetyController
                 header('Location: /admin/members/manage?id='.$id.'&result=saved',true,303);
                 return;
             }
+            $rawAuditCursor=$_GET['audit_before']??null;
+            $auditBefore=$rawAuditCursor===null?null:(is_string($rawAuditCursor)
+                ? filter_var($rawAuditCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+            if ($auditBefore===false) {
+                $this->render(422,'Invalid member safety audit cursor',
+                    '<p>Account audit page link is invalid. '
+                    .'<a href="/admin/members/manage?id='.$id.'">Return to latest account events</a>.</p>');
+                return;
+            }
+            $auditPage=$repo->historyPage($admin['id'],$id,$auditBefore);
             $csrf=self::e(AdminSession::csrf());
             $unlocked=AdminSession::managerVerifiedRecently();
             $html='<p class="intro">Safety controls for one local member account. '
@@ -141,17 +151,28 @@ final class MemberSafetyController
                     .'</form></section>';
             }
             $html.='<section class="panel"><h2>Private safety audit</h2>'
-                .'<p class="muted">Newest 20 local status changes only. '
-                .'This screen does not view identity evidence, paid subscriptions or creator media.</p>'
+                .'<p class="muted">20 most recent local actions per page. '
+                .'Older audited decisions are retained. No identity evidence, billing records or creator media.</p>'
                 .'<table class="page-table"><thead><tr><th>From</th><th>To</th><th>Reason</th><th>Actor ID</th><th>UTC</th></tr></thead><tbody>';
-            foreach ($repo->history($admin['id'],$id) as $event) {
+            foreach ($auditPage['items'] as $event) {
                 $html.='<tr><td>'.self::e((string)$event['old_status']).'</td><td>'
                     .self::e((string)$event['new_status']).'</td><td>'
                     .self::e((string)$event['reason']).'</td><td>'
                     .(int)$event['actor_id'].'</td><td>'
                     .self::e((string)$event['created_at']).'</td></tr>';
             }
-            $html.='</tbody></table></section><p>'
+            $html.='</tbody></table>';
+            if ($auditPage['next']!==null) {
+                $html.='<p><a href="/admin/members/manage?id='.$id
+                    .'&amp;audit_before='.(int)$auditPage['next']
+                    .'">Older member safety actions</a></p>';
+            }
+            if ($auditBefore!==null) {
+                $html.='<p><a href="/admin/members/manage?id='.$id
+                    .'">Back to newest member safety actions</a></p>';
+            }
+            if ($auditPage['items']===[]) $html.='<p>No audited actions on this page.</p>';
+            $html.='</section><p>'
                 .'<a href="/admin/members">Back to local member directory</a></p>';
             $this->render(200,'Member safety review',$html);
         } catch (RuntimeException $e) {
@@ -165,6 +186,7 @@ final class MemberSafetyController
                 'Member account changed; reload before continuing.',
                 'Local member status transition unavailable.',
                 'Enter a single-line reason of 10–500 bytes.',
+                'Invalid member safety audit cursor.',
             ];
             $message=in_array($e->getMessage(),$allowed,true)
                 ? $e->getMessage():'Unable to change this local member account.';

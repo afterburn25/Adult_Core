@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images', 'seed-audit', 'seed-page-history'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images', 'seed-audit', 'seed-page-history', 'seed-member-safety-audit'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -207,6 +207,25 @@ if ($action === 'seed-page-history') {
             'Private saved revision '.($rev+1),'draft',$rev);
     }
     echo $id;
+    exit;
+}
+if ($action === 'seed-member-safety-audit') {
+    // Disposable-only actual local safety transitions. The final state is
+    // pending, with no age/consent/payment/creator-media authorization.
+    $owner=(int)$pdo->query("SELECT id FROM ac_users
+        WHERE email='owner@example.test' AND role='admin' LIMIT 1")->fetchColumn();
+    $member=(int)$pdo->query("SELECT id FROM ac_users
+        WHERE email='bulk-member-50@example.test' AND role='member'
+        AND status='pending' LIMIT 1")->fetchColumn();
+    if ($owner<1 || $member<1) throw new RuntimeException('Local safety audit fixture member not pending.');
+    $safety=new \AdultCore\Member\LocalMemberSafety($pdo);
+    for ($i=0;$i<11;$i++) {
+        $safety->change($owner,$member,'suspend','pending',
+            sprintf('Disposable security review %02d suspended',$i));
+        $safety->change($owner,$member,'restore_pending','suspended',
+            sprintf('Disposable security review %02d restored to pending',$i));
+    }
+    echo $member;
     exit;
 }
 if ($action === 'issue-email') {

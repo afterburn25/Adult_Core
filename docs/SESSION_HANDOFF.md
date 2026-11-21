@@ -1,3 +1,9 @@
+## Member safety audit pagination beyond 20 actions — 2026-11-21
+
+The new local owner-only safety review now has a `historyPage()` method and private Older/Back links with a member-ID-scoped, descending numeric audit cursor, 20 actions per page. The underlying `ac_member_status_actions` records are never truncated. Every page requires the current active site manager role and never includes password hashes, identity documents, paid billing or private media. Empty or malformed numeric cursors return 422; an old action link cannot mutate account state. Disposable SQL and browser tests exercise 22 additional real suspend/restore-to-pending transitions on a test-only account, then navigate to the original escaped audit reason. This does not permit self-certified age, payment or media publication, and real offsite retention/host certification remain external blockers.
+
+---
+
 ## No-cache/noindex on all administrator endpoints — 2026-11-21
 
 `AdminController::handle()` now sets private `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow` before routing **all** administrator endpoints: sign-in, MFA, failed sessions, dashboard, license/upgrade, owner pages, staff, moderation and errors. This closes the remaining common entrypoint cache gap even for routes that do not instantiate the specialized site/moderator controller. Existing secure opaque cookie, CSRF, licensing and permission logic is unchanged. Real disposable authenticated HTTP assertions cover non-cacheable admin login and license forms; production adult-media release gates remain closed.

@@ -727,10 +727,13 @@ try {
         'restore_pending','suspended','Local member safety restoration note')!=='pending'
         || (new PasswordRecovery($pdo))->generation((int)$member['id'])!==$generationBefore+2
         || $accounts->byId((int)$member['id'])['status']!=='pending'
-        || count($safety->history((int)$valid['id'],(int)$member['id']))!==2) {
+        || count($safety->history((int)$valid['id'],(int)$member['id']))!==2
+        || count($safety->historyPage((int)$valid['id'],(int)$member['id'])['items'])!==2) {
         throw new RuntimeException('Local member restore was not pending or did not retain private audit.');
     }
     foreach ([
+        static fn()=> $safety->historyPage((int)$valid['id'],(int)$member['id'],0),
+        static fn()=> $safety->historyPage($moderatorId,(int)$member['id']),
         static fn()=> $safety->change($moderatorId,(int)$member['id'],
             'suspend','pending','Moderator cannot change accounts'),
         static fn()=> $safety->change((int)$valid['id'],(int)$valid['id'],
