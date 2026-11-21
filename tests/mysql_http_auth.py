@@ -58,6 +58,15 @@ def main():
                 with resp:
                     return resp.status, resp.read().decode('utf-8', errors='replace')
 
+            def req_binary(path):
+                try:
+                    resp = opener.open(f'http://127.0.0.1:{port}{path}', timeout=4)
+                except urllib.error.HTTPError as err:
+                    resp = err
+                with resp:
+                    return (resp.status, resp.headers.get('Content-Type', ''),
+                            resp.headers.get('Cache-Control', ''), resp.read())
+
             for _ in range(50):
                 try:
                     req('/admin/login')
@@ -522,6 +531,40 @@ def main():
             ensure('Valid logout redirects', code == 303)
             code, body = req('/admin')
             ensure('Logged-out session denied', code == 302)
+
+            # Disposable test only: seed an independently guarded approved
+            # gallery, confirm real binary delivery, then revoke consent.
+            # This is NOT a real verification provider or public uploader.
+            gallery_fixture = subprocess.check_output(
+                php_fixture + ['stage-gallery'], cwd=root, text=True).strip()
+            gallery_ids = re.fullmatch(r'([1-9][0-9]*):([1-9][0-9]*)', gallery_fixture)
+            ensure('Disposable entitled gallery fixture created', gallery_ids is not None)
+            gallery_id, media_id = gallery_ids.groups()
+            code, approved_catalog = req('/members/library')
+            ensure('Authorized member sees only approved gallery title',
+                   code == 200 and 'Approved local fixture album' in approved_catalog
+                   and f'href="/members/library/{gallery_id}"' in approved_catalog)
+            code, approved_detail = req('/members/library/' + gallery_id)
+            ensure('Authorized member can open guarded gallery detail',
+                   code == 200 and 'Approved local fixture album' in approved_detail
+                   and f'src="/media/{media_id}"' in approved_detail
+                   and 'Protected gallery image' in approved_detail)
+            code, content_type, cache_control, png_bytes = req_binary('/media/' + media_id)
+            ensure('Protected image bytes delivered with private non-cacheable headers',
+                   code == 200 and content_type.startswith('image/png')
+                   and 'no-store' in cache_control
+                   and png_bytes.startswith(b'\x89PNG\r\n\x1a\n'))
+
+            subprocess.check_output(php_fixture + ['revoke-gallery', gallery_id], cwd=root)
+            code, revoked_catalog = req('/members/library')
+            ensure('Revoked performer consent removes gallery from member library',
+                   code == 200 and 'Approved local fixture album' not in revoked_catalog)
+            code, revoked_detail = req('/members/library/' + gallery_id)
+            ensure('Quarantined gallery detail fails closed without revealing title',
+                   code == 404 and 'Approved local fixture album' not in revoked_detail)
+            code, _, _, revoked_image = req_binary('/media/' + media_id)
+            ensure('Revocation also immediately denies direct private media HTTP requests',
+                   code == 404 and not revoked_image.startswith(b'\x89PNG'))
             print(f'Passed {checks} real MySQL HTTP authentication checks.')
         finally:
             if server is not None:
