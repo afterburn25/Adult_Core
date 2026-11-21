@@ -136,6 +136,7 @@ final class Layout
             ['url' => '/admin/security', 'label' => 'Account security', 'icon' => 'shield'],
             ['url' => '/admin/upgrade', 'label' => 'Edition upgrade', 'icon' => 'settings'],
             ['url' => '/admin/members', 'label' => 'Members', 'icon' => 'members'],
+            ['url' => '/admin/staff', 'label' => 'Moderation team', 'icon' => 'members'],
             ['url' => '/admin/tiers', 'label' => 'Membership tiers', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],
