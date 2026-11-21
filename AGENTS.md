@@ -1,3 +1,11 @@
+## Read-only private-media integrity audit — 2026-11-21
+
+`PrivateMediaAudit::inspect()` and `scripts/audit-private-media.php [--json]` read registered `ac_media` identifiers and `storage/private-media` to report **aggregate counts only**: missing files, orphaned blobs, unsafe/symlinked paths, invalid storage rows, out-of-range sizes and truncated scans. They **never log or display storage keys, private paths, user media or verification evidence** and never modify/delete files or database rows. A completed installation is required for the CLI. Nonzero exit codes indicate anomalies or unavailable configuration. Keep `tests/mysql_private_media_audit.php` on disposable MySQL and temp storage only, and keep both the audit class and CLI in the single Lite/Pro release ZIP.
+
+Do not turn this audit into an automatic cleanup or retention bypass. Orphans may require legal/incident preservation, and real backup/restore and offsite checks remain independently outstanding.
+
+---
+
 ## Private member galleries and pending draft images — 2026-11-21
 
 Member pages `/members/library` and `/members/library/ID` must **never reveal titles, media IDs or storage keys** without independent `Entitlements::canView()` authorization. `MemberLibrary::detail()` only lists approved allowlisted MIME records, and every `/media/ID` request rechecks member identity, password generation, age, email, paid tier, moderation and complete performer consent. A missing/unauthorized gallery returns uniform 404. Never treat a local synthetic verification fixture as an actual age or consent check.
