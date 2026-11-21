@@ -1,3 +1,9 @@
+## Serialized local membership-tier labels and raw input protection — 2026-11-21
+
+TierCatalog now locks the site's existing installation row with `SELECT ... FOR UPDATE` before either create or rename, serializing the local 50-row limit and case-insensitive name uniqueness check across concurrent administrator sessions. The installation row is not modified and no license or subscription action is introduced. Tier name validation now examines untrimmed bytes so trailing NUL/newline controls cannot be normalized into accepted labels. Unit/source checks and disposable MySQL/MariaDB regressions cover valid labels, malformed controls, duplicate case variants and zero accidental membership grants. The catalog still creates disabled labels only; approved adult payment checkout and provider-authenticated entitlement issuance remain blocked.
+
+---
+
 ## Encrypted local branding disaster recovery test — 2026-11-21
 
 The disposable full MySQL/MariaDB encrypted `.acfull` backup and empty-database restoration fixture now migrates m20, changes the canonical site name with a revision check, and verifies the exact brand string and revision survive the restore without an issuer request or an account/password change. This covers only the local website name, not the licensed domain. All previously added creator, draft, page history, decorative media and encrypted archive assertions remain. Actual cPanel/VPS restore drills and independent launch acceptance are still required.

@@ -18,10 +18,15 @@ final class TierCatalog
 
     public static function validateName(string $name): string
     {
-        $name=trim($name);
-        if (strlen($name)<2 || strlen($name)>120
+        // Check raw bytes BEFORE trim: otherwise trailing NUL or newline
+        // characters are silently removed and accepted.
+        if (strlen($name)>120
             || preg_match('/[\x00-\x1f\x7f]/', $name)===1
             || preg_match('//u',$name)!==1) {
+            throw new RuntimeException('Enter a valid tier name of 2–120 bytes without control characters.');
+        }
+        $name=trim($name);
+        if (strlen($name)<2 || strlen($name)>120) {
             throw new RuntimeException('Enter a valid tier name of 2–120 bytes without control characters.');
         }
         return $name;
@@ -49,6 +54,7 @@ final class TierCatalog
         $this->requireManager($actorId);
         $this->pdo->beginTransaction();
         try {
+            $this->lockCatalog();
             if ((int)$this->pdo->query('SELECT COUNT(*) FROM ac_membership_tiers')->fetchColumn()>=50) {
                 throw new RuntimeException('Tier catalog limit reached.');
             }
@@ -75,6 +81,7 @@ final class TierCatalog
         $this->requireManager($actorId);
         $this->pdo->beginTransaction();
         try {
+            $this->lockCatalog();
             $q=$this->pdo->prepare('SELECT name FROM ac_membership_tiers WHERE id=? FOR UPDATE');
             $q->execute([$id]);
             $old=$q->fetchColumn();
@@ -89,6 +96,20 @@ final class TierCatalog
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) $this->pdo->rollBack();
             throw $e;
+        }
+    }
+
+    /**
+     * A site-local row lock serializes all catalog writers. Without it,
+     * concurrent create/rename requests can both pass the 50-tier cap and
+     * case-insensitive uniqueness check before either commits. The installation
+     * record exists for every licensed Lite/Pro site; it is never modified here.
+     */
+    private function lockCatalog(): void
+    {
+        $q=$this->pdo->query('SELECT id FROM ac_installations WHERE id=1 FOR UPDATE');
+        if ($q->fetchColumn()===false) {
+            throw new RuntimeException('Local tier catalog installation is missing.');
         }
     }
 

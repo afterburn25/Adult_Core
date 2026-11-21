@@ -16,7 +16,8 @@ $check(TierCatalog::validateName('  Founders Circle  ')==='Founders Circle',
     'Leading/trailing whitespace normalized');
 $check(TierCatalog::validateName('Tier <safe markup text>')==='Tier <safe markup text>',
     'Tier labels are stored as text, not interpreted as HTML');
-foreach (['',' ','x',str_repeat('a',121),"Line\nBreak","A\x00B","A\tB","\xff\xfe"] as $invalid) {
+foreach (['',' ','x',str_repeat('a',121),"Line\nBreak","A\x00B","A\tB",
+    'Valid tier'."\0", "Valid tier\n", "\xff\xfe"] as $invalid) {
     try {
         TierCatalog::validateName($invalid);
         $check(false,'Invalid tier name accepted');
@@ -30,6 +31,10 @@ $check(RolePolicy::allows('owner','site.settings.manage')
     && !RolePolicy::allows('member','site.settings.manage'),
     'Only managers can edit the tier catalog');
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/TierController.php');
+$catalogSource=(string)file_get_contents(dirname(__DIR__).'/src/Membership/TierCatalog.php');
+$check(str_contains($catalogSource,'SELECT id FROM ac_installations WHERE id=1 FOR UPDATE')
+    && str_contains($catalogSource,'$this->lockCatalog();'),
+    'Tier create and rename serialize local uniqueness and size checks');
 $check(str_contains($controller,'TierCatalog')
     && str_contains($controller,'AdminSession::csrfValid')
     && !str_contains($controller,"action==='activate'")

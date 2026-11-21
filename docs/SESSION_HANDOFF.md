@@ -1,3 +1,9 @@
+## Serialized local membership-tier labels and raw input protection — 2026-11-21
+
+TierCatalog now locks the site's existing installation row with `SELECT ... FOR UPDATE` before either create or rename, serializing the local 50-row limit and case-insensitive name uniqueness check across concurrent administrator sessions. The installation row is not modified and no license or subscription action is introduced. Tier name validation now examines untrimmed bytes so trailing NUL/newline controls cannot be normalized into accepted labels. Unit/source checks and disposable MySQL/MariaDB regressions cover valid labels, malformed controls, duplicate case variants and zero accidental membership grants. The catalog still creates disabled labels only; approved adult payment checkout and provider-authenticated entitlement issuance remain blocked.
+
+---
+
 ## Unicode-safe brand monograms after m20 — 2026-11-21
 
 The public site brand emblem and decorative hero monogram now select the first UTF-8 code point of each selected name word, rather than `substr(...,0,1)` splitting accented, CJK or emoji bytes. Existing ASCII brand initials are unchanged; malformed legacy strings use safe fallbacks with escaped output. UI regression examples cover accented Latin, CJK and emoji site names. This is purely a rendering safety fix; licensed domain, site permissions, public media, age/consent and payments are unchanged.

@@ -648,11 +648,16 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Stale tier label was accepted.') throw $e;
     }
-    try {
-        $tiers->create('Founders preview',(int)$valid['id']);
-        throw new RuntimeException('Duplicate tier label accepted.');
-    } catch (RuntimeException $e) {
-        if ($e->getMessage()==='Duplicate tier label accepted.') throw $e;
+    foreach (['Founders preview','FOUNDERS PREVIEW',"Trailing\x00"] as $name) {
+        try {
+            $tiers->create($name,(int)$valid['id']);
+            throw new RuntimeException('Duplicate, case-variant or control-bearing tier was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Duplicate, case-variant or control-bearing tier was accepted.') throw $e;
+        }
+    }
+    if (count($tiers->all())!==1) {
+        throw new RuntimeException('Rejected membership labels changed the catalog.');
     }
     ModerationSchema::migrate($pdo);
     ModerationSchema::migrate($pdo);
