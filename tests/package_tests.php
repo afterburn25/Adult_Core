@@ -136,7 +136,9 @@ try {
     $paidManifest=manifestFixture('paid-chat');
     $paidManifest['license_sku']=$paidSku;
     packageFixture($paidZip,$paidManifest,['readme.txt'=>'Test paid module'], $privateKey);
-    $licenseClient=new \AdultCore\Licensing\CajunWebClient(static function(string $body)use($paidSku):array{
+    $moduleIssuerCalls=0;
+    $licenseClient=new \AdultCore\Licensing\CajunWebClient(static function(string $body)use($paidSku,&$moduleIssuerCalls):array{
+        $moduleIssuerCalls++;
         $data=json_decode($body,true,8,JSON_THROW_ON_ERROR);
         $allowed=($data['product_id']??null)===$paidSku
             &&($data['license_key']??null)==='AAAA-BBBB-CCCC-DDDD'
@@ -221,8 +223,11 @@ try {
         'ABCD-EF12-3456-7890','example.test',$siteSecret,'denied',time(),time()-60,$coreSku));
     verifyPackageTest('Core revocation disables otherwise valid paid add-on',
         !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $issuerBeforeRevokedActivation=$moduleIssuerCalls;
     expectRefusal('Revoked core license prevents new paid module activation',
         fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    verifyPackageTest('Revoked core license refuses addon before module issuer request',
+        $moduleIssuerCalls === $issuerBeforeRevokedActivation);
     file_put_contents($coreCache, \AdultCore\Licensing\LicenseState::encode(
         'ABCD-EF12-3456-7890','example.test',$siteSecret,'valid',time(),time(),$coreSku));
     verifyPackageTest('Reauthorized core restores valid paid module access',
@@ -231,8 +236,11 @@ try {
     file_put_contents($pendingLicenseUpdate,'synthetic incomplete core replacement');
     verifyPackageTest('Interrupted core license replacement disables paid add-on',
         !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+    $issuerBeforePendingActivation=$moduleIssuerCalls;
     expectRefusal('Pending core replacement prevents module activation',
         fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+    verifyPackageTest('Pending core update refuses addon before module issuer request',
+        $moduleIssuerCalls === $issuerBeforePendingActivation);
     unlink($pendingLicenseUpdate);
     verifyPackageTest('Recovered core transition restores module runtime',
         $paidStore->isRunnable('module','paid-chat','lite',$caps));
