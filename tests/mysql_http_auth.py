@@ -274,6 +274,7 @@ def main():
             code, migrated_setup=req('/admin/setup')
             ensure('Site setup reports individual page migrations as installed',
                    code==200
+                   and '<td>Private member display names</td><td>Installed</td>' in migrated_setup
                    and '<td>Local member suspension audit</td><td>Installed</td>' in migrated_setup
                    and 'All listed local schema migrations have been recorded.' in migrated_setup
                    and '<td>Page revision protection</td><td>Installed</td>' in migrated_setup
@@ -1896,6 +1897,48 @@ def main():
             ensure('Pending account session is active before owner safety action',
                    code==200 and 'bulk-member-50@example.test' in initial_member_account
                    and 'Account status: <strong>pending</strong>' in initial_member_account)
+            ensure('Only signed-in members can open own local private profile',
+                   'href="/members/profile"' in initial_member_account
+                   and 'Private display name: <strong>Not set</strong>' in initial_member_account)
+            code, profile_form=independent_member_req('/members/profile')
+            profile_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',profile_form)
+            ensure('Private profile starts with revision zero and own member CSRF',
+                   code==200 and profile_csrf is not None
+                   and 'name="revision" value="0"' in profile_form)
+            code, _=independent_member_req('/members/profile',{
+                'csrf':'bad','revision':'0','display_name':'Cannot bypass CSRF'})
+            ensure('Member profile save cannot bypass own CSRF',code==403)
+            code, invalid_profile=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'revision':'0',
+                'display_name':'Unsafe\x00Name'})
+            ensure('Control bytes in private display name are refused',
+                   code==422 and 'single-line display name' in invalid_profile)
+            code, _=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'revision':'0',
+                'display_name':'Private <Pixie> & Co'})
+            ensure('Local member can create their own private display name',code==303)
+            code, profile_saved=independent_member_req('/members/profile')
+            ensure('Private member name is escaped and revisioned',
+                   code==200 and 'Private &lt;Pixie&gt; &amp; Co' in profile_saved
+                   and 'name="revision" value="1"' in profile_saved
+                   and 'Your private display name was saved.' in profile_saved
+                   and 'Private <Pixie> & Co' not in profile_saved)
+            code, repeated_profile=independent_member_req('/members/profile?saved=1')
+            ensure('Private profile save notice cannot be replayed by a GET parameter',
+                   code==200 and 'Your private display name was saved.' not in repeated_profile)
+            code, stale_profile=independent_member_req('/members/profile',{
+                'csrf':profile_csrf.group(1),'revision':'0',
+                'display_name':'Stale nickname overwrite'})
+            ensure('Stale member tab cannot overwrite private profile revision',
+                   code==422 and 'Member profile changed; reload before saving.' in stale_profile)
+            code, member_profile_account=independent_member_req('/members')
+            ensure('Member account shows only own escaped private display name',
+                   code==200 and 'Private &lt;Pixie&gt; &amp; Co' in member_profile_account
+                   and 'Private <Pixie> & Co' not in member_profile_account
+                   and 'Account status: <strong>pending</strong>' in member_profile_account)
+            code, absent_private_public=req('/p/private-pixie')
+            ensure('Private member nickname never creates a public page',code==404)
+
             # Save old cookie to replay AFTER the owner restores the account;
             # visiting while suspended may itself revoke an active session.
             stale_member_jar=http.cookiejar.CookieJar()

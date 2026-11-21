@@ -1,3 +1,9 @@
+## Real two-session HTTP coverage for private m22 member profile — 2026-11-21
+
+The disposable authenticated browser suite now signs a pending local member into a separate member cookie jar, creates a private name through `/members/profile`, checks CSRF denial, NUL input rejection, monotonic revision=1, escaped HTML in both account and editor, stale revision 422, one-time server-confirmed success notice and no corresponding public page route. The member stays pending with no age/consent/paid approval. Admin → Setup is asserted to report the new schema installed. These tests operate entirely on disposable fixtures under MySQL 8/MariaDB 10.11 and never use real customer accounts. CI must pass before the UI is considered verified.
+
+---
+
 ## m22 private member profile UI — 2026-11-21
 
 Added `/members/profile` to the public front controller, but the route is accessible only by a verified currently active local member session. GET displays an HTML-escaped private display-name form and revision; POST requires member CSRF and an exact optimistic revision, then uses the row-locking m22 repository to save only the current member's private nickname. Stale edits and unsafe UTF-8/control characters are refused. A one-use server-side session notice confirms committed saves, never a forgeable URL query. The existing private member account shows the nickname escaped; if m22 is missing it shows a setup-needed note rather than failing unrelated account access. There is no public creator registry, member avatar/media, age/consent or paid entitlement grant. Source and session unit tests have been updated; authenticated HTTP and encrypted recovery parity are next.
