@@ -59,7 +59,9 @@ try {
     }
     foreach ([
         'public/index.php', 'install/index.php',
-        'src/Capability/PublicRootSafety.php', 'src/Membership/MemberLibrary.php', 'src/Licensing/LicenseManager.php',
+        'src/Capability/PublicRootSafety.php', 'src/Membership/MemberLibrary.php',
+        'src/Membership/TierCatalog.php', 'src/Http/TierController.php',
+        'src/Moderation/ModerationRepository.php','src/Licensing/LicenseManager.php',
         'src/Support/ReleaseReadiness.php', 'src/Support/ReleaseMilestones.php',
         'src/Billing/WebhookInbox.php', 'src/Pro/JobInbox.php',
         'src/Media/PrivateMediaAudit.php', 'src/Media/ImageMetadataPolicy.php',

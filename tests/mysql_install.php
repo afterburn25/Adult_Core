@@ -576,6 +576,19 @@ try {
     // A published paid gallery remains hidden until an independently
     // authenticated billing adapter has created a valid active membership.
     // These rows are test fixtures, NOT simulated successful real charges.
+    // A newly configured tier label begins disabled. Even an active
+    // disposable membership row cannot bypass that entitlement gate.
+    $pdo->prepare("INSERT INTO ac_content
+        (title,status,visibility,tier_id,review_status,requires_consent,created_at)
+        VALUES ('Disabled tier fixture','published','paid',?,'approved',0,UTC_TIMESTAMP())")
+        ->execute([$newTierId]);
+    $disabledContent=(int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO ac_memberships (user_id,tier_id,status,starts_at,expires_at)
+        VALUES (?,?,'active',DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY),
+                DATE_ADD(UTC_TIMESTAMP(),INTERVAL 1 DAY))")->execute([$member['id'],$newTierId]);
+    if ($policy->canView((int)$member['id'],$disabledContent)) {
+        throw new RuntimeException('Inactive staged catalog tier unlocked paid content.');
+    }
     $pdo->exec("INSERT INTO ac_membership_tiers (name,is_active) VALUES ('Disposable Test Tier',1)");
     $paidTier=(int)$pdo->lastInsertId();
     $pdo->prepare("INSERT INTO ac_content (title,status,visibility,tier_id,review_status,requires_consent,created_at)

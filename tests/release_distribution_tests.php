@@ -29,6 +29,8 @@ try {
     $check($zip->open($dest)===true,'Complete source ZIP can be reopened');
     foreach ([
         'public/index.php','src/Membership/MemberLibrary.php',
+        'src/Membership/TierCatalog.php','src/Http/TierController.php',
+        'src/Moderation/ModerationRepository.php',
         'src/Support/ReleaseMilestones.php','src/Support/ReleaseReadiness.php',
         'src/Billing/WebhookInbox.php','src/Pro/JobInbox.php',
         'src/Media/PrivateMediaAudit.php','src/Media/ImageMetadataPolicy.php',
