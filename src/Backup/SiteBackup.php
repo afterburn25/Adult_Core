@@ -34,6 +34,10 @@ final class SiteBackup
         // Never restore logged-in sessions, old rate-limit state, locks, or crash journals.
         if(in_array($parts[1],['sessions','member-sessions'],true))return false;
         if(str_starts_with($parts[1],'.')||str_starts_with($parts[1],'install-audit'))return false;
+        // Module license activation journals and lock files must never be
+        // exported as recoverable site state, even inside encrypted archives.
+        if($parts[1]==='packages' && ($parts[2]??null)==='module-licenses'
+            && isset($parts[3]) && str_starts_with($parts[3],'.'))return false;
         return true;
     }
 
