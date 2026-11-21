@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images', 'seed-audit'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -172,6 +172,24 @@ if ($action === 'seed-images') {
         if ($first===0) $first=$last;
     }
     echo $first.':'.$last;
+    exit;
+}
+if ($action === 'seed-audit') {
+    // Disposable synthetic append-only notes on a PRIVATE, unapproved draft.
+    // No provider assertion, media disclosure or report decision is created.
+    $owner=(int)$pdo->query("SELECT id FROM ac_users
+        WHERE email='owner@example.test' AND role='admin' LIMIT 1")->fetchColumn();
+    $content=(int)$pdo->query("SELECT id FROM ac_content
+        WHERE title='Bulk moderation 50' AND status='draft'
+            AND visibility='private' LIMIT 1")->fetchColumn();
+    if ($owner<1 || $content<1) throw new RuntimeException('Synthetic moderation audit prerequisite missing.');
+    $q=$pdo->prepare("INSERT INTO ac_moderation_actions
+        (content_id,report_id,actor_id,action,note,created_at)
+        VALUES (?,NULL,?,'fixture_note',?,UTC_TIMESTAMP())");
+    for ($n=0;$n<51;$n++) {
+        $q->execute([$content,$owner,sprintf('Disposable moderator audit %02d',$n)]);
+    }
+    echo $content;
     exit;
 }
 if ($action === 'issue-email') {

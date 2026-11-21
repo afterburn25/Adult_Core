@@ -469,6 +469,33 @@ final class ModerationRepository
             ORDER BY (r.status='open') DESC,r.id DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Private immutable moderation action timeline, 50 entries at a time.
+     * Cursor only selects older numeric action IDs belonging to this content.
+     * No evidence keys, identity documents or raw media bytes are selected.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function auditTrailPage(int $contentId,?int $before=null): array
+    {
+        if ($contentId<1 || ($before!==null && $before<1)) {
+            throw new RuntimeException('Invalid audit history cursor.');
+        }
+        $sql='SELECT id,action,actor_id,note,created_at FROM ac_moderation_actions
+            WHERE content_id=?';
+        $parameters=[$contentId];
+        if ($before!==null) {
+            $sql.=' AND id<?';
+            $parameters[]=$before;
+        }
+        $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 51');
+        $q->execute($parameters);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        return ['items'=>$rows,
+            'next'=>$more && $rows!==[]?(int)$rows[count($rows)-1]['id']:null];
+    }
+
     /** @return list<array<string,mixed>> */
     public function auditTrail(int $contentId): array
     {

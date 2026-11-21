@@ -1,3 +1,9 @@
+## Read-only moderation audit history beyond 50 actions — 2026-11-21
+
+Previously the moderator content history view silently returned only 50 newest actions, although the append-only local `ac_moderation_actions` table retains older actions. The new `ModerationRepository::auditTrailPage()` reads 50 bounded private actions per content ID with a prepared numeric keyset cursor. The existing `auditTrail()` method remains for private draft detail compatibility. Moderators can follow Older/Back links without changing a decision, showing evidence keys, exposing public media, granting age/consent or approving content. Forged/malformed cursors are rejected with HTTP 422. MySQL/MariaDB and real authenticated HTTP tests stage 51 synthetic private history notes on a draft and prove oldest note is still accessible. The owner must still independently verify backup retention and applicable legal recordkeeping; this is not a real-host or provider certification.
+
+---
+
 ## Complete monitored migrations and local edition consistency — 2026-11-21
 
 The new Site Health screen now monitors all 19 migration markers from Admin → Setup via the actual schema class VERSION constants, avoiding stale copied version strings. It also compares the installed Lite/Pro database edition to the **locally validated and signed-identity-aware** license config without making any vendor request or rendering the key/domain. Mismatched editions, invalid config or missing local markers are `Needs attention`, never green or auto-repaired. Unit and authenticated HTTP tests check wrong/absent editions and visibility. A local Pass still never certifies actual hosts, merchant billing, independent age/consent providers or production security.

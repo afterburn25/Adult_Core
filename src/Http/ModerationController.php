@@ -234,7 +234,8 @@ final class ModerationController
                 'Draft tier changed; reload the moderation queue.',
                 'Draft tier assignment is unchanged.','Choose an existing membership tier.',
                 'Invalid moderation queue cursor.','Invalid private report queue cursor.',
-                'Invalid performer summary cursor.','Invalid pending image queue cursor.'];
+                'Invalid performer summary cursor.','Invalid pending image queue cursor.',
+                'Invalid audit history cursor.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -454,16 +455,36 @@ final class ModerationController
         $auditId=filter_var($_GET['audit_content']??null,FILTER_VALIDATE_INT,
             ['options'=>['min_range'=>1]]);
         if ($auditId!==false && $auditId!==null) {
+            $rawAuditCursor=$_GET['audit_before']??null;
+            $auditBefore=$rawAuditCursor===null?null:(is_string($rawAuditCursor)
+                ? filter_var($rawAuditCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+            if ($auditBefore===false) {
+                throw new RuntimeException('Invalid audit history cursor.');
+            }
+            $audit=$repo->auditTrailPage((int)$auditId,$auditBefore);
             $html.='<section class="panel"><h2>Private moderation history for content #'.(int)$auditId.'</h2>'
-                .'<p class="muted">Newest 50 recorded actions. This private history does not grant review or publication rights.</p>'
+                .'<p class="muted">Up to 50 recorded actions per page; older actions remain preserved. '
+                .'This private timeline cannot approve or publish content.</p>'
                 .'<table class="page-table"><thead><tr><th>Action</th><th>Actor</th><th>Reason or outcome</th><th>Time (UTC)</th></tr></thead><tbody>';
-            foreach ($repo->auditTrail((int)$auditId) as $event) {
+            foreach ($audit['items'] as $event) {
                 $html.='<tr><td>'.self::e((string)$event['action']).'</td>'
                     .'<td>'.(int)$event['actor_id'].'</td>'
                     .'<td>'.self::e((string)$event['note']).'</td>'
                     .'<td>'.self::e((string)$event['created_at']).'</td></tr>';
             }
-            $html.='</tbody></table><p><a href="/admin/moderation">Close history</a></p></section>';
+            $html.='</tbody></table>';
+            if ($audit['next']!==null) {
+                $html.='<p><a href="/admin/moderation?audit_content='.(int)$auditId
+                    .'&amp;audit_before='.(int)$audit['next'].'">Older audit actions</a></p>';
+            }
+            if ($auditBefore!==null) {
+                $html.='<p><a href="/admin/moderation?audit_content='.(int)$auditId
+                    .'">Back to newest audit actions</a></p>';
+            }
+            if ($audit['items']===[]) {
+                $html.='<p>No recorded moderation actions on this page.</p>';
+            }
+            $html.='<p><a href="/admin/moderation">Close history</a></p></section>';
         }
         $html.='<p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Draft images can be staged privately but remain pending and unpublished. Identity documents and performer verification evidence are never accepted by this admin page.</p>';
         return $html;

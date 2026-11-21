@@ -1364,6 +1364,16 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Repeated image rejection was accepted.') throw $e;
     }
+    $auditPage=$moderation->auditTrailPage($draft);
+    if (!is_array($auditPage['items']) || $auditPage['next']!==null) {
+        throw new RuntimeException('Private audit history page returned invalid shape.');
+    }
+    try {
+        $moderation->auditTrailPage($draft,0);
+        throw new RuntimeException('Invalid history cursor was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Invalid history cursor was accepted.') throw $e;
+    }
     $actions=$moderation->auditTrail($draft);
     if (!in_array('image_rejected',array_column($actions,'action'),true)
         || !in_array('draft_renamed',array_column($actions,'action'),true)) {

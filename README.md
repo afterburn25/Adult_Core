@@ -1,3 +1,7 @@
+## Private moderation history navigation (development)
+
+Authenticated moderators can now inspect older recorded moderation decisions 50 at a time. No approval, public publishing, external identity verification or payment entitlement is added; the audit remains private to each installed site.
+
 ## Site Health (local diagnostics only)
 
 Under **Admin → Site health**, a site owner can inspect local, read-only installation and environment checks. This does not reveal credentials, contact the vendor or certify adult-content release readiness; real hosting, merchant billing, age/performer consent and independent security approval are still required.

@@ -1836,6 +1836,27 @@ def main():
             code, invalid_image_cursor=req('/admin/moderation?image_before=invalid')
             ensure('Malformed pending-image cursor fails closed',
                    code==422 and 'Invalid pending image queue cursor' in invalid_image_cursor)
+            audit_fixture_id=subprocess.check_output(php_fixture+['seed-audit'],
+                                                     cwd=root,text=True).strip()
+            ensure('Synthetic private moderation audit has numeric content ID',
+                   re.fullmatch(r'[1-9][0-9]*',audit_fixture_id) is not None)
+            audit_path='/admin/moderation?audit_content='+audit_fixture_id
+            code, audit_first=req(audit_path)
+            audit_next=re.search(r'Older audit actions</a>',audit_first)
+            audit_cursor=re.search(r'audit_content='+audit_fixture_id
+                                   +r'&amp;audit_before=(\d+)',audit_first)
+            ensure('Local moderation audit includes older-page navigation',
+                   code==200 and audit_next is not None
+                   and audit_cursor is not None
+                   and 'Disposable moderator audit 50' in audit_first
+                   and 'Disposable moderator audit 00' not in audit_first)
+            code, audit_older=req(audit_path+'&audit_before='+audit_cursor.group(1))
+            ensure('Historical private moderator notes remain accessible after 50 entries',
+                   code==200 and 'Disposable moderator audit 00' in audit_older
+                   and 'Back to newest audit actions' in audit_older)
+            code, audit_invalid=req(audit_path+'&audit_before=0')
+            ensure('Forged moderation audit cursor is rejected',
+                   code==422 and 'Invalid audit history cursor' in audit_invalid)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
