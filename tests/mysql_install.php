@@ -1399,6 +1399,19 @@ try {
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_content_reports')->fetchColumn()!==$count) throw new RuntimeException('Duplicate report accepted.');
     $reportId=(int)$pdo->query('SELECT id FROM ac_content_reports LIMIT 1')->fetchColumn();
     $moderation->resolveReport($reportId,(int)$valid['id'],'resolved','Reviewed and retained quarantine.');
+    $reportPage=$moderation->reportQueuePage();
+    if ($reportPage['items']===[] || $reportPage['next']!==null
+        || (int)$reportPage['items'][0]['id']!==$reportId) {
+        throw new RuntimeException('Bounded report queue omitted known local report.');
+    }
+    foreach (['0:0','3:999','1:not-a-number','1:99999999999999999999999999'] as $badReportCursor) {
+        try {
+            $moderation->reportQueuePage($badReportCursor);
+            throw new RuntimeException('Invalid report cursor was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Invalid report cursor was accepted.') throw $e;
+        }
+    }
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Closing report unlocked quarantined content.');
     $moderation->moderateContent($contentId,(int)$valid['id'],'reject','Rejected pending evidence review.');
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Rejected content is visible.');

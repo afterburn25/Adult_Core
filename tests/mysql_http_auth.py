@@ -1764,6 +1764,21 @@ def main():
             code, content_invalid=req('/admin/moderation?before_content=not-an-id')
             ensure('Forged moderation content cursor fails without changing review state',
                    code==422 and 'Invalid moderation queue cursor' in content_invalid)
+            subprocess.check_output(php_fixture+['seed-reports'],cwd=root)
+            code, report_first=req('/admin/moderation')
+            report_next=re.search(r'href="/admin/moderation\?report_after=(0%3A\d+)"',report_first)
+            ensure('Open reports are first and older ones remain reachable',
+                   code==200 and report_next is not None
+                   and 'Disposable open report 50' in report_first
+                   and 'Disposable resolved report' not in report_first)
+            code, report_older=req('/admin/moderation?report_after='+report_next.group(1))
+            ensure('Oldest open report and resolved report survive priority ordering',
+                   code==200 and 'Disposable open report 00' in report_older
+                   and 'Disposable resolved report' in report_older
+                   and 'Back to newest reports' in report_older)
+            code, report_invalid=req('/admin/moderation?report_after=1%3A0')
+            ensure('Malformed report queue cursor denied without changing report state',
+                   code==422 and 'Invalid private report queue cursor' in report_invalid)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)

@@ -229,7 +229,7 @@ final class ModerationController
                 'Only private, unreviewed drafts can receive a tier.',
                 'Draft tier changed; reload the moderation queue.',
                 'Draft tier assignment is unchanged.','Choose an existing membership tier.',
-                'Invalid moderation queue cursor.'];
+                'Invalid moderation queue cursor.','Invalid private report queue cursor.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -387,8 +387,16 @@ final class ModerationController
             $html.='<tr><td>'.(int)$record['id'].'</td><td>'.(int)$record['content_id'].'</td><td>'.($record['verified_at']===null?'Pending':'Assertion received').'</td><td>'.($record['consent_at']===null?'Pending':'Assertion received').'</td><td>'.self::e((string)$record['review_status']).'</td></tr>';
         }
         $html.='</tbody></table></section>';
-        $html.='<section class="panel"><h2>Reports</h2><table class="page-table"><thead><tr><th>Report</th><th>Content</th><th>Reason</th><th>Status</th><th>Disposition</th></tr></thead><tbody>';
-        foreach ($repo->reportQueue() as $item) {
+        $rawReportCursor=$_GET['report_after']??null;
+        if ($rawReportCursor!==null && !is_string($rawReportCursor)) {
+            throw new RuntimeException('Invalid private report queue cursor.');
+        }
+        $reports=$repo->reportQueuePage($rawReportCursor);
+        $html.='<section class="panel"><h2>Reports</h2>'
+            .'<p class="muted">Open reports appear first, including on older pages. '
+            .'Closing a report cannot publish or restore content.</p>'
+            .'<table class="page-table"><thead><tr><th>Report</th><th>Content</th><th>Reason</th><th>Status</th><th>Disposition</th></tr></thead><tbody>';
+        foreach ($reports['items'] as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.(int)$item['content_id'].' — '.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['reason']).'</td><td>'.self::e((string)$item['status']).'</td><td>';
             if ($item['status']==='open') {
@@ -398,7 +406,16 @@ final class ModerationController
             } else { $html.='Closed'; }
             $html.='</td></tr>';
         }
-        $html.='</tbody></table></section>';
+        $html.='</tbody></table>';
+        if ($reports['next']!==null) {
+            $html.='<p><a href="/admin/moderation?report_after='
+                .rawurlencode($reports['next']).'">Older reports</a></p>';
+        }
+        if ($rawReportCursor!==null) {
+            $html.='<p><a href="/admin/moderation">Back to newest reports</a></p>';
+        }
+        if ($reports['items']===[]) $html.='<p>No reports on this page.</p>';
+        $html.='</section>';
         $auditId=filter_var($_GET['audit_content']??null,FILTER_VALIDATE_INT,
             ['options'=>['min_range'=>1]]);
         if ($auditId!==false && $auditId!==null) {

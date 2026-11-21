@@ -1,3 +1,7 @@
+## Moderation reports across large queues (development)
+
+The protected moderation dashboard now keeps open reports first while offering Older reports navigation when the list exceeds 50 entries. Browsing report history never approves, publishes or restores adult content; real age/consent and payment integrations remain blocked.
+
 ## Private moderation queue navigation (development)
 
 The authenticated local moderation dashboard now pages through private content records 50 at a time. Older drafts and rejected records remain reviewable instead of disappearing from a fixed first-page list; this provides **no approval or publication capability**, and external verification and payments remain blocked.

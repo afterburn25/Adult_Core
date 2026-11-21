@@ -373,6 +373,48 @@ final class ModerationRepository
             FROM ac_content c ORDER BY c.id DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Bounded private report triage, preserving open-first priority across
+     * multiple pages. Cursor is priority bucket (0 open; 1 other) plus ID.
+     * A status transition may change a record's sort position: decisions
+     * remain revision/status-checked server-side, never by cursor alone.
+     * @return array{items:list<array<string,mixed>>,next:?string}
+     */
+    public function reportQueuePage(?string $after=null): array
+    {
+        $parts=null;
+        if ($after!==null) {
+            if (preg_match('/^([01]):([1-9][0-9]{0,18})$/D',$after,$match)!==1) {
+                throw new RuntimeException('Invalid private report queue cursor.');
+            }
+            $id=filter_var($match[2],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+            if (!is_int($id)) {
+                throw new RuntimeException('Invalid private report queue cursor.');
+            }
+            $parts=[(int)$match[1],$id];
+        }
+        $bucket="CASE WHEN r.status='open' THEN 0 ELSE 1 END";
+        $sql="SELECT r.id,r.content_id,r.reporter_id,r.reason,r.status,r.created_at,c.title,
+            {$bucket} AS sort_bucket
+            FROM ac_content_reports r JOIN ac_content c ON c.id=r.content_id";
+        $params=[];
+        if ($parts!==null) {
+            $sql.=" WHERE ({$bucket}>? OR ({$bucket}=? AND r.id<?))";
+            $params=[$parts[0],$parts[0],$parts[1]];
+        }
+        $q=$this->pdo->prepare($sql." ORDER BY {$bucket} ASC,r.id DESC LIMIT 51");
+        $q->execute($params);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        $next=null;
+        if ($more && $rows!==[]) {
+            $last=$rows[count($rows)-1];
+            $next=(int)$last['sort_bucket'].':'.(int)$last['id'];
+        }
+        return ['items'=>$rows,'next'=>$next];
+    }
+
     /** @return list<array<string,mixed>> */
     public function reportQueue(): array
     {

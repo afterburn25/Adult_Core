@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -99,6 +99,28 @@ if ($action === 'seed-content-queue') {
         VALUES (?,'draft','private','pending',1,0,UTC_TIMESTAMP())");
     for ($n=0;$n<51;$n++) $q->execute([sprintf('Bulk moderation %02d',$n)]);
     echo 'Disposable private moderation queue prepared.';
+    exit;
+}
+if ($action === 'seed-reports') {
+    // Disposable-only reports about a synthetic private draft; no real
+    // member data, publication, performer evidence or billing changes.
+    $reporter=(int)$pdo->query("SELECT id FROM ac_users WHERE email='member@test.example'
+        AND role='member' LIMIT 1")->fetchColumn();
+    $content=(int)$pdo->query("SELECT id FROM ac_content
+        WHERE title='Bulk moderation 50' AND status='draft'
+          AND visibility='private' LIMIT 1")->fetchColumn();
+    if ($reporter<1 || $content<1) throw new RuntimeException('Disposable moderation prerequisites missing.');
+    $q=$pdo->prepare("INSERT INTO ac_content_reports
+        (content_id,reporter_id,reason,status,created_at)
+        VALUES (?,?,?,'open',UTC_TIMESTAMP())");
+    for ($n=0;$n<51;$n++) {
+        $q->execute([$content,$reporter,sprintf('Disposable open report %02d',$n)]);
+    }
+    $q=$pdo->prepare("INSERT INTO ac_content_reports
+        (content_id,reporter_id,reason,status,created_at)
+        VALUES (?,?,?,'resolved',UTC_TIMESTAMP())");
+    $q->execute([$content,$reporter,'Disposable resolved report']);
+    echo 'Disposable pending private report queue prepared.';
     exit;
 }
 if ($action === 'issue-email') {
