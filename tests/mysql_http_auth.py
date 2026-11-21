@@ -1104,7 +1104,8 @@ def main():
                    code == 200 and 'Status: changes' in changes_page
                    and 'Private moderator feedback' in changes_page
                    and '&lt;script&gt;alert(1)&lt;/script&gt;' in changes_page
-                   and '<script>alert(1)</script>' not in changes_page)
+                   and '<script>alert(1)</script>' not in changes_page
+                   and 'Your private review feedback history' in changes_page)
             code, direct_resubmit=req('/members/creator',{
                 'csrf':creator_csrf.group(1),'action':'submit_review',
                 'draft_id':creator_draft_id,'revision':'4'})
@@ -1120,6 +1121,10 @@ def main():
                    code == 200 and 'Status: private' in revised_page
                    and 'Private moderator feedback:' not in revised_page
                    and 'Revised private plan' in revised_page)
+            ensure('Review feedback history survives edits without unsafe script rendering',
+                   'Your private review feedback history' in revised_page
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in revised_page
+                   and '<script>alert(1)</script>' not in revised_page)
             code, _=req('/members/creator',{
                 'csrf':creator_csrf.group(1),'action':'submit_review',
                 'draft_id':creator_draft_id,'revision':'5'})
@@ -1144,6 +1149,11 @@ def main():
                    and 'Rejected: this private plan' in final_creator
                    and 'Revised private plan' in final_creator
                    and 'name="action" value="submit_review"' not in final_creator)
+            ensure('Creator privately sees both past review decisions after rejection',
+                   'Your private review feedback history' in final_creator
+                   and 'Submitted revision #3' in final_creator
+                   and 'Submitted revision #6' in final_creator
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in final_creator)
             code, rejected_edit=req('/members/creator',{
                 'csrf':creator_csrf.group(1),'action':'save_draft',
                 'draft_id':creator_draft_id,'revision':'7',
@@ -1157,6 +1167,12 @@ def main():
                    and '<h2>Text-review history</h2>' in owner_review
                    and '<td>submitted</td>' in owner_review
                    and '<td>rejected</td>' in owner_review)
+            ensure('Owner can review two independent private feedback snapshots',
+                   '<h2>Private review feedback history</h2>' in owner_review
+                   and 'Submitted revision #3' in owner_review
+                   and 'Submitted revision #6' in owner_review
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in owner_review
+                   and '<script>alert(1)</script>' not in owner_review)
             code, none_pending=mod_req('/admin/creator-review')
             ensure('Reviewed plan no longer appears in submitted queue',
                    code == 200 and 'No submitted private plans' in none_pending)

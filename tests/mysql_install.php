@@ -27,6 +27,8 @@ use AdultCore\Member\MemberSchema;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorFeedbackSchema;
+use AdultCore\Creator\CreatorFeedbackHistory;
 use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
@@ -353,6 +355,8 @@ try {
     CreatorSchema::migrate($pdo);
     CreatorReviewSchema::migrate($pdo);
     CreatorReviewSchema::migrate($pdo);
+    CreatorFeedbackSchema::migrate($pdo);
+    CreatorFeedbackSchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
@@ -661,6 +665,19 @@ try {
     }
     $creators->saveDraft((int)$member['id'],$draftId,(int)$rework['revision'],
         'Revised private story','A revised private summary with no evidence, media or publication.');
+    $feedbackRepo=new CreatorFeedbackHistory($pdo);
+    $retained=$feedbackRepo->forMember((int)$member['id']);
+    if (count($retained)!==1 || $retained[0]['decision']!=='changes'
+        || !str_contains((string)$retained[0]['feedback'],'clarify')
+        || $feedbackRepo->forMember((int)$secondMember['id'])!==[]) {
+        throw new RuntimeException('Review history was lost on edit or leaked to unrelated member.');
+    }
+    try {
+        $feedbackRepo->forOwner($moderatorId,$creatorId);
+        throw new RuntimeException('Moderator accessed protected owner feedback history.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator accessed protected owner feedback history.') throw $e;
+    }
     $revised=$creators->ownDrafts((int)$member['id'])[0];
     if ($revised['status']!=='private' || (string)$revised['review_note']!=='') {
         throw new RuntimeException('Revision failed to clear obsolete moderator feedback.');
@@ -677,6 +694,16 @@ try {
     $textReview->decide($moderatorId,$draftId,(int)$resubmitted['revision'],
         'rejected','Rejected because required rights and documentation are not ready.');
     $rejected=$creators->ownDrafts((int)$member['id'])[0];
+    $allFeedback=$feedbackRepo->forMember((int)$member['id']);
+    $ownerFeedback=$feedbackRepo->forOwner((int)$valid['id'],$creatorId);
+    if (count($allFeedback)!==2 || count($ownerFeedback)!==2
+        || $allFeedback[0]['decision']!=='rejected'
+        || $allFeedback[1]['decision']!=='changes'
+        || !str_contains((string)$allFeedback[1]['feedback'],'clarify')
+        || (int)$allFeedback[0]['submitted_revision']!==(int)$resubmitted['revision']
+        || (int)$ownerFeedback[0]['reviewer_id']!==$moderatorId) {
+        throw new RuntimeException('Revision-bound private feedback timeline was incomplete.');
+    }
     if ($rejected['status']!=='rejected' || !str_contains((string)$rejected['review_note'],'Rejected')
         || $textReview->queue($moderatorId)!==[]) {
         throw new RuntimeException('Rejected private text plan stayed in queue or lost feedback.');
@@ -1199,7 +1226,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_creator_feedback_history','ac_creator_draft_events','ac_creator_actions','ac_creator_drafts','ac_creator_profiles','ac_staff_actions','ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');

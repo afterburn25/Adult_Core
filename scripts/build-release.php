@@ -64,6 +64,7 @@ try {
         'src/Auth/StaffRepository.php','src/Auth/StaffSchema.php','src/Http/StaffController.php',
         'src/Creator/CreatorSchema.php','src/Creator/LocalCreators.php',
         'src/Creator/CreatorReviewSchema.php','src/Creator/CreatorDraftReview.php',
+        'src/Creator/CreatorFeedbackSchema.php','src/Creator/CreatorFeedbackHistory.php',
         'src/Http/CreatorReviewController.php',
         'src/Http/CreatorAdminController.php',
         'src/Membership/MemberSubscriptionSummary.php',

@@ -19,6 +19,8 @@ use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Creator\CreatorSchema;
 use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\CreatorFeedbackSchema;
+use AdultCore\Creator\CreatorFeedbackHistory;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Design\DesignSchema;
@@ -97,6 +99,8 @@ try{
         'Local creator draft persists under m13 before optional text-review upgrade');
     CreatorReviewSchema::migrate($pdo);
     CreatorReviewSchema::migrate($pdo);
+    CreatorFeedbackSchema::migrate($pdo);
+    CreatorFeedbackSchema::migrate($pdo);
     $upgradedDraft=$creators->ownDrafts($memberId)[0]??null;
     verifyRecovery(is_array($upgradedDraft)
         && $upgradedDraft['title']===$beforeUpgrade['title']
@@ -120,6 +124,11 @@ try{
     $review->decide($ownerId,$rejectedDraftId,2,'rejected',
         'Rejected <script>example</script> feedback that must remain in private storage.');
     $beforeCreatorRecovery=$creators->privatePlansForOwner($ownerId,$creatorId);
+    $beforeFeedback=(new CreatorFeedbackHistory($pdo))->forOwner($ownerId,$creatorId);
+    verifyRecovery(count($beforeFeedback)===2
+        && $beforeFeedback[0]['decision']==='rejected'
+        && $beforeFeedback[1]['decision']==='changes',
+        'Revision-bound private feedback snapshots exist before encrypted backup');
     verifyRecovery(is_array($beforeCreatorRecovery)
         && count($beforeCreatorRecovery['drafts'])===3
         && count($beforeCreatorRecovery['events'])===6
@@ -173,8 +182,11 @@ try{
     $creatorAfterRecovery=(new LocalCreators($pdo))->privatePlansForOwner($ownerId,$creatorId);
     verifyRecovery($creatorAfterRecovery===$beforeCreatorRecovery,
         'All private local creator drafts, submitted/rejected/archived statuses, feedback and numeric audit are recovered exactly');
+    $restoredFeedback=(new CreatorFeedbackHistory($pdo))->forOwner($ownerId,$creatorId);
+    verifyRecovery($restoredFeedback===$beforeFeedback,
+        'Both historical private review feedback decisions survive encrypted restore exactly');
     verifyRecovery((new EmailConfirmations($pdo))->verified($memberId)
-        && (int)$pdo->query("SELECT COUNT(*) FROM ac_schema_migrations WHERE version IN ('m13_local_creator_workspace_v1','m14_creator_text_review_v1')")->fetchColumn()===2,
+        && (int)$pdo->query("SELECT COUNT(*) FROM ac_schema_migrations WHERE version IN ('m13_local_creator_workspace_v1','m14_creator_text_review_v1','m15_creator_feedback_history_v1')")->fetchColumn()===3,
         'Local creator account confirmation and additive migration markers survived restore');
     $restoredQueue=(new CreatorDraftReview($pdo))->queue($ownerId);
     verifyRecovery(count($restoredQueue)===1
