@@ -1,3 +1,9 @@
+## Revision-restore HTTP fixture uses the current administrator CSRF — 2026-11-21
+
+The new 23-revision browser test reached its oldest saved private version but its restore POST was rejected. The test reused an editor CSRF token captured much earlier, before intervening owner session/security flows; the actual page contains a fresh hidden CSRF value. The fixture now extracts and submits that current token from the older revisions screen rather than relying on an earlier login epoch. The real protected restore still requires CSRF, matching optimistic page revision and draft-only state. If CI fails again, inspect the returned safe error before touching production logic.
+
+---
+
 ## Additive member safety audit and revocable local account transitions (m21) — 2026-11-21
 
 Introduced `MemberSafetySchema` m21 as an additive, repeatable append-only site-local audit table requiring existing member, email-confirmation and password-reset generations. `LocalMemberSafety::change()` is a strict active owner/admin operation: a locally registered `role=member` account may be suspended from pending/active or restored from suspended **only to pending**, NEVER to active, age-verified, consent-approved, paid or published. Each transaction locks actor+member, checks expected status, changes only the local account status, increments `ac_member_password_resets.session_generation`, clears any outstanding reset and unconfirmed-email tokens, and writes an escaped, bounded private reason/actor/status audit. Previous member cookies must fail after restoration because their signed-in generation no longer matches; identity/payment/creator/media records are retained. Replay, moderator/owner targets and malformed notes are denied. MySQL/MariaDB direct security regressions, ZIP checks, and SQL fixture cleanup are in place. The owner action UI and HTTP tests follow in the next commit; production merchant/legal/provider gates remain unapproved.

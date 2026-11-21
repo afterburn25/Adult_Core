@@ -1898,8 +1898,11 @@ def main():
             code, invalid_versions=req(history_path+'&history_before=bad')
             ensure('Invalid page history cursor is denied',
                    code==422 and 'Invalid page history cursor' in invalid_versions)
+            current_history_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',versions_older)
+            ensure('Older-version restore uses current authenticated owner CSRF token',
+                   current_history_csrf is not None)
             code, _=req(history_path,{
-                'csrf':edit_csrf.group(1),'action':'restore',
+                'csrf':current_history_csrf.group(1),'action':'restore',
                 'revision':'23','history_revision':'1'
             })
             ensure('Owner can restore oldest private text after 23 saves',code==303)
