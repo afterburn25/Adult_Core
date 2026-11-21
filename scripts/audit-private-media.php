@@ -8,8 +8,10 @@ use AdultCore\Database\Connection;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Media\PrivateMediaAudit;
 
-if (PHP_SAPI!=='cli' || count($argv)>2 || (isset($argv[1]) && $argv[1]!=='--json')) {
-    fwrite(STDERR, "Usage: php scripts/audit-private-media.php [--json]\n");
+$flags=array_slice($argv,1);
+if (PHP_SAPI!=='cli' || count($flags)!==count(array_unique($flags))
+    || count($flags)>2 || array_diff($flags,['--json','--metadata'])!==[]) {
+    fwrite(STDERR, "Usage: php scripts/audit-private-media.php [--json] [--metadata]\n");
     exit(64);
 }
 $root=dirname(__DIR__);
@@ -17,8 +19,8 @@ try {
     if ((new InstallationGate($root))->status()!==InstallationGate::READY) {
         throw new RuntimeException('Private media audit requires a completed installation.');
     }
-    $result=(new PrivateMediaAudit($root, Connection::open($root)))->inspect();
-    if (($argv[1]??'')==='--json') {
+    $result=(new PrivateMediaAudit($root, Connection::open($root)))->inspect(in_array('--metadata',$flags,true));
+    if (in_array('--json',$flags,true)) {
         echo json_encode($result, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR)."\n";
     } else {
         echo 'Private media integrity: '.($result['ok']?'PASS':'REVIEW REQUIRED')."\n";

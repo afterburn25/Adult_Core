@@ -17,7 +17,7 @@ final class PrivateMediaAudit
     public function __construct(private readonly string $root, private readonly PDO $pdo) {}
 
     /** @return array{ok:bool,db_rows:int,stored_files:int,missing_files:int,orphan_files:int,unsafe_paths:int,invalid_records:int,invalid_sizes:int,truncated:bool} */
-    public function inspect(): array
+    public function inspect(bool $checkMetadata = false): array
     {
         // Repeated operator checks must reflect files changed since the
         // prior inspection, not PHP's process-local cached filesystem stats.
@@ -31,6 +31,9 @@ final class PrivateMediaAudit
             'unsafe_paths'=>0,
             'invalid_records'=>0,
             'invalid_sizes'=>0,
+            'metadata_checked'=>0,
+            'metadata_rejected'=>0,
+            'metadata_truncated'=>false,
             'truncated'=>false,
         ];
         $base=$this->root.'/storage/private-media';
@@ -40,7 +43,12 @@ final class PrivateMediaAudit
             return $result;
         }
         $stored=[];
-        $q=$this->pdo->query('SELECT private_storage_key FROM ac_media LIMIT 50001');
+        // Optional bounded read-only metadata review. Never emit storage keys
+        // or private paths, and never scan unbounded customer media volume.
+        $metadataBytesLeft = 64 * 1024 * 1024;
+        $q=$this->pdo->query($checkMetadata
+            ? 'SELECT private_storage_key,mime_type FROM ac_media LIMIT 50001'
+            : 'SELECT private_storage_key FROM ac_media LIMIT 50001');
         while (($row=$q->fetch(PDO::FETCH_ASSOC))!==false) {
             if (++$result['db_rows']>50000) {
                 $result['truncated']=true;
@@ -62,6 +70,23 @@ final class PrivateMediaAudit
                 $size=@filesize($path);
                 if (!is_int($size) || $size<1 || $size>8*1024*1024) {
                     $result['invalid_sizes']++;
+                } elseif ($checkMetadata) {
+                    if ($result['metadata_checked']>=100 || $size>$metadataBytesLeft) {
+                        $result['metadata_truncated']=true;
+                    } else {
+                        $metadataBytesLeft-=$size;
+                        $result['metadata_checked']++;
+                        $mime=$row['mime_type']??null;
+                        if (!is_string($mime) || !PrivateMedia::validMime($mime)) {
+                            $result['metadata_rejected']++;
+                        } else {
+                            try {
+                                ImageMetadataPolicy::assertAllowed($path,$mime);
+                            } catch (\RuntimeException) {
+                                $result['metadata_rejected']++;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -90,8 +115,8 @@ final class PrivateMediaAudit
                 }
             }
         }
-        $result['ok']=!$result['truncated'];
-        foreach (['missing_files','orphan_files','unsafe_paths','invalid_records','invalid_sizes'] as $name) {
+        $result['ok']=!$result['truncated'] && !$result['metadata_truncated'];
+        foreach (['missing_files','orphan_files','unsafe_paths','invalid_records','invalid_sizes','metadata_rejected'] as $name) {
             if ($result[$name]!==0) $result['ok']=false;
         }
         return $result;

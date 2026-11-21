@@ -41,7 +41,8 @@ $path=static fn(string $key): string => $base.'/'.$key.'.bin';
 try {
     $pdo->exec('CREATE TABLE ac_media (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-        private_storage_key VARCHAR(190) NOT NULL UNIQUE
+        private_storage_key VARCHAR(190) NOT NULL UNIQUE,
+        mime_type VARCHAR(70) NOT NULL DEFAULT 'image/png'
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
     $insert=$pdo->prepare('INSERT INTO ac_media (private_storage_key) VALUES (?)');
     $insert->execute([$first]);
@@ -85,6 +86,29 @@ try {
     unlink($base);
     rename($backup,$base);
     $check($audit->inspect()['ok']===true,'Restored private directory passes read-only inspection');
+
+    // Explicit metadata mode is read-only and aggregate-only. Regular audit
+    // remains compatible with old installations and does not decode images.
+    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4p2gOAAMXATf6OqxSAAAAAElFTkSuQmCC',true);
+    if (!is_string($png)) throw new RuntimeException('Audit PNG fixture missing.');
+    file_put_contents($path($first),$png);
+    file_put_contents($path($second),$png);
+    $report=$audit->inspect(true);
+    $check($report['ok'] && $report['metadata_checked']===2
+        && $report['metadata_rejected']===0 && !$report['metadata_truncated'],
+        'Bounded metadata scan accepts two clean registered private images');
+    $data='GPSComment=private';$type='tEXt';
+    $chunk=pack('N',strlen($data)).$type.$data.hex2bin(hash('crc32b',$type.$data));
+    file_put_contents($path($first),substr($png,0,33).$chunk.substr($png,33));
+    $report=$audit->inspect(true);
+    $check(!$report['ok'] && $report['metadata_rejected']===1
+        && $report['metadata_checked']===2,'Private metadata anomaly counted without mutation');
+    $check(!str_contains(json_encode($report,JSON_THROW_ON_ERROR),$first)
+        && !str_contains(json_encode($report,JSON_THROW_ON_ERROR),$root),
+        'Metadata audit never exposes blob keys or paths');
+    $check(is_file($path($first)),'Metadata audit never deletes a retained image');
+    file_put_contents($path($first),$png);
+    $check($audit->inspect(true)['ok'],'Restored clean images pass metadata mode');
     echo "Passed {$ok} disposable MySQL private media integrity audit checks.\n";
 } finally {
     $pdo->exec('DROP TABLE IF EXISTS ac_media');
