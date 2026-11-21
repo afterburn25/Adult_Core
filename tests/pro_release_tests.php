@@ -34,6 +34,25 @@ file_put_contents($receiptPath,json_encode($alteredSignature,JSON_THROW_ON_ERROR
 try {$inbox->accept($job,$secret);throw new RuntimeException('Tampered receipt signature accepted');}
 catch(RuntimeException $e){ck($e->getMessage()!=='Tampered receipt signature accepted','Tampered stored Pro job signature rejected');}
 file_put_contents($receiptPath,$original);
+$changedStatus=json_decode($original,true,12,JSON_THROW_ON_ERROR);
+$changedStatus['status']='done';
+file_put_contents($receiptPath,json_encode($changedStatus,JSON_THROW_ON_ERROR));
+try{$inbox->accept($job,$secret);throw new RuntimeException('Tampered status accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Tampered status accepted',
+    'Receipt status cannot be changed without a matching signed MAC');}
+$changedTimestamp=json_decode($original,true,12,JSON_THROW_ON_ERROR);
+$changedTimestamp['received_at']++;
+file_put_contents($receiptPath,json_encode($changedTimestamp,JSON_THROW_ON_ERROR));
+try{$inbox->accept($job,$secret);throw new RuntimeException('Tampered receipt timestamp accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Tampered receipt timestamp accepted',
+    'Receipt timestamp cannot be changed without a matching signed MAC');}
+$legacyReceipt=json_decode($original,true,12,JSON_THROW_ON_ERROR);
+unset($legacyReceipt['mac']);
+file_put_contents($receiptPath,json_encode($legacyReceipt,JSON_THROW_ON_ERROR));
+try{$inbox->accept($job,$secret);throw new RuntimeException('Unsigned legacy receipt accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Unsigned legacy receipt accepted',
+    'Legacy unsealed receipt fails closed for operator review');}
+file_put_contents($receiptPath,$original);
 ck(!$inbox->accept($job,$secret),'Restored valid job remains idempotent');
 $bad=JobEnvelope::create('pro-job-00002','video.transcode',['asset_id'=>7,'path'=>'/etc/passwd'],$secret);
 try{$inbox->accept($bad,$secret);throw new RuntimeException('Path payload accepted');}catch(RuntimeException $e){ck($e->getMessage()!=='Path payload accepted','Payload allowlist');}

@@ -19,6 +19,14 @@ final class JobInbox
         return is_int($payload['asset_id']) && $payload['asset_id']>0;
     }
 
+    /** HMAC the complete receipt, domain-separated from the signed job envelope. */
+    private static function receiptMac(array $record, string $secret): string
+    {
+        return hash_hmac('sha256',
+            "adult-core-pro-receipt-v1\n".json_encode($record,JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            $secret);
+    }
+
     /** Return false for a duplicate accepted job. Stores NO privileged filesystem paths. */
     public function accept(array $envelope, string $secret): bool
     {
@@ -52,10 +60,14 @@ final class JobInbox
             }
             try { $prior = json_decode($raw, true, 12, JSON_THROW_ON_ERROR); }
             catch (\JsonException) { throw new RuntimeException('Pro job receipt corrupted.'); }
-            if (!is_array($prior) || !is_int($prior['received_at'] ?? null)
+            if (!is_array($prior) || array_keys($prior)!==['received_at','job','signature','status','mac']
+                || !is_int($prior['received_at'] ?? null)
                 || !in_array($prior['status'] ?? null, ['pending','processing','done','failed'], true)
                 || !is_array($prior['job'] ?? null)
                 || !is_string($prior['signature'] ?? null)
+                || !is_string($prior['mac'] ?? null)
+                || preg_match('/^[a-f0-9]{64}$/D',$prior['mac'])!==1
+                || !hash_equals(self::receiptMac(array_slice($prior,0,4,true),$secret),$prior['mac'])
                 || !hash_equals($envelope['signature'], $prior['signature'])
                 || $prior['job'] !== $envelope['data']) {
                 throw new RuntimeException('Conflicting or corrupted Pro job replay.');
@@ -65,12 +77,14 @@ final class JobInbox
         try {
             // Preserve the signed original envelope for later integrity
             // verification. Receipt metadata is not an execution instruction.
-            $data=json_encode([
+            $record=[
                 'received_at'=>time(),
                 'job'=>$envelope['data'],
                 'signature'=>$envelope['signature'],
                 'status'=>'pending',
-            ],JSON_THROW_ON_ERROR);
+            ];
+            $record['mac']=self::receiptMac($record,$secret);
+            $data=json_encode($record,JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
             if (fwrite($fp,$data)!==strlen($data) || !fflush($fp)) throw new RuntimeException('Cannot persist Pro job.');
         } catch (\Throwable $e) {
             fclose($fp);@unlink($path);throw $e;
