@@ -1,3 +1,12 @@
+## Image metadata intake and symlink storage hardening — 2026-11-21
+
+- Added `src/Media/ImageMetadataPolicy.php`: a bounded reject-only PNG/JPEG/WebP container inspector. It refuses common EXIF/GPS/XMP/ICC, PNG text/unknown chunks, JPEG APP1+ and comment markers, WebP EXIF/XMP/animation and unsupported/malformed/trailing structures before uploading to private media. It does not transform or virus scan pixels.
+- Integrated pre-move into `PrivateMedia::storeVerifiedImage()` and `DesignImages::inspect()`, covering both pending private draft images and optionally public homepage decorative cutouts. Upload UI explains metadata-free export requirement.
+- Added dedicated PHP format tests, real authenticated multipart PNG metadata refusals for both upload routes and source ZIP packaging expectations. Metadata-rejection PHP/HTTP code/test commit `dc19549fb` passed [GitHub Actions 44929628103](https://github.com/afterburn25/Adult_Core/actions/runs/44929628103), and the Design Studio integration commit `48e14d487` passed [GitHub Actions 44929729980](https://github.com/afterburn25/Adult_Core/actions/runs/44929729980).
+- Added symlink-parent checks to `PrivateMedia` and `DesignImages` storage access, with no deletion or migration; corresponding CI requires confirmation on the latest commit. **No real hosted environment, adult ID/consent contract, billing processor, approved publication decision or independent certification is complete.** All ten release gates remain open.
+
+---
+
 ## Installer pre-issuer public layout refusal — 2026-11-21
 
 `InstallService::install()` now checks the shared `HostInspector::inspect()` `public_docroot` capability before calling `LicenseManager::verifyForInstall()`; it refuses an unsafe public tree even when the domain/docroot path matches, with no network license request or MySQL setup. Edition selection still occurs only after verified Cajun Web Pro issuance; there is no Lite downgrade fallback. The direct HTTP issuer-boundary test now copies bundled routing files and injects an unexpected public `.phtml` file, confirming fail-closed refusal before issuer contact. This is local/CI assurance, not actual Lite cPanel or Pro VPS certification; **check the new CI result**.

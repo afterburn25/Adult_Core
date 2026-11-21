@@ -1,3 +1,11 @@
+## Private image intake privacy screening — 2026-11-21 (development only)
+
+- Conservative bounded metadata/structure scanner for JPEG/PNG/WebP `ImageMetadataPolicy`; refuse EXIF/GPS/XMP/ICC and unsupported image extensions/chunks before moving verified HTTP uploads.
+- Apply the same metadata policy to unpublished private draft images and decorative Design Studio images that could be selected for the public homepage. Show the operator how to export a metadata-free image.
+- Refuse linked `storage/` parents and linked private asset directories during private media lookup/upload and design asset delivery.
+- Add PHP and disposable authenticated HTTP tests covering accepted clean fixtures, rejected metadata/malformed containers and symlink path denial. Require policy source in unified Lite/Pro developer ZIP.
+- No image transformation, malware scanner, video processing, creator publishing, independent provider compliance or production readiness is claimed.
+
 ## Installer layout hardening — 2026-11-21 (development only)
 
 - Shared `PublicRootSafety` scanner for installer and deployment preflight; copied private directories, public symlinks, unexpected executables and scan failures block local host eligibility.

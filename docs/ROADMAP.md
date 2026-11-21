@@ -1,3 +1,11 @@
+## Private image metadata and storage-path safeguards — 2026-11-21
+
+Private draft image staging and Design Studio image uploads now invoke `src/Media/ImageMetadataPolicy.php` after server-side MIME/dimension validation and before moving the HTTP upload. The bounded, conservative PNG/JPEG/WebP container inspection refuses common embedded textual/EXIF/GPS/XMP/ICC metadata and unknown chunks, rather than preserving those structures in a private binary or potentially public decorative asset. It does **not** re-encode images, eliminate every conceivable covert data channel, perform malware scanning, certify rights/consent, or enable publishing. Images requiring metadata cleaning must be exported again by the uploader through trusted tooling.
+
+`PrivateMedia::locate()`, `PrivateMedia::storeVerifiedImage()`, and Design Studio upload/serve paths now refuse symlinked `storage/` parents and symlinked private asset folders. Automated tests cover real HTTP rejection of metadata-bearing PNGs, clean PNG/JPEG/WebP, malformed/trailing content and symlinked private blobs/roots. The unified source distribution requires the new policy class. **Real-host/private-storage permission audits, reliable re-encoding/malware scanning, lawful content retention and independent security certification remain unfinished.**
+
+---
+
 ## Installer public-root guard — 2026-11-21
 
 The installer, Lite-to-Pro hosting inspection and operator deployment preflight now reuse `src/Capability/PublicRootSafety.php`. A license-valid host must have exactly the intended `public/` document root, bundled front controller/router/Apache guards, and no public symlinks, unexpected executables or copied private directories. `InstallService` rejects an unsafe public layout **before** asking Cajun Web Pro to validate a customer key and before any MySQL schema mutation. Disposable PHP and localhost HTTP tests cover these cases; the unified source ZIP explicitly requires the guard source and Apache routing file.

@@ -1,3 +1,9 @@
+## Metadata-bearing image intake protection — development only
+
+The private-draft and Design Studio HTTP image upload paths now reject common EXIF/GPS/XMP/ICC text and unsupported PNG/JPEG/WebP metadata/container structures before storing bytes. Image content is **not** transcoded or scrubbed: callers must submit a metadata-free export. Privacy-sensitive sidecars or alternative channels are not exhaustively eliminated. Private storage symlinks are refused during upload/lookup/delivery. Unit and HTTP fixtures exercise these denials, but the production acceptance obligations in workstreams #5 and #10 **remain open**, including server-supported safe media re-encoding and malware scanning, independent provider/performer rights review, real host permission audits and lawful data-retention procedures.
+
+---
+
 # Adult_Core — ten-workstream implementation and release acceptance
 
 **Status: development. Production launch is blocked.** The unified Lite/Pro application remains one installable source package, with Cajun Web Pro license-key selection. This document is a release engineering checklist, **not** a substitute for an external signoff, a hosting test or a merchant/identity provider contract.

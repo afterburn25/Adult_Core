@@ -1,3 +1,11 @@
+## Uploaded image metadata and private storage safeguards — 2026-11-21
+
+Keep `ImageMetadataPolicy::assertAllowed()` in **both** private draft upload (`PrivateMedia::storeVerifiedImage()`) and Design Studio image validation (`DesignImages::inspect()`) before any binary move or database write. Policy is a bounded reject-only PNG/JPEG/WebP container screen: EXIF/GPS/XMP/ICC, text, animation/unknown chunks and malformed containers must fail, while clean fixtures pass. This is not image re-encoding, malware scanning, adult-performer consent verification, or permission to publish. The authenticated HTTP suite checks refusal before an inserted `ac_media` row and before public decorative approval. Preserve no-source-secret output and max byte/dimension checks.
+
+Never follow symlinked `storage/` parents, private media/design asset directories or individual files on upload/lookup/delivery. Maintain `tests/image_metadata_tests.php` (including symlink path cases), `tests/design_tests.php`, `tests/mysql_http_auth.py`, and `tests/release_distribution_tests.php` in CI. The developer source ZIP must include `src/Media/ImageMetadataPolicy.php`. These checks do not close actual cPanel/VPS media security or independent legal/security release gates.
+
+---
+
 ## Installer safe-public-tree invariant — 2026-11-21
 
 Keep the read-only `src/Capability/PublicRootSafety.php` shared between `HostInspector` and `DeploymentPreflight`. `InstallService::install()` MUST reject missing `public_docroot` **before** contacting the CWP issuer or creating MySQL tables. The public tree must not contain linked paths, copied `install/config/storage/src/tests/scripts` directories, hidden sensitive files, unexpected executable scripts, unscannable/deep paths, or missing/invalid bundled `index.php`, `router.php`, `.htaccess` guards. Do not let an operator-selected expected edition bypass this requirement; only the verified license SKU chooses Lite/Pro. Keep the HTTP denial test, disposable MySQL installer and recovery fixtures, ZIP packaging checks and actual-host acceptance separate. This is not proof that real Apache, cPanel or VPS web routing is safe.
