@@ -518,6 +518,19 @@ try {
         || $searchOne['pages'][0]['title']!=='Saved test page 0') {
         throw new RuntimeException('Literal owner search did not match exactly one page.');
     }
+    $draftOnly=$repo->pageList(null,null,'draft');
+    $publishedOnly=$repo->pageList(null,null,'published');
+    if (count($draftOnly['pages'])!==50 || $draftOnly['next']===null
+        || count($publishedOnly['pages'])!==1
+        || $publishedOnly['pages'][0]['slug']!=='about') {
+        throw new RuntimeException('Page status filter omitted drafts or included wrong public pages.');
+    }
+    try {
+        $repo->pageList(null,null,'approved');
+        throw new RuntimeException('Unsupported page approval filter accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unsupported page approval filter accepted.') throw $e;
+    }
     $searchMany=$repo->pageList(null,'Saved test page');
     $searchTail=$repo->pageList($searchMany['next'],'Saved test page');
     if (count($searchMany['pages'])!==50 || $searchMany['next']===null

@@ -489,6 +489,13 @@ def main():
             code, bad_pages=req('/admin/pages?before=not-an-id')
             ensure('Forged page list cursor fails without opening protected drafts',
                    code==422 and 'Invalid page list cursor' in bad_pages)
+            code, write_directory=req('/admin/pages',{'csrf':'bad'})
+            ensure('Page index never accepts a POST mutation',code==405)
+            code, write_members=req('/admin/members',{'csrf':'bad'})
+            ensure('Owner member directory remains read-only',code==405)
+            code, bad_filter=req('/admin/pages?status=approved')
+            ensure('Page status is never an adult-media approval action',
+                   code==422 and 'Invalid page status' in bad_filter)
             code, editor = req('/admin/page')
             edit_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', editor)
             ensure('Page editor requires auth and token', code == 200 and edit_csrf is not None)
@@ -1702,6 +1709,12 @@ def main():
             ensure('Owner page search locates one matching private title only',
                    code==200 and 'Bulk fixture page 00' in found_pages
                    and 'Bulk fixture page 01' not in found_pages)
+            code, draft_filtered=req('/admin/pages?status=draft')
+            draft_next=re.search(r'href="/admin/pages\?before=(\d+)&amp;status=draft"',draft_filtered)
+            ensure('Owner draft-status filter preserves private paging',
+                   code==200 and draft_next is not None
+                   and 'Bulk fixture page 50' in draft_filtered
+                   and '<td>safe-page</td>' not in draft_filtered)
             code, all_search=req('/admin/pages?q=Bulk%20fixture%20page')
             filtered_next=re.search(r'href="/admin/pages\?before=(\d+)&amp;q=Bulk%20fixture%20page"',all_search)
             ensure('Private text search preserves filter in paginated navigation',

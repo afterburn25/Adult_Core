@@ -48,6 +48,11 @@ final class SiteAdminController
         if (!in_array($method, ['GET', 'POST'], true)) {
             header('Allow: GET, POST'); $this->render(405, 'Invalid method', '<p>Method not allowed.</p>'); return;
         }
+        if ($method==='POST' && in_array($path,['/admin/pages','/admin/members'],true)) {
+            header('Allow: GET');
+            $this->render(405,'Method not allowed','<p>This directory is read-only.</p>');
+            return;
+        }
         if ($method === 'POST' && !AdminSession::csrfValid($_POST['csrf'] ?? null)) {
             $this->render(403, 'Invalid token', '<p>Reload the form and try again.</p>'); return;
         }
@@ -332,8 +337,16 @@ final class SiteAdminController
                 '<p role="alert">The page search was invalid.</p>');
             return;
         }
+        $statusFilter=$_GET['status']??'all';
+        if (!is_string($statusFilter)
+            || !in_array($statusFilter,['all','draft','published'],true)) {
+            $this->render(422,'Invalid page status',
+                '<p role="alert">Choose a supported draft or published filter.</p>');
+            return;
+        }
         try {
-            $pageSet=$repo->pageList($before,$rawSearch);
+            $pageSet=$repo->pageList($before,$rawSearch,
+                $statusFilter==='all'?null:$statusFilter);
         } catch (RuntimeException) {
             $this->render(422,'Invalid page search',
                 '<p role="alert">Search must contain no control characters and at most 80 bytes.</p>');
@@ -345,7 +358,13 @@ final class SiteAdminController
             . '<form method="get" action="/admin/pages" class="install-form">'
             . '<label for="admin-page-search">Find local pages by title or URL slug</label>'
             . '<input id="admin-page-search" name="q" maxlength="80" value="'.self::e(trim($rawSearch)).'">'
-            . '<button class="button-secondary" type="submit">Search pages</button>'
+            . '<label for="admin-page-status">Page status</label>'
+            . '<select id="admin-page-status" name="status">';
+        foreach (['all'=>'All pages','draft'=>'Draft only','published'=>'Published only'] as $value=>$label) {
+            $html.='<option value="'.$value.'"'
+                .($statusFilter===$value?' selected':'').'>'.self::e($label).'</option>';
+        }
+        $html.='</select><button class="button-secondary" type="submit">Filter pages</button>'
             . '<a href="/admin/pages">Clear search</a></form>';
         if (($_GET['result'] ?? '') === 'saved') $html .= '<p role="status">Page saved.</p>';
         $html .= '<section class="panel"><h2>Public pages</h2><table class="page-table"><thead><tr><th>Title</th><th>Slug</th><th>Status</th><th></th></tr></thead><tbody>';
@@ -362,11 +381,15 @@ final class SiteAdminController
         if ($pageSet['next']!==null) {
             $html.='<p><a href="/admin/pages?before='.(int)$pageSet['next']
                 .($rawSearch!==''?'&amp;q='.rawurlencode(trim($rawSearch)):'')
+                .($statusFilter==='all'?'':'&amp;status='.rawurlencode($statusFilter))
                 .'">Older pages</a></p>';
         }
         if ($before!==null) {
+            $query=[];
+            if ($rawSearch!=='') $query[]='q='.rawurlencode(trim($rawSearch));
+            if ($statusFilter!=='all') $query[]='status='.rawurlencode($statusFilter);
             $html.='<p><a href="/admin/pages'
-                .($rawSearch!==''?'?q='.rawurlencode(trim($rawSearch)):'')
+                .($query!==[]?'?'.implode('&amp;',$query):'')
                 .'">Back to newest pages</a></p>';
         }
         $html.='</section><p class="muted">Pages support escaped plain text, not user-supplied HTML or scripts.</p>';

@@ -45,7 +45,7 @@ final class PageRepository
      *
      * @return array{pages:list<array<string,mixed>>,next:?int}
      */
-    public function pageList(?int $before=null,?string $search=null): array
+    public function pageList(?int $before=null,?string $search=null,?string $status=null): array
     {
         if ($before!==null && $before<1) {
             throw new RuntimeException('Invalid page list cursor.');
@@ -58,6 +58,9 @@ final class PageRepository
             throw new RuntimeException('Invalid page search term.');
         }
         $term=trim($raw);
+        if ($status!==null && !in_array($status,['draft','published'],true)) {
+            throw new RuntimeException('Invalid page status filter.');
+        }
         $sql='SELECT id,slug,title,status,show_in_menu,nav_position,updated_at
             FROM ac_pages';
         $conditions=[];
@@ -72,6 +75,10 @@ final class PageRepository
             $conditions[]='(LOCATE(?,slug)>0 OR LOCATE(?,title)>0)';
             $bindings[]=$term;
             $bindings[]=$term;
+        }
+        if ($status!==null) {
+            $conditions[]='status=?';
+            $bindings[]=$status;
         }
         if ($conditions!==[]) $sql.=' WHERE '.implode(' AND ',$conditions);
         $q=$this->pdo->prepare($sql.' ORDER BY id DESC LIMIT 51');

@@ -1,3 +1,7 @@
+## Find drafts and published pages (development)
+
+**Admin → Pages** now filters by Draft or Published and can combine that with title/slug search across multiple result pages. This is an owner-only read-only list; status filtering never publishes material or grants protected adult-media approval.
+
 ## Read-only member directory (development)
 
 **Admin → Members** uses bounded 50-row pages and a local account-status filter. Owner/admin sessions can view locally recorded membership accounts without exposing credentials or granting age verification, billing entitlements, or private media access.

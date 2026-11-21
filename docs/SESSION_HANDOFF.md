@@ -1,3 +1,9 @@
+## Local page draft/published filter and read-only directory method enforcement — 2026-11-21
+
+The owner-only Admin → Pages list now optionally filters draft/published text pages, preserving search terms and status across keyset pagination. Unsupported status terms (including misleading 'approved' requests) receive HTTP 422 and cannot signal protected adult-media approval. Both `/admin/pages` and `/admin/members` explicitly refuse POST with HTTP 405 instead of silently treating one as a read. All page changes remain under the authenticated CSRF/revision-checked editor, and private drafts remain invisible to public routes. Disposable real SQL and HTTP regressions cover safe filters, cursor persistence, no public page leakage and method denial. These are local Lite/Pro management conveniences, not a payment or legal verification integration.
+
+---
+
 ## Owner-only read-only member directory pagination — 2026-11-21
 
 Admin → Members no longer silently truncates at 100 local accounts. A new `MemberDirectory` class reads 50 rows per page by numeric ID cursor with allowlisted `pending`, `active`, `suspended` filters, and never selects password hashes, age/identity evidence, billing, entitlement or private media. Site-level existing license, MFA, authenticated owner/admin role and CSRF gates remain authoritative. The controller returns no-store/noindex pages and rejects malformed cursors or fictitious 'verified' account filters with 422; `active` remains a *locally recorded* status, not certification. A disposable confirmation-gated HTTP fixture creates 51 non-authorized member accounts to verify older pages, filters and private data exclusion. One Lite/Pro source ZIP requires the new repository. No creator SaaS, self-certification or membership activation is added.
