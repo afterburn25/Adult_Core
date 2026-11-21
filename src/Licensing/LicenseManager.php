@@ -136,6 +136,12 @@ final class LicenseManager
         if (!hash_equals($record['domain'], $actualHost)) return 'domain_mismatch';
         $appKey = $this->appKey();
         if ($appKey === null) return 'license_required';
+        // A symlinked lock signals unsafe private storage, even if a previous
+        // signed positive verdict is still within its one-hour cache window.
+        $refreshPath = $this->root . '/storage/.license-refresh.lock';
+        if (is_link($refreshPath) || is_link($this->root . '/storage/.license-update.lock')) {
+            return 'unavailable';
+        }
         $cached = $this->cache($record, $appKey);
         $now = time();
         if ($cached !== null) {
@@ -144,8 +150,6 @@ final class LicenseManager
         }
         // A single in-flight network refresh per installation. No nonblocking
         // request can bypass the grace bound or a recorded explicit denial.
-        $refreshPath = $this->root . '/storage/.license-refresh.lock';
-        if (is_link($refreshPath)) return 'unavailable';
         $fp = @fopen($refreshPath, 'c+');
         if ($fp === false) return $this->transientVerdict($cached, $now);
         try {
