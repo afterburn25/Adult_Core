@@ -24,23 +24,38 @@ final class MemberLibrary
             throw new RuntimeException('Invalid private library request.');
         }
         $gate = new Entitlements($this->pdo);
-        // Bound the candidate scan; don't expose unauthorized counts or
-        // unpublished titles to the page or its surrounding layout.
-        $stmt = $this->pdo->query("SELECT id,title,visibility FROM ac_content
-            WHERE status='published' AND review_status='approved'
-              AND visibility IN ('members','paid')
-            ORDER BY id DESC LIMIT 250");
+        // Keyset scan ensures a member's older entitled gallery is not
+        // hidden by 250 newer rows they cannot view. Keep a strict per-request
+        // scan budget; never reveal unentitled titles, IDs or candidate counts.
         $visible = [];
-        while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
-            $id = (int)($row['id'] ?? 0);
-            $title = $row['title'] ?? null;
-            $visibility = $row['visibility'] ?? null;
-            if ($id < 1 || !is_string($title) || !in_array($visibility, ['members','paid'], true)
-                || !$gate->canView($memberId, $id)) {
-                continue;
+        $cursor = null;
+        $scanned = 0;
+        while ($scanned < 5000 && count($visible) < $limit) {
+            $batch = min(250, 5000 - $scanned);
+            $sql = "SELECT id,title,visibility FROM ac_content
+                WHERE status='published' AND review_status='approved'
+                  AND visibility IN ('members','paid')";
+            if ($cursor !== null) $sql .= " AND id < ?";
+            $sql .= " ORDER BY id DESC LIMIT " . $batch;
+            $stmt = $this->pdo->prepare($sql);
+            $stmt->execute($cursor === null ? [] : [$cursor]);
+            $seen = 0;
+            while (($row = $stmt->fetch(PDO::FETCH_ASSOC)) !== false) {
+                $seen++;
+                $scanned++;
+                $id = (int)($row['id'] ?? 0);
+                if ($id < 1) continue;
+                $cursor = $id;
+                $title = $row['title'] ?? null;
+                $visibility = $row['visibility'] ?? null;
+                if (!is_string($title) || !in_array($visibility, ['members','paid'], true)
+                    || !$gate->canView($memberId, $id)) {
+                    continue;
+                }
+                $visible[] = ['id'=>$id, 'title'=>$title, 'visibility'=>$visibility];
+                if (count($visible) === $limit) break;
             }
-            $visible[] = ['id'=>$id, 'title'=>$title, 'visibility'=>$visibility];
-            if (count($visible) === $limit) break;
+            if ($seen < $batch) break;
         }
         return $visible;
     }

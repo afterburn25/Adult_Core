@@ -378,6 +378,18 @@ try {
         || $authorizedTitles[0]['title']!=='Fixture gallery') {
         throw new RuntimeException('Verified member was not shown exactly their authorized gallery.');
     }
+    // A large newer set of unentitled published galleries must not crowd
+    // an older currently authorized gallery out of the candidate scan.
+    // This is a disposable database fixture, not public adult content.
+    $noise = $pdo->prepare("INSERT INTO ac_content
+        (title,status,visibility,review_status,requires_consent,expected_performers,created_at)
+        VALUES (?,'published','members','approved',1,1,UTC_TIMESTAMP())");
+    for ($i=0;$i<260;$i++) $noise->execute(['Unentitled noise '.$i]);
+    $afterNoise = $library->visible((int)$member['id']);
+    if (count($afterNoise)!==1 || $afterNoise[0]['id']!==$contentId) {
+        throw new RuntimeException('Newer unauthorized catalog entries hid an entitled older gallery.');
+    }
+    $pdo->exec("DELETE FROM ac_content WHERE title LIKE 'Unentitled noise %'");
     // Private gallery details independently recheck user entitlement and
     // include only approved, allowlisted image records (never storage keys).
     if ($library->detail((int)$member['id'], $contentId)['title'] !== 'Fixture gallery'
