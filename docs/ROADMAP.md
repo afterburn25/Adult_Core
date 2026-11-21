@@ -1,3 +1,11 @@
+## Restricted moderator account end-to-end workflow — 2026-11-21
+
+Existing active accounts with role `moderator` can now authenticate through the regular administrator login and land directly in `/admin/moderation`, with an appropriately restricted sidebar. Moderators can view review queues, create private pending drafts, inspect protected pending images, reject/quarantine, record report dispositions and consult audit history. Every mutation still requires current database-backed role, CSRF and private media/content gates; the default admin dashboard, membership tier management, site design/pages, packages, license/edition upgrades and setup remain denied. Moderators may configure **their own** authenticator MFA via `/admin/security` and see only permitted navigation.
+
+The project still lacks an owner-facing safe staff-provisioning/role-lifecycle UI; this feature currently makes an **already-provisioned** moderator account usable, including test-only disposable fixtures. It does not give moderators permission to approve/publish adult media, manage payments, view customer credentials, bypass licensing or verify performer consent. Independent role-permission/security review remains an open release gate.
+
+---
+
 ## Immediate revocation of suspended administrator accounts — 2026-11-21
 
 `AdminAccounts::verifyCredentials()` and `authorizedById()` now require `ac_users.status='active'` in addition to existing password, role, MFA and session checks. A disabled/suspended owner or admin cannot begin a new privileged session, and the next authenticated HTTP request revokes any existing session. The MFA challenge also uses `authorizedById()` and therefore refuses a suspended account rather than finishing sign-in. Disposable MySQL tests exercise both direct login and active-session authorization; the authenticated HTTP suite temporarily suspends a synthetic administrator, confirms the dashboard is denied and old session is discarded, then restores the synthetic account and requires a fresh sign-in. This does not create user-suspension admin controls or a public moderator onboarding system.

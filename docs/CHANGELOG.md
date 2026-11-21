@@ -1,3 +1,9 @@
+## Restricted moderation role login and navigation — 2026-11-21 (development only)
+
+- Allow active `moderator` accounts to authenticate into the restricted workspace, redirect to moderation instead of the manager dashboard, and perform server-checked content moderation operations.
+- Restrict moderator sidebar to Moderation, own Account security/MFA, and logout; deny site/page/design/tier/license/package/edition-management routes.
+- Add disposable moderator login/CSRF, private-draft creation, role-denial and UI tests. No moderator staff invite/provisioning UI, content approval/publish or access to billing privileges.
+
 ## Suspended administrator login/session denial — 2026-11-21
 
 - Require database account status `active` at administrator credential validation and on every authenticated admin session lookup; suspend/revoke accounts immediately lose access.

@@ -1,3 +1,9 @@
+## Restricted active moderator login — 2026-11-21
+
+A moderator may have `admin.access` and `content.moderate` only; NEVER grant `admin.dashboard.view`, `site.settings.manage`, `members.manage` or `modules.manage` to this role. An active moderator's post-login/MFA destination is `/admin/moderation`, and their `Layout::admin(..., role:'moderator')` navigation must omit site, billing, licensing, Pro upgrade and add-on controls. They may access `/admin/security` only for **their own MFA**, using the existing password/second-factor flow. Service methods must still check active current DB role and locked unpublished states; no approve/publish code. Keep separate-cookie moderator/admin real HTTP tests and disposable SQL/role tests. Account provisioning and commercial compliance remain unimplemented.
+
+---
+
 ## Suspended privileged accounts must be denied immediately — 2026-11-21
 
 `AdminAccounts::verifyCredentials()` and `authorizedById()` must both require `ac_users.status='active'` in addition to permission/MFA/session checks. A disabled admin must not be able to sign in or retain a session after a DB status change. Keep `MfaController` challenge dependent on `authorizedById()`. Maintain disposable SQL and real HTTP regression that suspends/restores only the synthetic test administrator and verifies old sessions are NOT resurrected. Do not broaden moderator login permissions without a separate fully tested role-specific navigation/provisioning design.

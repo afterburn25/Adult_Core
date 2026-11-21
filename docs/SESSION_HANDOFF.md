@@ -1,3 +1,12 @@
+## Moderator sign-in and least privilege — 2026-11-21
+
+- Updated `RolePolicy` so an existing active `moderator` can enter the authenticated admin area but still lacks `admin.dashboard.view` and all site management/edition/license/package permissions. `AdminController` and MFA success route redirect moderators to `/admin/moderation`; `ModerationRepository::requireModerator()` accepts the current active moderator for actual private-only review actions.
+- `Layout::admin()` now optionally accepts a server-supplied role and renders only Moderation + Account security for moderator sessions, omitting Pro and billing/site links. `MfaController::security()` allows each authenticated privileged user, including moderator, to manage their own MFA with step-up password/code protection.
+- Added role boundary unit/UI checks, disposable MySQL moderator role/draft test, and real HTTP test with **separate admin and moderator cookie jars**, proving cross-role admin controls return 403. Test-only CLI `seed-moderator` does not create production account-management workflows.
+- Moderators still cannot approve/publish media, issue paid entitlement, change license or perform actual legal consent verification. No staff invite/provisioning interface yet. Confirm CI on the latest commit before declaring complete.
+
+---
+
 ## Privileged account active-state check — 2026-11-21
 
 `AdminAccounts::verifyCredentials()` and `authorizedById()` now query only `status='active'` privileged users. This prevents suspended accounts from logging in or retaining previously established admin sessions; the existing `AdminController::currentAdmin()` revokes the session when its DB-backed identity disappears, and `MfaController` uses the same authorized lookup. `tests/mysql_install.php` checks both login/current authorization, and the real HTTP suite uses disposable CLI-only `suspend-owner`/`reactivate-owner` commands to verify session invalidation and fresh login. Verify the latest CI result before claiming green. Moderator-specific login provisioning/navigation remains unimplemented: `RolePolicy` does not currently grant moderator `admin.access`, and no role widening was performed.

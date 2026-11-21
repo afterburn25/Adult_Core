@@ -1,3 +1,9 @@
+## Restricted moderator role workflow — local development only
+
+An independently provisioned active `moderator` account can now sign in and access a restricted navigation limited to content moderation and its own MFA/security page. Server role checks still deny manager-only site, membership tiers, licensing, modules, design and upgrades. The moderation repository checks active current role for each mutation and preserves default-deny image visibility; only pending private drafts can be staged, never published or approved. Disposable SQL and separate-cookie-jar HTTP checks verify role authorization, CSRF and restricted navigation. No owner-side staff invitation/approval or performer consent delegation is implemented; independent least-privilege review remains required.
+
+---
+
 ## Read-only member record status — development-only member UX
 
 Signed-in members can now see only their own locally persisted subscription state/tier/date fields on `/members`. A locally recorded `active` membership is clearly NOT proof of payment or verified entitlement, and disabled new catalog tiers remain non-eligible in the existing `Entitlements` policy. The page contains no checkout, cancellation, subscription-grant or provider callback function; it does not reveal billing tokens. Member-ID-bound queries, escaped renderer output and non-disclosing empty state are exercised in unit, disposable MySQL and authenticated HTTP tests. Real processor-approved billing, renewal, cancellation, refund/chargeback and fulfillment remain open in workstream #4.
