@@ -1217,6 +1217,17 @@ try {
     $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    $moderationPage=(new ModerationRepository($pdo))->contentQueuePage();
+    if (count($moderationPage['items'])<1
+        || (int)$moderationPage['items'][0]['id']<1) {
+        throw new RuntimeException('Private moderation queue page failed to return staged record.');
+    }
+    try {
+        (new ModerationRepository($pdo))->contentQueuePage(0);
+        throw new RuntimeException('Invalid moderation cursor was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Invalid moderation cursor was accepted.') throw $e;
+    }
     $moderationQueue=(new ModerationRepository($pdo))->contentQueue();
     $moderationRow=null;
     foreach ($moderationQueue as $row) {

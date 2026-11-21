@@ -331,6 +331,35 @@ final class ModerationRepository
             ->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Keyset-scoped moderator content queue. Hidden older records must remain
+     * reachable without changing ANY approval, review, consent or publication
+     * state. Each page is capped independently of the number of rows stored.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function contentQueuePage(?int $before=null): array
+    {
+        if ($before!==null && $before<1) {
+            throw new RuntimeException('Invalid moderation queue cursor.');
+        }
+        $sql="SELECT c.id,c.title,c.status,c.review_status,c.visibility,c.tier_id,c.expected_performers,
+            (SELECT COUNT(*) FROM ac_performer_records p WHERE p.content_id=c.id) AS recorded_performers,
+            (SELECT COUNT(*) FROM ac_performer_records p WHERE p.content_id=c.id
+                AND p.review_status='approved' AND p.verified_at IS NOT NULL
+                AND p.consent_at IS NOT NULL) AS evidenced_performers,
+            (SELECT COUNT(*) FROM ac_media m WHERE m.content_id=c.id AND m.review_status='pending') AS pending_images,
+            (SELECT COUNT(*) FROM ac_content_reports r WHERE r.content_id=c.id AND r.status='open') AS open_reports
+            FROM ac_content c";
+        $q=$this->pdo->prepare($sql.($before===null?'':' WHERE c.id<?')
+            .' ORDER BY c.id DESC LIMIT 51');
+        $q->execute($before===null?[]:[$before]);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        $next=$more && $rows!==[] ? (int)$rows[count($rows)-1]['id'] : null;
+        return ['items'=>$rows,'next'=>$next];
+    }
+
     /** @return list<array<string,mixed>> */
     public function contentQueue(): array
     {

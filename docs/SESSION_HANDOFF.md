@@ -1,3 +1,9 @@
+## Moderator content queue keyset navigation — 2026-11-21
+
+The local protected content moderation dashboard previously showed only its newest 100 content records. Added `ModerationRepository::contentQueuePage()` with a strict numeric cursor, 50 records per page and Older/Back links on the authenticated moderator dashboard so private drafts and rejected/quarantined records do not silently vanish from routine review as the site grows. The old `contentQueue()` API remains compatible for existing internal integrations. A disposable HTTP fixture creates 51 additional strictly private, pending, unpublished synthetic drafts; tests prove older records remain reachable, malformed cursors deny with 422 and no public page is accidentally created. None of these controls can approve age/performer evidence, activate billing, publish media or change the single licensed Lite/Pro architecture. Image/performer/report queues still have separate bounded views and require future scalability work.
+
+---
+
 ## Local page draft/published filter and read-only directory method enforcement — 2026-11-21
 
 The owner-only Admin → Pages list now optionally filters draft/published text pages, preserving search terms and status across keyset pagination. Unsupported status terms (including misleading 'approved' requests) receive HTTP 422 and cannot signal protected adult-media approval. Both `/admin/pages` and `/admin/members` explicitly refuse POST with HTTP 405 instead of silently treating one as a read. All page changes remain under the authenticated CSRF/revision-checked editor, and private drafts remain invisible to public routes. Disposable real SQL and HTTP regressions cover safe filters, cursor persistence, no public page leakage and method denial. These are local Lite/Pro management conveniences, not a payment or legal verification integration.

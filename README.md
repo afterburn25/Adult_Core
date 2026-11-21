@@ -1,3 +1,7 @@
+## Private moderation queue navigation (development)
+
+The authenticated local moderation dashboard now pages through private content records 50 at a time. Older drafts and rejected records remain reviewable instead of disappearing from a fixed first-page list; this provides **no approval or publication capability**, and external verification and payments remain blocked.
+
 ## Find drafts and published pages (development)
 
 **Admin → Pages** now filters by Draft or Published and can combine that with title/slug search across multiple result pages. This is an owner-only read-only list; status filtering never publishes material or grants protected adult-media approval.

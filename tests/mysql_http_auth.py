@@ -1749,6 +1749,22 @@ def main():
             ensure('Unverified account cannot be represented as certified member',
                    code==422 and 'Invalid member filter' in bad_member_filter)
 
+            subprocess.check_output(php_fixture+['seed-content-queue'],cwd=root)
+            code, content_first=req('/admin/moderation')
+            content_next=re.search(r'href="/admin/moderation\?before_content=(\d+)"',content_first)
+            ensure('Moderation dashboard can reach beyond 50 private content records',
+                   code==200 and content_next is not None
+                   and 'Bulk moderation 50' in content_first)
+            code, content_older=req('/admin/moderation?before_content='+content_next.group(1))
+            ensure('Older private moderation drafts remain visible for local review',
+                   code==200 and 'Bulk moderation 00' in content_older
+                   and 'Back to newest content records' in content_older)
+            code, content_public=req('/p/bulk-moderation-00')
+            ensure('Moderation pagination does not create a public page',code==404)
+            code, content_invalid=req('/admin/moderation?before_content=not-an-id')
+            ensure('Forged moderation content cursor fails without changing review state',
+                   code==422 and 'Invalid moderation queue cursor' in content_invalid)
+
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
             csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', body)

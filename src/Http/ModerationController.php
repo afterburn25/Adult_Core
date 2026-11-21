@@ -228,7 +228,8 @@ final class ModerationController
                 'Pending private draft image not found.','Invalid draft tier assignment.',
                 'Only private, unreviewed drafts can receive a tier.',
                 'Draft tier changed; reload the moderation queue.',
-                'Draft tier assignment is unchanged.','Choose an existing membership tier.'];
+                'Draft tier assignment is unchanged.','Choose an existing membership tier.',
+                'Invalid moderation queue cursor.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -261,7 +262,14 @@ final class ModerationController
     {
         $tiers=(new TierCatalog($pdo))->all();
         $csrf=self::e(AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
-        $queue=$repo->contentQueue();
+        $rawCursor=$_GET['before_content']??null;
+        $before=$rawCursor===null?null:(is_string($rawCursor)
+            ? filter_var($rawCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+        if ($before===false) {
+            throw new RuntimeException('Invalid moderation queue cursor.');
+        }
+        $contentPage=$repo->contentQueuePage($before);
+        $queue=$contentPage['items'];
         $draftOptions='<option value="">Choose an unpublished draft</option>';
         $rosterOptions='<option value="">Choose a draft without a roster</option>';
         foreach ($queue as $draft) {
@@ -339,7 +347,16 @@ final class ModerationController
             }
             $html.='</td></tr>';
         }
-        $html.='</tbody></table></section>';
+        $html.='</tbody></table>';
+        if ($contentPage['next']!==null) {
+            $html.='<p><a href="/admin/moderation?before_content='
+                .(int)$contentPage['next'].'">Older content records</a></p>';
+        }
+        if ($before!==null) {
+            $html.='<p><a href="/admin/moderation">Back to newest content records</a></p>';
+        }
+        if ($queue===[]) $html.='<p>No content records on this page.</p>';
+        $html.='</section>';
         $html.='<section class="panel"><h2>Pending private draft images</h2>'
             .'<p>Previews require moderator sign-in and can be viewed only while the draft remains unpublished. '
             .'Previewing a staged image never constitutes consent, approval, or publication.</p><ul>';

@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -86,6 +86,19 @@ if ($action === 'seed-members') {
             $n%2===0?'pending':'suspended']);
     }
     echo 'Disposable unverified member accounts prepared.';
+    exit;
+}
+if ($action === 'seed-content-queue') {
+    // Disposable-only pending PRIVATE synthetic content. This cannot be
+    // accessed by members, certified, approved, paid for, or published.
+    $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+    $q->execute([\AdultCore\Moderation\ModerationSchema::VERSION]);
+    if ((int)$q->fetchColumn()!==1) throw new RuntimeException('Moderation fixture requires setup.');
+    $q=$pdo->prepare("INSERT INTO ac_content
+        (title,status,visibility,review_status,requires_consent,expected_performers,created_at)
+        VALUES (?,'draft','private','pending',1,0,UTC_TIMESTAMP())");
+    for ($n=0;$n<51;$n++) $q->execute([sprintf('Bulk moderation %02d',$n)]);
+    echo 'Disposable private moderation queue prepared.';
     exit;
 }
 if ($action === 'issue-email') {
