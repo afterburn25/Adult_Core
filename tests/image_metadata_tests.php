@@ -54,6 +54,9 @@ try {
     $reject(substr($png, 0, 33) . $chunk('zzZZ', 'unknown')
         . substr($png, 33), 'image/png', 'Unknown PNG chunk denied');
     $reject(substr($png, 0, -5), 'image/png', 'Truncated PNG denied');
+    $badPngCrc = $png;
+    $badPngCrc[29] = chr(ord($badPngCrc[29]) ^ 1);
+    $reject($badPngCrc, 'image/png', 'Incorrect PNG chunk CRC denied');
     $reject($png . "\x00" . 'owner-secret', 'image/png', 'PNG trailing data denied');
 
     $app1 = "\xff\xe1" . pack('n', 8) . "Exif\x00\x00";
@@ -62,6 +65,9 @@ try {
     $comment = "\xff\xfe" . pack('n', 10) . 'private!';
     $reject(substr($jpeg, 0, 2) . $comment . substr($jpeg, 2),
         'image/jpeg', 'JPEG comments denied');
+    $jfxx = "\xff\xe0" . pack('n', 10) . "JFXX\x00abc";
+    $reject(substr($jpeg, 0, 2) . $jfxx . substr($jpeg, 2),
+        'image/jpeg', 'JFXX thumbnail container denied');
     $reject($jpeg . 'private-trailer', 'image/jpeg', 'JPEG trailing bytes denied');
     $reject(substr($jpeg, 0, -2), 'image/jpeg', 'Truncated JPEG denied');
 

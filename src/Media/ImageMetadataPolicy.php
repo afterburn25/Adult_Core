@@ -59,6 +59,11 @@ final class ImageMetadataPolicy
                 'IHDR','PLTE','IDAT','IEND','gAMA','cHRM','sRGB',
                 'pHYs','tRNS','sBIT','bKGD',
             ], true)) return false;
+            // Chunk CRC is part of PNG integrity; corrupt image structures
+            // must not be staged merely because getimagesize found dimensions.
+            $contents = substr($data, $offset + 4, 4 + $size);
+            $expectedCrc = substr($data, $offset + 8 + $size, 4);
+            if (!hash_equals(hash('crc32b', $contents, true), $expectedCrc)) return false;
             if (!$hasHeader && ($chunk !== 'IHDR' || $size !== 13)) return false;
             if ($chunk === 'IHDR') {
                 if ($hasHeader || $size !== 13) return false;
@@ -115,11 +120,18 @@ final class ImageMetadataPolicy
             if ($marker === 0xd8 || $marker === 0x00 || $marker === 0x01
                 || ($marker >= 0xd0 && $marker <= 0xd7)) return false;
             // APP1/EXIF, APP2/ICC, APP13/IPTC, APP14 etc and comments all
-            // remain untrusted; APP0/JFIF contains no personal image notes.
+            // remain untrusted; APP0 is restricted below to thumbnail-free JFIF.
             if (($marker >= 0xe1 && $marker <= 0xef) || $marker === 0xfe) return false;
             if ($offset + 2 > $len) return false;
             $size = unpack('n', substr($data, $offset, 2))[1];
             if (!is_int($size) || $size < 2 || $size > $len - $offset) return false;
+            if ($marker === 0xe0) {
+                // Permit only baseline JFIF without an embedded thumbnail;
+                // JFXX and arbitrary APP0 payloads can carry extra images.
+                $jfif = substr($data, $offset + 2, $size - 2);
+                if ($size !== 16 || !str_starts_with($jfif, "JFIF\x00")
+                    || substr($jfif, -2) !== "\x00\x00") return false;
+            }
             $offset += $size;
             if ($marker !== 0xda) continue;
             $hasScan = true;
