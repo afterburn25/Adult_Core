@@ -93,6 +93,10 @@ final class AdminController
             (new DesignController($this->root))->handle($path, $method, $admin);
             return;
         }
+        if (str_starts_with($path, '/admin/moderation/image/')) {
+            (new ModerationController($this->root))->previewImage($path, $method, $admin);
+            return;
+        }
         if ($path === '/admin/moderation') {
             (new ModerationController($this->root))->handle($method, $admin);
             return;
