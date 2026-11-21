@@ -246,7 +246,30 @@ def main():
                     'password':initial_staff_password})
                 ensure('Owner-created moderator signs into restricted workspace',code == 303)
             code, staff_queue=staff_req('/admin/moderation')
-            ensure('New moderator has restricted review permission',code == 200)
+            ensure('Temporary moderator credentials require personal rotation before review',code == 302)
+            code, first_security=staff_req('/admin/security')
+            first_change_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',first_security)
+            ensure('Temporary moderator can reach own password change only',
+                   code == 200 and first_change_token is not None
+                   and 'value="change_password"' in first_security)
+            first_personal_password='moderator-personal-first-password'
+            code, _=staff_req('/admin/security',{
+                'csrf':first_change_token.group(1),'action':'change_password',
+                'password':initial_staff_password,'new_password':first_personal_password})
+            ensure('Initial temporary credential is rotated before content review',code == 303)
+            # Both browsers must sign in afresh with the PERSONAL password;
+            # the second browser is kept idle through later suspension.
+            for browser_req in (staff_req,stale_staff_req):
+                code, login_form=browser_req('/admin/login')
+                changed_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',login_form)
+                ensure('Temporary sessions do not survive initial rotation',
+                       code == 200 and changed_csrf is not None)
+                code, _=browser_req('/admin/login',{
+                    'csrf':changed_csrf.group(1),'email':new_staff_email,
+                    'password':first_personal_password})
+                ensure('New personal moderator credentials allow restricted login',code == 303)
+            code, staff_queue=staff_req('/admin/moderation')
+            ensure('Moderator with personal password gains restricted review permission',code == 200)
             code, _=req('/admin/staff',{
                 'csrf':staff_token.group(1),'action':'suspend','staff_id':new_staff_id,
                 })
