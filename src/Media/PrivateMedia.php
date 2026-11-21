@@ -21,6 +21,18 @@ final class PrivateMedia
         return in_array($mime, ['image/jpeg','image/png','image/webp'], true);
     }
 
+    /** Limits decompression bombs; MIME and full upload integrity are checked separately. */
+    public static function validDimensions(mixed $imageSize): bool
+    {
+        if (!is_array($imageSize) || !is_int($imageSize[0] ?? null)
+            || !is_int($imageSize[1] ?? null)) return false;
+        $width=$imageSize[0];
+        $height=$imageSize[1];
+        return $width >= 1 && $height >= 1
+            && $width <= 8192 && $height <= 8192
+            && $width * $height <= 32_000_000;
+    }
+
     /** @return array{path:string,bytes:int}|null */
     public function locate(string $key): ?array
     {
@@ -42,8 +54,9 @@ final class PrivateMedia
             throw new RuntimeException('Invalid or oversized image upload.');
         }
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->file($temporaryPath);
-        if (!is_string($mime) || !self::validMime($mime) || @getimagesize($temporaryPath) === false) {
-            throw new RuntimeException('Image type not allowed.');
+        $dimensions=@getimagesize($temporaryPath);
+        if (!is_string($mime) || !self::validMime($mime) || !self::validDimensions($dimensions)) {
+            throw new RuntimeException('Image type or dimensions not allowed.');
         }
         $base = $this->root . '/storage/private-media';
         if (is_link($base) || (!is_dir($base) && !mkdir($base, 0700, true))) {
