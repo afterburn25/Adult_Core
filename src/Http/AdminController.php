@@ -97,6 +97,10 @@ final class AdminController
             (new ModerationController($this->root))->previewImage($path, $method, $admin);
             return;
         }
+        if ($path === '/admin/tiers') {
+            (new TierController($this->root))->handle($method, $admin);
+            return;
+        }
         if ($path === '/admin/moderation') {
             (new ModerationController($this->root))->handle($method, $admin);
             return;
