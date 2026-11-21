@@ -81,6 +81,29 @@ try {
         if (!str_contains($error->getMessage(), 'License not authorized')) throw $error;
     }
     Schema::assertFresh($pdo); // No tables may be created for a denied license.
+    // Even two valid responses from the issuer must not choose an arbitrary
+    // edition or create any tables. Customer entitlements must be unambiguous.
+    try {
+        (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+            static function (string $body): array {
+                $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+                return ['status' => 200, 'body' => json_encode([
+                    'authorized' => in_array($sku, [
+                        \AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE,
+                        \AdultCore\Licensing\CajunWebClient::SKU_PRO_ONCE,
+                    ], true),
+                ], JSON_THROW_ON_ERROR)];
+            }
+        )))->install($inputs, 'lite');
+        throw new RuntimeException('Duplicate vendor product grants were accepted.');
+    } catch (RuntimeException $error) {
+        if (!str_contains($error->getMessage(), 'multiple editions')) throw $error;
+    }
+    Schema::assertFresh($pdo);
+    if (is_file($root.'/config/license.php') || is_file($root.'/storage/install-state.json')) {
+        throw new RuntimeException('Duplicate product grant wrote installation state.');
+    }
+
     // Mixed success and temporary issuer failure must not create any schema.
     // Product uniqueness is unverified until all four SKU checks complete.
     try {
