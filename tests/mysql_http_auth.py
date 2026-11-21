@@ -1049,6 +1049,114 @@ def main():
                    code == 200 and 'Owner renamed &lt;Creator&gt;' in renamed_creator
                    and 'New private title' in renamed_creator
                    and 'Status: private' in renamed_creator)
+            # Submission moves only a private TEXT plan to this site's
+            # restricted moderation queue. It never publishes media.
+            code, initial_review=mod_req('/admin/creator-review')
+            review_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',initial_review)
+            ensure('Local moderator can enter creator text-review queue',
+                   code == 200 and 'No submitted private plans' in initial_review)
+            code, _=req('/members/creator',{
+                'csrf':'bad','action':'submit_review',
+                'draft_id':creator_draft_id,'revision':'2'})
+            ensure('Creator submission requires member CSRF',code == 403)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'submit_review',
+                'draft_id':creator_draft_id,'revision':'2'})
+            ensure('Creator submits private text plan for moderator feedback',code == 303)
+            code, submitted_creator=req('/members/creator')
+            ensure('Submitted creator draft remains unpublished and cannot be edited',
+                   code == 200 and 'Status: submitted' in submitted_creator
+                   and 'editing is locked' in submitted_creator
+                   and 'name="action" value="submit_review"' not in submitted_creator)
+            code, locked_edit=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':creator_draft_id,'revision':'3',
+                'title':'Tamper with locked plan',
+                'summary':'This submitted planning draft should remain immutable.'})
+            ensure('Creator cannot edit pending submitted plan',code == 422)
+            code, review_queue=mod_req('/admin/creator-review')
+            review_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',review_queue)
+            ensure('Moderator sees only the submitted local text-plan details',
+                   code == 200 and review_token is not None
+                   and 'New private title' in review_queue
+                   and 'name="decision"' in review_queue
+                   and 'value="changes"' in review_queue
+                   and 'value="rejected"' in review_queue
+                   and 'value="approved"' not in review_queue)
+            code, _=mod_req('/admin/creator-review',{
+                'csrf':'wrong','draft_id':creator_draft_id,
+                'revision':'3','decision':'changes',
+                'feedback':'Please improve this private story outline.'})
+            ensure('Moderator creator feedback requires CSRF',code == 403)
+            code, rejected_approval=mod_req('/admin/creator-review',{
+                'csrf':review_token.group(1),'draft_id':creator_draft_id,
+                'revision':'3','decision':'approved',
+                'feedback':'The reviewer may not approve or publish this plan.'})
+            ensure('Moderator cannot approve a creator text plan',
+                   code == 422 and 'Invalid creator review decision.' in rejected_approval)
+            feedback='Please remove <script>alert(1)</script> from the plan and clarify your story.'
+            code, _=mod_req('/admin/creator-review',{
+                'csrf':review_token.group(1),'draft_id':creator_draft_id,
+                'revision':'3','decision':'changes','feedback':feedback})
+            ensure('Moderator requests private creator revisions',code == 303)
+            code, changes_page=req('/members/creator')
+            ensure('Requested changes show only escaped feedback to creator',
+                   code == 200 and 'Status: changes' in changes_page
+                   and 'Private moderator feedback' in changes_page
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in changes_page
+                   and '<script>alert(1)</script>' not in changes_page)
+            code, direct_resubmit=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'submit_review',
+                'draft_id':creator_draft_id,'revision':'4'})
+            ensure('Changes must be saved before resubmission',code == 422)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':creator_draft_id,'revision':'4',
+                'title':'Revised private plan',
+                'summary':'This updated plan contains no public media or identity documents.'})
+            ensure('Creator can revise text after private feedback',code == 303)
+            code, revised_page=req('/members/creator')
+            ensure('Saving changed draft returns it to private and clears feedback',
+                   code == 200 and 'Status: private' in revised_page
+                   and 'Private moderator feedback:' not in revised_page
+                   and 'Revised private plan' in revised_page)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'submit_review',
+                'draft_id':creator_draft_id,'revision':'5'})
+            ensure('Creator can resubmit revised private plan',code == 303)
+            code, second_queue=mod_req('/admin/creator-review')
+            ensure('Revised plan is privately queued with no approval affordance',
+                   code == 200 and 'Revised private plan' in second_queue
+                   and 'value="approved"' not in second_queue)
+            code, stale_review=mod_req('/admin/creator-review',{
+                'csrf':review_token.group(1),'draft_id':creator_draft_id,
+                'revision':'3','decision':'rejected',
+                'feedback':'Stale moderator input should not override newer creator text.'})
+            ensure('Stale moderator review revisions are rejected',code == 422)
+            code, _=mod_req('/admin/creator-review',{
+                'csrf':review_token.group(1),'draft_id':creator_draft_id,
+                'revision':'6','decision':'rejected',
+                'feedback':'Rejected: this private plan needs a different concept.'})
+            ensure('Moderator can reject submitted private text',code == 303)
+            code, final_creator=req('/members/creator')
+            ensure('Rejected creator plan remains private and noneditable',
+                   code == 200 and 'Status: rejected' in final_creator
+                   and 'Rejected: this private plan' in final_creator
+                   and 'Revised private plan' in final_creator
+                   and 'name="action" value="submit_review"' not in final_creator)
+            code, rejected_edit=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':creator_draft_id,'revision':'7',
+                'title':'Attempt to bypass rejection',
+                'summary':'Rejected private plans should not be editable.'})
+            ensure('Rejected private creator draft cannot be edited',code == 422)
+            code, owner_review=req('/admin/creators/drafts/'+creator_id)
+            ensure('Owner retains text and private review feedback after rejection',
+                   code == 200 and 'Status: rejected, unpublished.' in owner_review
+                   and 'Rejected: this private plan' in owner_review)
+            code, none_pending=mod_req('/admin/creator-review')
+            ensure('Reviewed plan no longer appears in submitted queue',
+                   code == 200 and 'No submitted private plans' in none_pending)
             code, _=req('/p/private-clip')
             ensure('Private creator draft has no public page route',code == 404)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.
