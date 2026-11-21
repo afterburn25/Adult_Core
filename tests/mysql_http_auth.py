@@ -1805,7 +1805,8 @@ def main():
                    and 'bulk-member-50@example.test' in safety_page
                    and 'Private safety audit' in safety_page
                    and 'Local account status:' in safety_page
-                   and 'age/consent-approved' not in safety_page)
+                   and 'name="action" value="activate"' not in safety_page
+                   and 'name="action" value="approve"' not in safety_page)
             code, no_token=req(member_manage,{
                 'csrf':'bad','member_id':sample_id.group(1),
                 'action':'suspend','expected_status':'pending',

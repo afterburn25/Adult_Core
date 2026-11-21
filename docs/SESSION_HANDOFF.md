@@ -1,3 +1,9 @@
+## Member safety browser assertion checks actual forbidden actions — 2026-11-21
+
+The initial m21 HTTP test incorrectly rejected the safety screen's *warning prose* that restoration does not confer age/consent approval. The assertion now looks for actual forbidden `action=activate` or `action=approve` form controls, not protective explanatory text. This leaves all backend and CSRF controls unchanged. MySQL/MariaDB CI rerun required.
+
+---
+
 ## m21 member-safety encrypted disaster recovery parity — 2026-11-21
 
 The disposable full-site encrypted `.acfull` backup test now installs m21 after member recovery, performs a local owner suspension and pending-only restore of a confirmed member, records both private actor/reason/status audit rows and the two incremented session generations, then verifies exact parity after an empty-database restore. The existing local creator draft/feedback/plan and member email confirmation snapshots remain intact and no protected media or paid access is granted. Repeating m21 must remain idempotent; live cPanel/VPS offsite restoration and retention obligations still require operator testing and external acceptance.
