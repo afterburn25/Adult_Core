@@ -1,3 +1,9 @@
+## Interrupted license replacement recovery (2026-11-21)
+
+Preserve `src/Licensing/LicenseUpdateRecovery.php`, `scripts/recover-license-update.php`, and the `storage/.license-update-pending` fail-closed marker. A same-edition key replacement takes both license update/refresh locks, records an HMAC-signed private snapshot of the *previous* license and cache, writes both new private files, and clears the marker last. Any interruption blocks **all** web/admin routes and license refresh, and `InstallationGate::eligibleForBackup()` returns false. Recovery is **CLI-only** with `php scripts/recover-license-update.php --rollback`; do not delete a marker manually, bypass a MAC or restore from unsigned data. The snapshot contains the old key and must remain owner-only inside ignored private storage. Run `php tests/license_update_recovery_tests.php`, HTTP smoke, full licensing tests and disposable MySQL GitHub Actions before editing these paths. This is NOT live Cajun Web Pro billing, a fully atomic filesystem transaction, or release certification.
+
+---
+
 ## Current 0.8.12 staging HTTP audit (2026-11-20)
 
 Read `docs/STAGING_HOST_HTTP_ACCEPTANCE.md` before changing `scripts/staging-host-audit.py` or `tests/staging_host_audit_tests.py`. This read-only HTTPS probe runs only with explicit staging opt-in, rejects private/reserved/IP-literal DNS targets, pins verified public addresses, validates TLS and hostname, never follows redirects or reads response bodies, and checks app routes, security headers and private-path denial. No license keys, subscription mutation or adult content. The offline tests use synthetic responses and a localhost PHP development server; they do NOT certify real cPanel/VPS or merchant integration. Preserve all Lite/Pro key-selected editions, local deployment check, installer cleanup gates, backup/MFA and compliance release blocks. Run the new Python test in CI as well as the existing suites.
