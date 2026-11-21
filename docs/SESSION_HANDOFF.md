@@ -1,3 +1,13 @@
+## Edition upgrade / license replacement concurrency hardening — 2026-11-21
+
+- **Shared private file locks:** `EditionUpgrade::locked()` now acquires `.edition-upgrade.lock`, then `.license-update.lock`, then `.license-refresh.lock` (nonblocking). The same-edition `LicenseManager::replaceLicense()` and `LicenseUpdateRecovery::rollback()` already hold the last two in that order. This serializes migration/recovery, license replacement and signed-cache refresh writes, and refuses conflicting operations instead of racing private license files.
+- Symlinked licensing lock targets now fail closed in `EditionUpgrade`, `LicenseManager` and CLI rollback. `LicenseManager::status()` refuses an unsafe lock even with a fresh cached positive license receipt.
+- `tests/upgrade_tests.php` checks that an externally held update or refresh lock prevents edition recovery. `tests/license_update_recovery_tests.php` checks replacement, installed-site runtime and CLI rollback refusal for symlinked shared locks; no private cache or marker is silently bypassed.
+- GitHub Actions [run 44875613275](https://github.com/afterburn25/Adult_Core/actions/runs/44875613275) **passed** for code/test commit [`456c83e`](https://github.com/afterburn25/Adult_Core/commit/456c83e471ec023246fe2b9ba2a2a87bd20c3606), covering PHP/unit/licensing/recovery/upgrade, HTTP smoke and disposable MySQL acceptance. Later documentation commits need their own verification.
+- This is local/CI concurrency proof, not certification of a live hosting filesystem, actual Pro VPS workers, Cajun Web Pro staging issuance, or sandbox payments. All real licensing and installer acceptance prerequisites remain open.
+
+---
+
 ## License recovery final hardening and backup test determinism — 2026-11-21
 
 - `src/Licensing/LicenseUpdateRecovery.php` now refuses a recovery marker readable by group/other users, because its signed snapshot contains the previous customer's license key. A bad mode, symlink, corrupt signature or incompatible edition remains locked for operator investigation and CLI recovery only. Unit tests verify owner-only permissions, unsafe-marker refusal, valid rollback and preservation of a prior **denied** license receipt.
