@@ -28,6 +28,11 @@ final class AdminController
 
     public function handle(string $path, string $method): void
     {
+        // Every administrator route, including login, MFA, licensing and
+        // denied/error pages, can contain session-bound CSRF tokens or
+        // sensitive private site metadata. Never cache these responses.
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
         $https = in_array(strtolower((string) ($_SERVER['HTTPS'] ?? '')), ['on', '1'], true);
         $loopback = in_array((string) ($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1', '::1'], true);
         if (!$https && !$loopback) {

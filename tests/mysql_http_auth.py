@@ -89,6 +89,9 @@ def main():
             ensure('Anonymous admin access must redirect', code == 302)
             code, body = req('/admin/login')
             ensure('Real login form loads', code == 200 and 'Sign in' in body)
+            code, _, login_cache, _=req_binary('/admin/login')
+            ensure('Administrator login and CSRF tokens are not cacheable',
+                   code==200 and 'no-store' in login_cache)
             csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', body)
             ensure('Login CSRF hidden field', csrf_match is not None)
             csrf = csrf_match.group(1)
@@ -123,6 +126,9 @@ def main():
             ensure('Dashboard loads authenticated', code == 200 and 'HTTP Fixture &lt;script&gt;alert(1)&lt;/script&gt;' in body and '<script>alert(1)</script>' not in body)
             ensure('Edition visible', 'LITE' in body)
             code, license_page = req('/admin/license')
+            code, _, license_cache, _=req_binary('/admin/license')
+            ensure('Private license and edition administration is not cacheable',
+                   code==200 and 'no-store' in license_cache)
             ensure('Licensed admin configuration accessible', code == 200 and 'SOFTWARE-ADULT-CORE' in license_page)
             ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
             ensure('License replacement makes billing cancellation responsibilities explicit',

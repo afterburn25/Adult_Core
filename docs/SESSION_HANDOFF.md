@@ -1,3 +1,9 @@
+## No-cache/noindex on all administrator endpoints — 2026-11-21
+
+`AdminController::handle()` now sets private `Cache-Control: no-store` and `X-Robots-Tag: noindex, nofollow` before routing **all** administrator endpoints: sign-in, MFA, failed sessions, dashboard, license/upgrade, owner pages, staff, moderation and errors. This closes the remaining common entrypoint cache gap even for routes that do not instantiate the specialized site/moderator controller. Existing secure opaque cookie, CSRF, licensing and permission logic is unchanged. Real disposable authenticated HTTP assertions cover non-cacheable admin login and license forms; production adult-media release gates remain closed.
+
+---
+
 ## Real member-cookie invalidation across suspension and restoration — 2026-11-21
 
 An added authenticated HTTP regression runs a separate member browser and signs a disposable pending member into `/members`, copies the opaque member cookie, then has the authenticated site owner suspend the account and restore it only to pending. The member is redirected from `/members` while suspended; a different browser presenting the **pre-suspension cookie after restoration** is still redirected because m21 incremented the server-side session generation. This tests the actual HTTP session invalidation path, not just the database counter, and avoids touching the owner/admin browser's cookie jar. Member tokens remain private; no payment or verification evidence is created. CI approval required.
