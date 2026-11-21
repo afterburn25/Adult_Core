@@ -170,6 +170,7 @@ final class ModerationRepository
             (SELECT COUNT(*) FROM ac_performer_records p WHERE p.content_id=c.id
                 AND p.review_status='approved' AND p.verified_at IS NOT NULL
                 AND p.consent_at IS NOT NULL) AS evidenced_performers,
+            (SELECT COUNT(*) FROM ac_media m WHERE m.content_id=c.id AND m.review_status='pending') AS pending_images,
             (SELECT COUNT(*) FROM ac_content_reports r WHERE r.content_id=c.id AND r.status='open') AS open_reports
             FROM ac_content c ORDER BY c.id DESC LIMIT 100")->fetchAll(PDO::FETCH_ASSOC);
     }
