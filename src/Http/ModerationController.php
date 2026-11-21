@@ -20,6 +20,49 @@ final class ModerationController
 {
     public function __construct(private readonly string $root) {}
 
+    /**
+     * Binary preview is strictly for the authenticated moderation team.
+     * Public/member media paths cannot use this endpoint or bypass review.
+     *
+     * @param array{id:int,email:string,role:string} $admin
+     */
+    public function previewImage(string $path, string $method, array $admin): void
+    {
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Content-Type-Options: nosniff');
+        if (!RolePolicy::allows($admin['role'], 'content.moderate')) {
+            http_response_code(403); return;
+        }
+        if ($method !== 'GET') {
+            header('Allow: GET'); http_response_code(405); return;
+        }
+        if (preg_match('#^/admin/moderation/image/([1-9][0-9]{0,17})$#D',$path,$match)!==1) {
+            http_response_code(404); return;
+        }
+        try {
+            $pdo=Connection::open($this->root);
+            $q=$pdo->prepare("SELECT m.private_storage_key,m.mime_type
+                FROM ac_media m JOIN ac_content c ON c.id=m.content_id
+                WHERE m.id=? AND m.review_status='pending'
+                    AND c.status='draft' AND c.visibility='private'
+                    AND c.review_status='pending' LIMIT 1");
+            $q->execute([(int)$match[1]]);
+            $asset=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($asset) || !is_string($asset['mime_type']??null)
+                || !PrivateMedia::validMime($asset['mime_type'])) {
+                http_response_code(404); return;
+            }
+            $file=(new PrivateMedia($this->root))->locate((string)$asset['private_storage_key']);
+            if ($file===null) { http_response_code(404); return; }
+            header('Content-Type: '.$asset['mime_type']);
+            header('Content-Length: '.$file['bytes']);
+            header('Content-Disposition: inline; filename="private-review-image"');
+            readfile($file['path']);
+        } catch (Throwable) {
+            http_response_code(503);
+        }
+    }
+
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $method, array $admin): void
     {
@@ -124,6 +167,17 @@ final class ModerationController
                 .'<button class="button-secondary">Record decision</button></form></td></tr>';
         }
         $html.='</tbody></table></section>';
+        $html.='<section class="panel"><h2>Pending private draft images</h2>'
+            .'<p>Previews require moderator sign-in and can be viewed only while the draft remains unpublished. '
+            .'Previewing a staged image never constitutes consent, approval, or publication.</p><ul>';
+        foreach ($repo->pendingDraftImages() as $image) {
+            $id=(int)$image['id'];
+            $html.='<li>Draft #'.(int)$image['content_id'].' — '
+                .self::e((string)$image['title']).' ('.self::e((string)$image['mime_type']).') '
+                .'<a href="/admin/moderation/image/'.$id.'" target="_blank" rel="noopener noreferrer">'
+                .'Review pending image #'.$id.'</a></li>';
+        }
+        $html.='</ul></section>';
         $html.='<section class="panel"><h2>Declare performer roster (draft only)</h2><p>Enter the number of people depicted in the draft. This does not verify anyone or permit publication. Each record receives a private numeric reference for the contracted verification provider.</p>'
             .'<form method="post" action="/admin/moderation" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="declare_performers">'
