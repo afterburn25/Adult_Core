@@ -138,7 +138,8 @@ final class LocalCreators
         $profile=$q->fetch(PDO::FETCH_ASSOC);
         if (!is_array($profile)) return null;
         $q=$this->pdo->prepare("SELECT id,title,summary,status,revision,updated_at
-            FROM ac_creator_drafts WHERE creator_id=? AND status='private'
+            FROM ac_creator_drafts WHERE creator_id=?
+                AND status IN ('private','submitted','changes','rejected')
             ORDER BY id DESC LIMIT 50");
         $q->execute([$creatorId]);
         return ['profile'=>$profile,'drafts'=>$q->fetchAll(PDO::FETCH_ASSOC)];
@@ -247,7 +248,8 @@ final class LocalCreators
         $creator=$this->activeForMember($memberId);
         if ($creator===null) return [];
         $q=$this->pdo->prepare("SELECT id,title,summary,status,revision,updated_at
-            FROM ac_creator_drafts WHERE creator_id=? AND status='private'
+            FROM ac_creator_drafts WHERE creator_id=?
+                AND status IN ('private','submitted','changes','rejected')
             ORDER BY id DESC LIMIT 50");
         $q->execute([(int)$creator['id']]);
         return $q->fetchAll(PDO::FETCH_ASSOC);
@@ -288,14 +290,15 @@ final class LocalCreators
                 $q=$this->pdo->prepare('SELECT revision,status FROM ac_creator_drafts WHERE id=? AND creator_id=? FOR UPDATE');
                 $q->execute([$draftId,$creatorId]);
                 $draft=$q->fetch(PDO::FETCH_ASSOC);
-                if (!is_array($draft) || $draft['status']!=='private') {
+                if (!is_array($draft) || !in_array($draft['status'],['private','changes'],true)) {
                     throw new RuntimeException('Private draft not found.');
                 }
                 if ((int)$draft['revision']!==$expectedRevision) {
                     throw new RuntimeException('Draft changed; reload your workspace.');
                 }
                 $this->pdo->prepare('UPDATE ac_creator_drafts
-                    SET title=?,summary=?,revision=revision+1,updated_at=UTC_TIMESTAMP()
+                    SET title=?,summary=?,status='private',review_note='',
+                        revision=revision+1,updated_at=UTC_TIMESTAMP()
                     WHERE id=? AND creator_id=?')->execute([$title,$summary,$draftId,$creatorId]);
                 $id=$draftId;
             }

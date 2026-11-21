@@ -140,6 +140,7 @@ final class Layout
             ['url' => '/admin/staff', 'label' => 'Moderation team', 'icon' => 'members'],
             ['url' => '/admin/tiers', 'label' => 'Membership tiers', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],
+            ['url' => '/admin/creator-review', 'label' => 'Creator text review', 'icon' => 'shield'],
             ['url' => '/admin/packages', 'label' => 'Add-ons & themes', 'icon' => 'puzzle'],
             ['url' => '/admin/setup', 'label' => 'Setup', 'icon' => 'settings'],
         ];
@@ -148,6 +149,7 @@ final class Layout
         if ($role==='moderator') {
             $links=[
                 ['url'=>'/admin/moderation','label'=>'Moderation','icon'=>'shield'],
+                ['url'=>'/admin/creator-review','label'=>'Creator text review','icon'=>'shield'],
                 ['url'=>'/admin/security','label'=>'Account security','icon'=>'shield'],
             ];
         }

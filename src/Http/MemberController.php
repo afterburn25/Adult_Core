@@ -6,6 +6,8 @@ namespace AdultCore\Http;
 
 use AdultCore\Auth\LoginRateLimiter;
 use AdultCore\Creator\CreatorSchema;
+use AdultCore\Creator\CreatorDraftReview;
+use AdultCore\Creator\CreatorReviewSchema;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
@@ -187,6 +189,13 @@ final class MemberController
                 '<p>Contact this website\'s owner to complete local creator setup.</p>');
             return;
         }
+        $reviewSchema=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $reviewSchema->execute([CreatorReviewSchema::VERSION]);
+        if ((int)$reviewSchema->fetchColumn()!==1) {
+            $this->view(503,'Creator draft review setup required',
+                '<p>Ask the site owner to apply the creator review migration.</p>');
+            return;
+        }
         $creators=new LocalCreators($pdo);
         $profile=$creators->activeForMember((int)$member['id']);
         if ($profile===null) {
@@ -201,7 +210,18 @@ final class MemberController
                 return;
             }
             try {
-                if (($_POST['action']??null)!=='save_draft'
+                $action=$_POST['action']??null;
+                if ($action==='submit_review') {
+                    $id=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    $version=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    if (!$id || !$version) throw new RuntimeException('Invalid private draft revision.');
+                    (new CreatorDraftReview($pdo))->submit((int)$member['id'],(int)$id,(int)$version);
+                    $this->redirect('/members/creator?result=submitted');
+                    return;
+                }
+                if ($action!=='save_draft'
                     || !is_string($_POST['title']??null)
                     || !is_string($_POST['summary']??null)) {
                     throw new RuntimeException('Invalid private draft input.');
@@ -229,6 +249,7 @@ final class MemberController
                     'Describe the private draft in 10–1200 bytes without private evidence.',
                     'Creator workspace unavailable.','Private draft not found.',
                     'Draft changed; reload your workspace.','Private draft limit reached.',
+                    'Invalid creator review request.','Only editable private plans can be submitted.',
                 ];
                 $message=in_array($e->getMessage(),$allowed,true)
                     ? $e->getMessage():'Could not save your private draft.';
@@ -244,6 +265,9 @@ final class MemberController
             .'age/performer consent verification is enabled here.</p>';
         if (($_GET['result']??'')==='saved') {
             $html.='<p role="status">Private planning draft saved. Nothing was published.</p>';
+        }
+        if (($_GET['result']??'')==='submitted') {
+            $html.='<p role="status">Your text plan was submitted for private local review. Nothing was published.</p>';
         }
         $html.='<section class="panel"><h2>'.self::e((string)$profile['display_name'])
             .' — private draft planning</h2>'
@@ -262,18 +286,43 @@ final class MemberController
             $html.='<p>No private planning drafts yet.</p>';
         }
         foreach ($drafts as $draft) {
+            $status=(string)$draft['status'];
+            $editable=in_array($status,['private','changes'],true);
             $html.='<article class="panel"><h3>'.self::e((string)$draft['title']).'</h3>'
-                .'<p>Status: private; unavailable to members or the public.</p>'
-                .'<form method="post" action="/members/creator" class="install-form">'
-                .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
-                .'<input type="hidden" name="action" value="save_draft">'
-                .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
-                .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
-                .'<label>Title<input name="title" maxlength="190" minlength="2" required value="'
-                .self::e((string)$draft['title']).'"></label>'
-                .'<label>Private description<textarea name="summary" rows="4" minlength="10" maxlength="1200" required>'
-                .self::e((string)$draft['summary']).'</textarea></label>'
-                .'<button class="button-secondary">Save private changes</button></form></article>';
+                .'<p>Status: '.self::e($status).' (always unpublished).</p>';
+            if ((string)($draft['review_note']??'')!=='') {
+                $html.='<p>Private moderator feedback: '.nl2br(self::e((string)$draft['review_note'])).'</p>';
+            }
+            if ($editable) {
+                $html.='<form method="post" action="/members/creator" class="install-form">'
+                    .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                    .'<input type="hidden" name="action" value="save_draft">'
+                    .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                    .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                    .'<label>Title<input name="title" maxlength="190" minlength="2" required value="'
+                    .self::e((string)$draft['title']).'"></label>'
+                    .'<label>Private description<textarea name="summary" rows="4" minlength="10" maxlength="1200" required>'
+                    .self::e((string)$draft['summary']).'</textarea></label>'
+                    .'<button class="button-secondary">Save private changes</button></form>';
+                if ($status==='private') {
+                    $html.='<form method="post" action="/members/creator" class="install-form">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                        .'<input type="hidden" name="action" value="submit_review">'
+                        .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                        .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                        .'<button class="button-secondary">Submit text plan for private review</button></form>';
+                } else {
+                    $html.='<p>Save the revised plan before resubmitting it.</p>';
+                }
+            } else {
+                $html.='<p>'.nl2br(self::e((string)$draft['summary'])).'</p>';
+                if ($status==='submitted') {
+                    $html.='<p>This text plan is awaiting a local moderator; editing is locked.</p>';
+                } elseif ($status==='rejected') {
+                    $html.='<p>This text plan was rejected. The saved evidence remains private.</p>';
+                }
+            }
+            $html.='</article>';
         }
         $html.='</section><p><a href="/members">Back to member account</a></p>';
         $this->view(200,'Private creator workspace',$html);
