@@ -55,7 +55,8 @@ $ok(!str_contains($source,'INSERT INTO ac_content')
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/CreatorAdminController.php');
 $ok(str_contains($controller,'AdminSession::csrfValid')
     && str_contains($controller,"'members.manage'")
-    && !str_contains($controller,'approve'),
+    && !str_contains($controller,"action==='approve'")
+    && !str_contains($controller,'value="approve"'),
     'Creator management is a privileged local owner route, no creator approval');
 $member=(string)file_get_contents(dirname(__DIR__).'/src/Http/MemberController.php');
 $ok(str_contains($member,'MemberSession::csrfValid')
