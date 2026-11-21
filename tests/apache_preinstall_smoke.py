@@ -117,6 +117,23 @@ exec apache2-foreground
             check("Temporary fixture never generated site credentials",
                   not (checkout / "config" / "license.php").exists()
                   and not (checkout / "storage" / "install-state.json").exists())
+
+            # A crashed/invalid installation marker must lock every dynamic
+            # route under Apache, not silently expose the installer or members.
+            state = checkout / "storage" / "install-state.json"
+            state.write_text('{"edition":"pro"}', encoding="utf-8")
+            for path in ("/", "/install/", "/admin/login", "/media/1"):
+                status, _, body = request(port, path)
+                check("Corrupt installation remains unavailable " + path,
+                      status == 503
+                      and b"Adult Core | Installation Wizard" not in body)
+            status, _, _ = request(port, "/assets/style.css")
+            check("Static CSS stays accessible without private data during lockdown",
+                  status == 200)
+            state.unlink()
+            status, headers, _ = request(port, "/")
+            check("Removing synthetic corrupt marker restores preinstall gate",
+                  status == 302 and headers.get("location") == "/install/")
             print(f"Passed {CHECKS} disposable Apache preinstall/routing checks.")
         finally:
             if container:
