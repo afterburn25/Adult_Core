@@ -31,6 +31,25 @@ final class InstallInput
         }
     }
 
+    /**
+     * Validate an installer service call independently of the browser form.
+     * The browser has already checked password confirmation; the service only
+     * receives the password itself and a normalized integer database port.
+     * Every value is checked again before issuer requests or PDO creation.
+     */
+    public static function validateForService(array $fields): array
+    {
+        $port = $fields['db_port'] ?? null;
+        $password = $fields['admin_password'] ?? null;
+        if ((!is_int($port) && !is_string($port)) || !is_string($password)) {
+            throw new InvalidArgumentException('Invalid installation configuration.');
+        }
+        $candidate = $fields;
+        $candidate['db_port'] = (string) $port;
+        $candidate['admin_password_confirm'] = $password;
+        return self::validate($candidate);
+    }
+
     /** Validate before any network/database requests; never interpolate unchecked DSN fields. */
     public static function validate(array $fields): array
     {
