@@ -1,3 +1,11 @@
+## Reversible local creator planning archives — 2026-11-21
+
+Added `LocalCreators::changeDraftArchive(memberId,draftId,revision,action)`, allowing only `private → archived → private` on an active local creator's **own** unsent text. It locks creator then draft, requires current revision, retains DB row and 50-plan slot, increments revision, emits numeric-only `archived`/`restored` draft events and creator action records; no public media, age, payment or consent state changes. `ownDrafts` and owner protected draft detail include `archived` status, while submitted/rejected/changes plans cannot be archived.
+
+The member page has CSRF-protected archive/restore forms; archived plans are read-only until restored. SQL/HTTP tests cover denied cross-account archive, CSRF, stale revision, archived edit/submit denial, owner event visibility and retention without publication. External release gates remain incomplete.
+
+---
+
 ## Owner-only numeric text-review history and setup guard — 2026-11-21
 
 - `LocalCreators::privatePlansForOwner()` now returns the most recent 100 `ac_creator_draft_events` for the local creator through a foreign-key-bound query. `CreatorAdminController::drafts()` renders a bounded, escaped, no-store/noindex owner-only table with local actor/draft IDs, action and UTC timestamp; review feedback is not duplicated in the action log.

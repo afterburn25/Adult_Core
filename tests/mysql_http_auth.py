@@ -1207,6 +1207,50 @@ def main():
                 'feedback':'Review must not resume a withdrawn private plan.'})
             ensure('Moderator cannot review a withdrawn private submission',
                    code == 422 and 'Only submitted private plans can be reviewed.' in withdrawn_review)
+            # Reversible private archive is not deletion or moderation
+            # approval; only this creator can archive an unsent plan.
+            code, _=req('/members/creator',{
+                'csrf':'wrong','action':'archive_draft',
+                'draft_id':withdraw_draft_id,'revision':'3'})
+            ensure('Archiving private planning text requires member CSRF',code == 403)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'archive_draft',
+                'draft_id':withdraw_draft_id,'revision':'3'})
+            ensure('Creator archives a private unsent text plan without deletion',code == 303)
+            code, archived_view=req('/members/creator')
+            ensure('Archived creator plan stays private and offers restoration',
+                   code == 200 and 'Withdrawable private plan' in archived_view
+                   and 'Status: archived' in archived_view
+                   and 'name="action" value="restore_draft"' in archived_view
+                   and 'not deleted' in archived_view)
+            code, archived_edit=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':withdraw_draft_id,'revision':'4',
+                'title':'Edit an archived plan',
+                'summary':'Archived text content must not be editable until restored.'})
+            ensure('Archived draft cannot be directly edited',code == 422)
+            code, archived_submit=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'submit_review',
+                'draft_id':withdraw_draft_id,'revision':'4'})
+            ensure('Archived draft cannot bypass private submission gate',code == 422)
+            code, stale_archive=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'restore_draft',
+                'draft_id':withdraw_draft_id,'revision':'3'})
+            ensure('Stale restore revision fails',code == 422)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'restore_draft',
+                'draft_id':withdraw_draft_id,'revision':'4'})
+            ensure('Creator restores their own archived text for editing',code == 303)
+            code, restored_private=req('/members/creator')
+            ensure('Restored creator plan is private, not public, and editable',
+                   code == 200 and 'Withdrawable private plan' in restored_private
+                   and 'Status: private' in restored_private
+                   and 'name="action" value="archive_draft"' in restored_private)
+            code, owner_events=req('/admin/creators/drafts/'+creator_id)
+            ensure('Owner sees retained numeric archived/restored creator event history',
+                   code == 200 and '<td>archived</td>' in owner_events
+                   and '<td>restored</td>' in owner_events
+                   and 'Withdrawable private plan' in owner_events)
             code, _=req('/p/private-clip')
             ensure('Private creator draft has no public page route',code == 404)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.

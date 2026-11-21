@@ -1,3 +1,11 @@
+## Reversible private plan archives — 2026-11-21
+
+A creator can archive **only an unsent private text plan** from their own authenticated workspace. The owner-installed software retains that plan, its numeric action/audit history, and its slot under the 50-plan per-creator limit; archiving is explicitly **not deletion**. Archived plans stay visible to their owner as read-only records with a **Restore archived text plan** action. Restoration returns an archived plan to private editing without clearing or bypassing any external media, identity, consent, or payment gates.
+
+Both operations require the active site-local creator grant, authenticated member session and CSRF, owned draft ID, expected revision, transactional locks and numeric-only events. A creator cannot archive a rejected, submitted or revision-requested plan, archive someone else's drafts, or skip moderation. The site owner can see the retained status and audit events on the protected local plan-detail page.
+
+---
+
 ## Owner-only text-review event history
 
 The owner-only read-only private plans screen now shows the **latest 100 numeric text-review events** for that creator (draft reference, local actor reference, action and UTC timestamp). Feedback and private plan text stay exclusively in their protected draft records, not the event log. Moderators still cannot access this owner-only screen; they see only submitted text in the restricted queue. The owner screen requires the additive text-review migration and fails closed with a setup prompt until it is applied. These are records of local draft workflow actions, not legal content/identity clearance.

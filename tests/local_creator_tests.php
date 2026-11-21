@@ -68,6 +68,12 @@ $ok(str_contains($controller,'AdminSession::csrfValid')
     && !str_contains($controller,'value="approve"'),
     'Creator management is a privileged local owner route, no creator approval');
 $member=(string)file_get_contents(dirname(__DIR__).'/src/Http/MemberController.php');
+$ok(str_contains($source,"['archive','restore']")
+    && str_contains($source,"'archived'")
+    && str_contains($source,'ac_creator_draft_events')
+    && str_contains($member,"$"."action==='archive_draft'")
+    && str_contains($member,"$"."action==='restore_draft'"),
+    'Creator can archive/restore unsent text with event retention and no public transition');
 $ok(str_contains($member,'MemberSession::csrfValid')
     && str_contains($member,'CreatorSchema::VERSION')
     && !str_contains($member,'/members/creator/apply'),

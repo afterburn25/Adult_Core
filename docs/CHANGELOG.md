@@ -1,3 +1,9 @@
+## Creator draft archive and restoration — 2026-11-21
+
+- Allow enabled creators to archive and restore their **own unsent private text plans** without deleting data, bypassing review or changing publication state.
+- Preserve archived records in the private owner view and member workspace, retain the creator's 50-draft limit, and emit numeric-only audit events.
+- Add real SQL and authenticated HTTP checks for CSRF, ownership, stale revision, uneditable archives, approved/rejected transition denial and no public content mutation.
+
 ## Local owner text-review audit display — 2026-11-21
 
 - Show up to 100 owner-only per-creator review events as numeric draft/actor/action/timestamp metadata in the protected read-only plans view, without duplicating private feedback text.

@@ -741,6 +741,53 @@ try {
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent) {
         throw new RuntimeException('Withdrawn text submission mutated public content.');
     }
+    // Archiving a private, unsent plan is reversible but keeps the
+    // audit and consumes a retained draft slot (never silent deletion).
+    try {
+        $creators->changeDraftArchive((int)$secondMember['id'],$withdrawId,3,'archive');
+        throw new RuntimeException('Other creator archived a draft belonging to this account.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Other creator archived a draft belonging to this account.') throw $e;
+    }
+    $creators->changeDraftArchive((int)$member['id'],$withdrawId,3,'archive');
+    $archived=$creators->ownDrafts((int)$member['id'])[0];
+    if ($archived['status']!=='archived' || (int)$archived['revision']!==4
+        || $creators->privatePlansForOwner((int)$valid['id'],$creatorId)['drafts'][0]['status']!=='archived') {
+        throw new RuntimeException('Archiving an unsent private plan removed it or lost revision state.');
+    }
+    try {
+        $textReview->submit((int)$member['id'],$withdrawId,4);
+        throw new RuntimeException('Archived text plan was submitted for moderation.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Archived text plan was submitted for moderation.') throw $e;
+    }
+    try {
+        $creators->saveDraft((int)$member['id'],$withdrawId,4,
+            'Tampered with archived plan','Archived plan content must stay immutable until restoration.');
+        throw new RuntimeException('Archived text plan could be edited.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Archived text plan could be edited.') throw $e;
+    }
+    try {
+        $creators->changeDraftArchive((int)$member['id'],$withdrawId,3,'restore');
+        throw new RuntimeException('Stale archive restore succeeded.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale archive restore succeeded.') throw $e;
+    }
+    $creators->changeDraftArchive((int)$member['id'],$withdrawId,4,'restore');
+    $restoredPlan=$creators->ownDrafts((int)$member['id'])[0];
+    $eventQuery->execute([$withdrawId]);
+    if ($restoredPlan['status']!=='private' || (int)$restoredPlan['revision']!==5
+        || $eventQuery->fetchAll(PDO::FETCH_COLUMN)!==['submitted','withdrawn','archived','restored']
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent) {
+        throw new RuntimeException('Private plan restoration lost text, event history or public isolation.');
+    }
+    try {
+        $creators->changeDraftArchive((int)$member['id'],$draftId,7,'archive');
+        throw new RuntimeException('Rejected plan could be archived to evade review.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Rejected plan could be archived to evade review.') throw $e;
+    }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
     if ($recovery->issueForEmail('owner@example.test') !== null) throw new RuntimeException('Admin recovery exposed through member route.');

@@ -1,3 +1,9 @@
+## Reversible private creator planning archives — 2026-11-21
+
+`LocalCreators::changeDraftArchive()` is only for the currently authenticated, active local creator's own `private`/ `archived` draft with a matching revision, under creator-first and draft-second SQL locks. Archive is **never deletion**, retains original text and numeric events, and keeps the retained 50-draft cap. Do not let archived, submitted, rejected or changes-requested text bypass moderation or become public; restoration returns an archived plan to **private**, not submitted or published. Match existing CSRF, role, no-store, optimistic concurrency and MySQL/MariaDB/HTTP tests. Local owner audit may expose numeric event history, never public URLs or consent/identity approval.
+
+---
+
 ## Local creator text-only review, still no approval/publish path (2026-11-21)
 
 The `CreatorReviewSchema` m14 additive migration is applied **after** `CreatorSchema` m13. It adds a private creator-draft feedback field and numeric-only event records. `CreatorDraftReview` permits only explicit creator submission of a saved `private` draft, and moderator `changes`/`rejected` decisions. Submitted plans are read-only; for `changes`, the member must save an edited `private` revision before resubmission. Rejected plans are not editable. Require local active creator/member or active `content.moderate` actor with row locks, CSRF, revision-match, bounded UTF-8 feedback, escaped HTML and no-store/noindex. No reviewer may `approve`, publish, insert media, set age/consent, issue entitlements, expose another creator's drafts, or add cross-site SaaS identity. `ac_creator_draft_events` contains no private plan/feedback text or credentials. Preserve ZIP inventory and MySQL 8/MariaDB/HTTP regression tests; live-host and external release gates remain open.
