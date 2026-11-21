@@ -1,3 +1,9 @@
+## Disposable MariaDB 10.11 CI coverage — 2026-11-21
+
+Added `mariadb_compat` to `.github/workflows/php-tests.yml` using the official MariaDB 10.11 service, PHP 8.3 and a temporary port 3307. It runs private media/billing replay, fresh Lite MySQL-style installation, real localhost authenticated HTTP, and encrypted backup/restore suites against a **disposable** MariaDB database. The existing MySQL 8 + Apache container job is unchanged. This may expose SQL incompatibilities; **check both workflow jobs on latest Actions before declaring success**. Actual cPanel and Pro VPS deployment, DNS/TLS, software license issuer acceptance, independent adult-content verification/payment and security release gates remain incomplete.
+
+---
+
 ## Moderator private draft detail UI — 2026-11-21
 
 - Added `ModerationRepository::privateDraftDetail(id)` returning bounded summary for only `visibility='private'` unpublished `draft/quarantined/rejected` records: image ID/MIME/review state (never storage keys), performer ID/status/timestamps cues (never evidence documents), and private audited action notes.

@@ -1,3 +1,9 @@
+## Disposable MariaDB shared-host compatibility CI — 2026-11-21
+
+The PHP checks workflow now includes a separate MariaDB 10.11 service job on PHP 8.3, exercising fresh Lite installation, real HTTP authentication/member/moderation flows, private media integrity, verified-event billing inbox replay, and encrypted backup/empty-database restore against a **disposable** MariaDB schema. This supplements—not replaces—the existing MySQL 8, real Apache container, and PHP development-server checks, and is intended to catch common shared-host SQL incompatibilities. Every destructive test requires the exact disposable-DB confirmation flag. **It does not deploy to a real cPanel host, configure HTTPS, activate live licenses, connect approved merchant/identity providers, or certify Pro VPS workers.**
+
+---
+
 ## Private draft review detail for moderators — 2026-11-21
 
 Authorized moderators and administrators can now use `GET /admin/moderation/draft/CONTENT_ID` to inspect a saved private, unpublished draft (including quarantined or rejected drafts) as a single coherent review page. The server returns only the draft's safe metadata, allowlisted image MIME/review states and numeric image IDs, performer *evidence-status indicators* (no documents or private record keys), and a bounded private audit history. A clickable `/admin/moderation/image/ID` review URL appears only for an unreviewed pending image in a still-private pending draft; every actual image response independently enforces authentication/MFA, role, storage integrity and current draft state. Rejected/quarantined image links remain unavailable. The detail route is GET-only, no-store/noindex, requires current `content.moderate` permission and cannot change review/publication or grant member access. SQL and HTTP tests use separate administrator/moderator sessions, invalid IDs, rejection and logout.

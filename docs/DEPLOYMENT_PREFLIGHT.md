@@ -1,3 +1,9 @@
+## MariaDB SQL compatibility versus actual cPanel evidence (2026-11-21)
+
+An independent `mariadb_compat` CI job now runs a real MariaDB 10.11 instance with disposable test data and the installer/HTTP/media/billing/backup suites. This is useful shared-hosting SQL-dialect coverage, **not** proof of real customer cPanel database permissions, PHP-FPM settings, TLS, DNS, Linux file ownership, server compatibility or an authorized Cajun Web Pro license. The existing real-host runbook remains mandatory.
+
+---
+
 ## Apache routing hardening and disposable container verification (2026-11-21)
 
 The bundled `public/.htaccess` now denies all unexpected direct PHP/script files, including `public/router.php` (which is only for PHP's development server) and `assets/index.php`; root `public/index.php` is the Apache front controller. A disposable `php:8.3-apache` container CI test checks these web-server rules with `mod_rewrite` and `AllowOverride All` enabled, verifies the preinstall wizard/static assets and ensures private-root URL guesses cannot bypass the installation gate. It creates no production data and uses only a loopback ephemeral port.

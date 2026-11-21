@@ -1,3 +1,9 @@
+## Disposable MariaDB compatibility regression — 2026-11-21
+
+`.github/workflows/php-tests.yml` now contains a separate `mariadb_compat` job running PHP 8.3 and MariaDB 10.11, in addition to existing MySQL 8 and real Apache tests. Maintain the disposable-schema confirmation environment for all SQL mutating scripts and never target a customer/staging database. This job is SQL-dialect coverage only, not an actual Lite cPanel install, live Pro VPS service test, or commercial acceptance. Keep external real-host and provider signoffs explicitly open.
+
+---
+
 ## Private unpublished draft detail remains read-only — 2026-11-21
 
 `ModerationRepository::privateDraftDetail()` may return only `visibility='private'` and `draft/quarantined/rejected` records; keep the fields limited to safe status, numeric image and performer record references, and bounded audit notes. No `private_storage_key`, performer identity documents or raw verification evidence reaches the route. `ModerationController::draftPage()` MUST require current `content.moderate`, allow GET only, send no-store/noindex, and HTML-escape all user-controlled text; only pending images on still-pending private drafts get links to independently authorized `/admin/moderation/image/ID`. No approve/publish/restore/upload shortcuts in this view. Preserve explicit admin/moderator/anonymous HTTP regression tests including rejection/revocation behavior and sitewide licensing gates.

@@ -1,3 +1,9 @@
+## MariaDB 10.11 host compatibility CI — 2026-11-21 (development only)
+
+- Add a separate disposable MariaDB 10.11 GitHub Actions job with PHP 8.3.
+- Verify Lite installer, authenticated HTTP workflows, read-only media audits, billing-event replay integrity and full encrypted restore on the MariaDB dialect.
+- Keep MySQL 8 and Apache smoke jobs unchanged. Real hosting certification remains pending.
+
 ## Private draft detail for moderation teams — 2026-11-21 (development only)
 
 - Add role-scoped, GET-only `/admin/moderation/draft/ID` for unpublished private content with image queue, performer evidence-state summary and bounded audit history.
