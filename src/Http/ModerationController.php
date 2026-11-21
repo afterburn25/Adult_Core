@@ -68,6 +68,88 @@ final class ModerationController
         }
     }
 
+    /**
+     * GET-only moderator detail for unpublished PRIVATE draft content.
+     * Rejected and quarantined drafts may be inspected but never previewed
+     * through an image URL unless every existing preview guard still passes.
+     *
+     * @param array{id:int,email:string,role:string} $admin
+     */
+    public function draftPage(string $path,string $method,array $admin): void
+    {
+        $this->currentRole=$admin['role'];
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        if (!RolePolicy::allows($admin['role'],'content.moderate')) {
+            $this->render(403,'Access denied','<p>Moderation permission required.</p>');
+            return;
+        }
+        if ($method!=='GET') {
+            header('Allow: GET');
+            $this->render(405,'Method not allowed','<p>Draft review is read-only.</p>');
+            return;
+        }
+        if (preg_match('#^/admin/moderation/draft/([1-9][0-9]{0,17})$#D',$path,$match)!==1) {
+            $this->render(404,'Not found','<p>Private draft unavailable.</p>');
+            return;
+        }
+        try {
+            $record=(new ModerationRepository(Connection::open($this->root)))
+                ->privateDraftDetail((int)$match[1]);
+            if ($record===null) {
+                $this->render(404,'Not found','<p>Private draft unavailable.</p>');
+                return;
+            }
+            $content=$record['content'];
+            $id=(int)$content['id'];
+            $state=(string)$content['status'];
+            $review=(string)$content['review_status'];
+            $allowPreview=$state==='draft' && $review==='pending';
+            $html='<p class="intro">This review screen is private to authorized moderators. '
+                .'It cannot approve, publish, restore or delete any content.</p>'
+                .'<section class="panel"><h2>'.self::e((string)$content['title']).'</h2>'
+                .'<p><strong>Draft #'.$id.'</strong> · '
+                .self::e($state).' / '.self::e($review)
+                .' · Private only</p>'
+                .'<p>Expected performers: '.(int)$content['expected_performers']
+                .' · Future tier ID: '.($content['tier_id']===null?'Not assigned':(int)$content['tier_id'])
+                .'</p></section><section class="panel"><h2>Private image review</h2>'
+                .'<p>Pending image previews are non-cacheable and require separate authorization. '
+                .'A rejected image or quarantined draft cannot be previewed.</p><ul>';
+            foreach ($record['images'] as $media) {
+                $mediaId=(int)$media['id'];
+                $stateLabel=self::e((string)$media['review_status']);
+                $html.='<li>Image #'.$mediaId.' · '.self::e((string)$media['mime_type'])
+                    .' · '.$stateLabel;
+                if ($allowPreview && $media['review_status']==='pending') {
+                    $html.=' · <a href="/admin/moderation/image/'.$mediaId
+                        .'" target="_blank" rel="noopener noreferrer">Inspect privately</a>';
+                }
+                $html.='</li>';
+            }
+            $html.='</ul></section><section class="panel"><h2>Performer evidence status</h2>'
+                .'<p>These are review-state indicators only, never proof of independent consent.</p><ul>';
+            foreach ($record['performers'] as $performer) {
+                $html.='<li>Record #'.(int)$performer['id'].' · '
+                    .self::e((string)$performer['review_status'])
+                    .' · Identity: '.($performer['verified_at']===null?'Pending':'Assertion recorded')
+                    .' · Consent: '.($performer['consent_at']===null?'Pending':'Assertion recorded')
+                    .'</li>';
+            }
+            $html.='</ul></section><section class="panel"><h2>Private decision history</h2>'
+                .'<ul>';
+            foreach ($record['history'] as $action) {
+                $html.='<li>'.self::e((string)$action['action'])
+                    .' · '.self::e((string)$action['created_at'])
+                    .' · '.self::e((string)$action['note']).'</li>';
+            }
+            $html.='</ul></section><p><a href="/admin/moderation">Back to moderation queue</a></p>';
+            $this->render(200,'Private draft review',$html);
+        } catch (Throwable) {
+            $this->render(503,'Review unavailable','<p>Private draft review could not be loaded.</p>');
+        }
+    }
+
     /** @param array{id:int,email:string,role:string} $admin */
     public function handle(string $method, array $admin): void
     {
@@ -228,8 +310,12 @@ final class ModerationController
             } else {
                 $html.='<span class="muted">Not editable</span>';
             }
-            $html.='<p><a href="/admin/moderation?audit_content='.$id.'">View audit history</a></p>'
-                .'</td><td>';
+            $html.='<p><a href="/admin/moderation?audit_content='.$id.'">View audit history</a></p>';
+            if ($item['visibility']==='private'
+                && in_array($item['status'],['draft','quarantined','rejected'],true)) {
+                $html.='<p><a href="/admin/moderation/draft/'.$id.'">Open private draft review</a></p>';
+            }
+            $html.='</td><td>';
             if ($item['status']==='draft' && $item['visibility']==='private'
                 && $item['review_status']==='pending') {
                 $priorTier=$item['tier_id']===null?'':(string)(int)$item['tier_id'];

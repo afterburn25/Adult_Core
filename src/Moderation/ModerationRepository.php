@@ -290,6 +290,39 @@ final class ModerationRepository
             ORDER BY m.id DESC LIMIT 80")->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Private draft review summary, with only safe numeric record references.
+     * Does not return private image keys, provider evidence, or member access.
+     * The calling HTTP controller must enforce current moderator permissions.
+     *
+     * @return array{content:array<string,mixed>,images:list<array<string,mixed>>,performers:list<array<string,mixed>>,history:list<array<string,mixed>>}|null
+     */
+    public function privateDraftDetail(int $contentId): ?array
+    {
+        if ($contentId<1) return null;
+        $q=$this->pdo->prepare("SELECT id,title,status,visibility,review_status,
+            tier_id,expected_performers FROM ac_content
+            WHERE id=? AND visibility='private'
+                AND status IN ('draft','quarantined','rejected') LIMIT 1");
+        $q->execute([$contentId]);
+        $content=$q->fetch(PDO::FETCH_ASSOC);
+        if (!is_array($content)) return null;
+        $q=$this->pdo->prepare("SELECT id,mime_type,review_status
+            FROM ac_media WHERE content_id=? ORDER BY id ASC LIMIT 80");
+        $q->execute([$contentId]);
+        $images=$q->fetchAll(PDO::FETCH_ASSOC);
+        $q=$this->pdo->prepare("SELECT id,review_status,verified_at,consent_at
+            FROM ac_performer_records WHERE content_id=? ORDER BY id ASC LIMIT 20");
+        $q->execute([$contentId]);
+        $performers=$q->fetchAll(PDO::FETCH_ASSOC);
+        return [
+            'content'=>$content,
+            'images'=>$images,
+            'performers'=>$performers,
+            'history'=>$this->auditTrail($contentId),
+        ];
+    }
+
     /** @return list<array<string,mixed>> */
     public function performerQueue(): array
     {

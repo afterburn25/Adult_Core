@@ -102,6 +102,10 @@ final class AdminController
             (new ModerationController($this->root))->previewImage($path, $method, $admin);
             return;
         }
+        if (str_starts_with($path,'/admin/moderation/draft/')) {
+            (new ModerationController($this->root))->draftPage($path,$method,$admin);
+            return;
+        }
         if ($path === '/admin/tiers') {
             (new TierController($this->root))->handle($method, $admin);
             return;
