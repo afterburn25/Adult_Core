@@ -37,6 +37,22 @@ foreach([400,429,500,302] as $status){
     try {$client->resolve($key,$domain);$ok=false;}catch(RuntimeException){$ok=true;}
     $check('Cannot install when one or more product checks were inconclusive '.$status,$ok);
 }
+
+// One authorized SKU is not sufficient when another SKU has an inconclusive response:
+// it might be authorized too, so the installer must fail closed.
+foreach (array_keys($products) as $authorizedSku) {
+    foreach (array_keys($products) as $uncertainSku) {
+        if ($authorizedSku === $uncertainSku) continue;
+        $mixed = new CajunWebClient(static function (string $body) use ($authorizedSku, $uncertainSku): array {
+            $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+            if ($sku === $uncertainSku) return ['status' => 503, 'body' => '{}'];
+            return ['status' => 200, 'body' => json_encode(['authorized' => $sku === $authorizedSku], JSON_THROW_ON_ERROR)];
+        });
+        try { $mixed->resolve($key, $domain); $blocked = false; }
+        catch (RuntimeException) { $blocked = true; }
+        $check('Authorized SKU cannot install with uncertain SKU '.$authorizedSku.' / '.$uncertainSku, $blocked);
+    }
+}
 $check('www hostname normalized',CajunWebClient::domain('WWW.Example.Test')==='example.test');
 foreach(['http://example.test','example.test:443','localhost','bad/../example.test','bad@domain.test'] as $value){
     try{CajunWebClient::domain($value);$ok=false;}catch(InvalidArgumentException){$ok=true;}
