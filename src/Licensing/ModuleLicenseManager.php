@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Licensing;
 
-use AdultCore\Installer\AtomicFile;
+use AdultCore\Installer\InstallationGate;
 use RuntimeException;
 
 /** A signed, private module entitlement cache; paid add-ons never inherit a core key. */
@@ -52,8 +52,17 @@ final class ModuleLicenseManager
     }
     private function domain(): string
     {
-        $record=(new LicenseManager($this->root))->config();
-        if ($record === null) throw new RuntimeException('Core license unavailable.');
+        // Add-on entitlements never override the core installation gate or
+        // core license. This also protects direct service/worker callers that
+        // do not pass through the HTTP front controller.
+        if ((new InstallationGate($this->root))->status() !== InstallationGate::READY) {
+            throw new RuntimeException('Core installation is not ready for paid modules.');
+        }
+        $manager = new LicenseManager($this->root);
+        $record = $manager->config();
+        if ($record === null || $manager->status($record['domain']) !== 'valid') {
+            throw new RuntimeException('Core license must be authorized before paid module access.');
+        }
         return $record['domain'];
     }
     public function activate(string $id, string $sku, string $key): void
