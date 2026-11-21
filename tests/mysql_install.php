@@ -309,6 +309,25 @@ try {
         throw new RuntimeException('Restoring moderator failed to rotate epoch/password/audit.');
     }
     try {
+        $staff->changeOwnPassword($createdStaff,'incorrect-old-password','alternate-strong-password');
+        throw new RuntimeException('Moderator accepted a wrong existing password.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator accepted a wrong existing password.') throw $e;
+    }
+    $staff->changeOwnPassword($createdStaff,'fresh-restored-staff-password','new-personal-staff-password');
+    if ($auth->staffSessionEpoch($createdStaff)!==$firstEpoch+3
+        || $auth->verifyCredentials('staff.managed@example.test','fresh-restored-staff-password')!==null
+        || $auth->verifyCredentials('staff.managed@example.test','new-personal-staff-password')===null
+        || $staff->recentActions((int)$valid['id'])[0]['action']!=='password_changed') {
+        throw new RuntimeException('Moderator self-service rotation failed to revoke credentials or audit.');
+    }
+    try {
+        $staff->changeOwnPassword((int)$valid['id'],'super-secret-example-password','admin-role-must-not-change');
+        throw new RuntimeException('Moderator password change method touched an administrator.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator password change method touched an administrator.') throw $e;
+    }
+    try {
         $staff->createModerator($createdStaff,'unauthorized.staff@example.test','unauthorized-test-password');
         throw new RuntimeException('Restricted moderator created another staff account.');
     } catch (RuntimeException $e) {

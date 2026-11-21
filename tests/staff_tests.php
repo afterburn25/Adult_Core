@@ -39,6 +39,11 @@ $check(str_contains($controller,'AdminSession::csrfValid')
     && str_contains($controller,'InstallRateLimiter')
     && !str_contains($controller,"action==='promote'"),
     'Manager step-up and CSRF required; role promotion absent');
+$security=(string)file_get_contents(dirname(__DIR__).'/src/Http/MfaController.php');
+$check(str_contains($security,"action==='change_password'")
+    && str_contains($security,'AdminSession::revoke()')
+    && str_contains($source,'staff_session_epoch=staff_session_epoch+1'),
+    'Self-service moderator password rotation invalidates all sessions');
 $check(StaffSchema::VERSION==='m11_staff_audit_v1',
     'Staff audit schema version is explicit');
 echo "Passed {$checks} staff lifecycle safety checks.\n";

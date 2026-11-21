@@ -241,6 +241,25 @@ def main():
                 'csrf':new_staff_token.group(1),'email':new_staff_email,
                 'password':next_staff_password})
             ensure('Restored moderator signs in using only new credential',code == 303)
+            code, staff_security=staff_req('/admin/security')
+            change_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',staff_security)
+            ensure('Moderator can see own password rotation form',
+                   code == 200 and change_token is not None
+                   and 'value="change_password"' in staff_security)
+            code, _=staff_req('/admin/security',{
+                'csrf':'invalid','action':'change_password',
+                'password':next_staff_password,'new_password':'personal-new-moderator-password'})
+            ensure('Moderator password change refuses invalid CSRF',code == 403)
+            code, _=staff_req('/admin/security',{
+                'csrf':change_token.group(1),'action':'change_password',
+                'password':'wrong-current-password','new_password':'personal-new-moderator-password'})
+            ensure('Moderator password rotation rejects wrong current password',code == 422)
+            code, _=staff_req('/admin/security',{
+                'csrf':change_token.group(1),'action':'change_password',
+                'password':next_staff_password,'new_password':'personal-new-moderator-password'})
+            ensure('Moderator rotates own credentials and signs out',code == 303)
+            code, _=staff_req('/admin/moderation')
+            ensure('Changing moderator password invalidates current session',code == 302)
             code, staff_page=req('/admin/staff')
             ensure('Staff private audit includes creation, suspension and restoration',
                    code == 200 and all(x in staff_page for x in ('created','suspended','restored'))
