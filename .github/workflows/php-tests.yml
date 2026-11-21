@@ -38,6 +38,8 @@ jobs:
         run: php tests/package_tests.php
       - name: Advanced foundations (themes, billing inbox, Pro jobs)
         run: php tests/advanced_tests.php
+      - name: All ten release workstreams and fail-closed JSON readiness status
+        run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
         run: php tests/pro_release_tests.php
       - name: Lite shared-host / Pro VPS deployment preflight safety tests
