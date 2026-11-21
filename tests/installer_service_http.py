@@ -20,9 +20,14 @@ require getenv('AC_TEST_SOURCE') . '/src/Support/Autoload.php';
 
 $root = (string) getenv('AC_TEST_ROOT');
 $mode = (string) ($_GET['case'] ?? '');
+if ($mode === 'insecure' || $mode === 'secure') {
+    // Model a non-loopback browser request independently of the local socket.
+    $_SERVER['REMOTE_ADDR'] = '203.0.113.9';
+    $_SERVER['HTTPS'] = $mode === 'secure' ? 'on' : 'off';
+}
 $fields = [
     'license_key' => 'ABCD-EF12-3456-7890',
-    'license_domain' => $mode === 'match' ? '127.0.0.1' : 'wrong.example.test',
+    'license_domain' => in_array($mode, ['match', 'insecure', 'secure', 'bad_dsn'], true) ? '127.0.0.1' : 'wrong.example.test',
     'db_host' => $mode === 'bad_dsn' ? 'localhost;dbname=other' : 'localhost',
     'db_port' => 3306,
     'db_name' => 'disposable_db',
@@ -42,7 +47,8 @@ try {
     echo 'UNEXPECTED_INSTALL';
 } catch (\InvalidArgumentException $error) {
     http_response_code(422);
-    echo str_contains($error->getMessage(), 'hostname') ? 'HOST_REJECTED' : 'INPUT_REJECTED';
+    echo str_contains($error->getMessage(), 'HTTPS is required') ? 'HTTPS_REJECTED'
+        : (str_contains($error->getMessage(), 'hostname') ? 'HOST_REJECTED' : 'INPUT_REJECTED');
 } catch (\RuntimeException $error) {
     http_response_code(409);
     echo str_contains($error->getMessage(), 'License not authorized')
@@ -97,6 +103,15 @@ def run():
             status, body = fetch(f'http://127.0.0.1:{port}/?case=bad_dsn')
             assert (status, body) == (422, 'INPUT_REJECTED'), (status, body)
             assert not (root / 'storage' / 'issuer-called').exists(), 'Malformed DB DSN reached vendor'
+
+            status, body = fetch(f'http://127.0.0.1:{port}/?case=insecure')
+            assert (status, body) == (422, 'HTTPS_REJECTED'), (status, body)
+            assert not (root / 'storage' / 'issuer-called').exists(), 'Insecure request reached vendor'
+
+            status, body = fetch(f'http://127.0.0.1:{port}/?case=secure')
+            assert (status, body) == (409, 'ISSUER_DENIED'), (status, body)
+            assert (root / 'storage' / 'issuer-called').exists(), 'Secure external request never reached issuer'
+            (root / 'storage' / 'issuer-called').unlink()
 
             status, body = fetch(f'http://127.0.0.1:{port}/?case=match')
             assert (status, body) == (409, 'ISSUER_DENIED'), (status, body)
