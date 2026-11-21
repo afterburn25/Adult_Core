@@ -37,6 +37,7 @@ $check(str_contains($catalogSource,'SELECT id FROM ac_installations WHERE id=1 F
     'Tier create and rename serialize local uniqueness and size checks');
 $check(str_contains($controller,'TierCatalog')
     && str_contains($controller,'AdminSession::csrfValid')
+    && str_contains($controller,'Cache-Control: private, no-store')
     && !str_contains($controller,"action==='activate'")
     && !str_contains($controller,"action==='grant'"),
     'Tier route enforces CSRF and lacks payment/entitlement grant actions');

@@ -436,6 +436,9 @@ def main():
             })
             ensure('Reactivated administrator can sign in again',code == 303)
             code, tier_page = req('/admin/tiers')
+            code, _, private_tier_cache, _=req_binary('/admin/tiers')
+            ensure('Owner tier catalog is private and never cacheable',
+                   code==200 and 'no-store' in private_tier_cache)
             ensure('Tier catalog loads for authenticated site administrator',
                    code == 200 and 'Create tier label' in tier_page
                    and 'A tier label is not proof of payment' in tier_page)
@@ -1134,6 +1137,9 @@ def main():
             code, pending = req('/join', {'csrf': join_token.group(1), 'email': 'member@test.example', 'password': 'strong-example-member-password'})
             ensure('Signup remains pending', code == 200 and 'pending review' in pending)
             code, member_login = req('/members/login')
+            code, _, member_login_cache, _=req_binary('/members/login')
+            ensure('Login/session forms are never browser or proxy cacheable',
+                   code==200 and 'no-store' in member_login_cache)
             member_token = re.search(r'name="csrf" value="([a-f0-9]{64})"', member_login)
             ensure('Member login CSRF', code == 200 and member_token is not None)
             code, _ = req('/members/login', {'csrf': member_token.group(1), 'email': 'member@test.example', 'password': 'strong-example-member-password'})

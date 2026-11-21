@@ -37,6 +37,10 @@ final class MemberController
 
     public function handle(string $path, string $method): void
     {
+        // Login, reset and email-confirmation forms can carry opaque tokens;
+        // no member route may be cached by browsers or shared proxies.
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
         $https = in_array(strtolower((string)($_SERVER['HTTPS'] ?? '')), ['on','1'], true);
         $loopback = in_array((string)($_SERVER['REMOTE_ADDR'] ?? ''), ['127.0.0.1','::1'], true);
         if (!$https && !$loopback) { $this->view(403,'HTTPS required','<p>Membership accounts require HTTPS.</p>'); return; }

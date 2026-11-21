@@ -1,3 +1,9 @@
+## Non-cacheable member session and private tier pages — 2026-11-21
+
+The member-account controller now sets `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow` across membership sign-in, registration, email confirmation, recovery/reset and private account views, including errors. This prevents opaque reset/confirmation tokens or account information from being stored by intermediary caches or search indexes. The owner-only tier-label dashboard now sets the same headers, consistent with Pages, Site identity and moderation. Authenticated real HTTP regressions assert the member login and tier catalog are non-cacheable. Public-site publishing, entitlement, age/consent and licensing remain unchanged.
+
+---
+
 ## No-store / noindex for private site management and moderation lists — 2026-11-21
 
 SiteAdminController and ModerationController main request handlers now always return `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow`, including on denied and invalid requests. This prevents private saved page titles, version history, registered-member email listings, pending images, report reasons and performer status summaries from being cached by browsers or intermediary proxies. Existing private draft and binary image preview routes already had their own no-store protections. Real authenticated HTTP tests assert both main administration indexes return no-store; no public site headers, publishing gates, license, payment or identity approval state is changed.
