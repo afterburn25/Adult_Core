@@ -1,3 +1,11 @@
+## ADR — Creator accounts are site-owner controlled, not a software-platform application (2026-11-21)
+
+Adult_Core is **one self-hosted software product installed separately on each customer's own hosting**, never a SaaS creator network. A customer's **Cajun Web Pro software license** selects Lite or Pro at installation; it does **not** create a centrally hosted site, require creator approval by the Adult_Core vendor, or confer access to any shared creator network.
+
+Creator accounts, if implemented, belong solely to the **individual installed website** and are managed locally by **that site's owner/admin**, with local roles and content permissions. A vendor-facing or mandatory creator application/approval workflow is explicitly out of scope. The unrequested experimental `/members/creator` and `/admin/creators` intake was reverted before release. Future creator dashboards can be designed as locally provisioned capabilities, without bypassing independent adult age/identity, performer consent, moderation, payment or hosting requirements.
+
+---
+
 ## ADR — Shared public-root safety is an installer prerequisite (2026-11-21)
 
 The exact pathname of a web document root is not sufficient to prove safe application hosting. A malicious or accidental public PHP file, symlink, copied private tree or missing Apache rule can expose private code/data even if `realpath(document_root) === realpath(public/)`. Centralize read-only source-tree checks in `PublicRootSafety`, reuse them from the deployment preflight and `HostInspector`, and make the existing Lite/Pro `public_docroot` capability conditional on those checks. Reject unsafe layouts **before transmitting the customer license key or creating the MySQL schema**, without modifying installed edition manifests or allowing Pro to downgrade. Source archive verification must require this scanner and bundled `.htaccess`. No local scan is a substitute for independent HTTPS routing and real-host acceptance.

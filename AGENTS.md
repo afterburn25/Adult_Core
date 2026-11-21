@@ -1,3 +1,9 @@
+## Creator workflow must remain self-hosted and owner controlled — 2026-11-21
+
+The software is an individually installed, modular Lite/Pro membership application, NOT SaaS. A local site's owner/admin controls local staff, members and eventual creators. **Do not re-add a platform-wide creator signup/application, vendor approval process, central shared creator database, or requirement for a customer to apply to the Adult_Core operator.** The experimental creator-application classes and routes were reverted. Only implement creator features for the independent locally installed site with clearly distinct local authorization and review, and do not conflate software-license validation with creator onboarding. Independent legal/age/consent/provider/merchant checks remain separate release gates.
+
+---
+
 ## Persistent admin sessions and bounded staff change authorization — 2026-11-21
 
 `AdminSession` uses private server-side PHP sessions and an **opaque session-ID cookie only**, with a 7-day persistent browser lifetime, 24-hour idle expiry, 7-day hard server expiry, HttpOnly/SameSite=Strict and Secure on HTTPS. Never store a password, entitlement, privileged API key or reusable bearer credential value inside a separate client-side remember-me cookie. Session regeneration, CSRF, MFA, active-account checks, moderator epoch revocation and logout remain required. `AdminSession::managerVerifiedRecently()` must use a server-side, timestamp-bounded 30-minute window after authenticated password login. No privileged transition may renew that window without a verified password; old sessions lacking this timestamp fail closed for staff changes.
