@@ -337,6 +337,23 @@ try {
     if (!$registry->apply('approved_test',$verifiedAge) || $registry->apply('approved_test',$verifiedAge)) {
         throw new RuntimeException('Age verification event was not idempotent.');
     }
+    $conflictingAge=$verifiedAge;
+    $conflictingAge['decision']='revoked';
+    try {
+        $registry->apply('approved_test',$conflictingAge);
+        throw new RuntimeException('A conflicting provider event ID was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='A conflicting provider event ID was accepted.') throw $e;
+    }
+    $crossProviderStale=$verifiedAge;
+    $crossProviderStale['event_id']='secondary_provider_evt001';
+    $crossProviderStale['occurred_at']=$verifiedAge['occurred_at']-20;
+    try {
+        $registry->apply('secondary_provider',$crossProviderStale);
+        throw new RuntimeException('An older other-provider age decision was accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='An older other-provider age decision was accepted.') throw $e;
+    }
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Missing consent unlocked private content.');
     if ($library->visible((int)$member['id']) !== []) {
         throw new RuntimeException('Missing performer consent exposed a library title.');
