@@ -154,6 +154,22 @@ final class ModerationRepository
         }
     }
 
+    /**
+     * Review links show opaque numeric IDs only, never private file keys.
+     * Only current unpublished drafts can be previewed through the
+     * separately permission-gated administrator binary endpoint.
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function pendingDraftImages(): array
+    {
+        return $this->pdo->query("SELECT m.id,m.content_id,c.title,m.mime_type
+            FROM ac_media m JOIN ac_content c ON c.id=m.content_id
+            WHERE m.review_status='pending' AND c.status='draft'
+                AND c.visibility='private' AND c.review_status='pending'
+            ORDER BY m.id DESC LIMIT 80")->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     /** @return list<array<string,mixed>> */
     public function performerQueue(): array
     {
