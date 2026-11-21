@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace AdultCore\Http;
 
 use AdultCore\Auth\LoginRateLimiter;
+use AdultCore\Creator\CreatorSchema;
+use AdultCore\Creator\LocalCreators;
 use AdultCore\Database\Connection;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
@@ -90,6 +92,10 @@ final class MemberController
                 if (!MemberSession::csrfValid($_POST['csrf'] ?? null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
                 MemberSession::logout(); $this->redirect('/'); return;
             }
+            if ($path === '/members/creator') {
+                $this->creatorWorkspace($pdo,$method,$accounts);
+                return;
+            }
             if ($path === '/members/report') {
                 $this->report($pdo, $method, $accounts);
                 return;
@@ -138,6 +144,9 @@ final class MemberController
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
+                    . ($this->creatorAccess($pdo,(int)$member['id'])
+                        ? '<p><a href="/members/creator">Manage your private creator drafts</a></p>'
+                        : '')
                     . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
                 return;
@@ -149,6 +158,125 @@ final class MemberController
         } catch (Throwable) {
             $this->view(503,'Temporarily unavailable','<p>The member service is not available.</p>');
         }
+    }
+
+    private function creatorAccess(PDO $pdo,int $memberId): bool
+    {
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([CreatorSchema::VERSION]);
+        return (int)$q->fetchColumn()===1
+            && (new LocalCreators($pdo))->activeForMember($memberId)!==null;
+    }
+
+    /**
+     * Text-only drafts on the current customer's own website. A creator has
+     * to be enabled by the local site owner; there is no self-application,
+     * creator approval or publication endpoint.
+     */
+    private function creatorWorkspace(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([CreatorSchema::VERSION]);
+        if ((int)$q->fetchColumn()!==1) {
+            $this->view(503,'Creator workspace setup required',
+                '<p>Contact this website\'s owner to complete local creator setup.</p>');
+            return;
+        }
+        $creators=new LocalCreators($pdo);
+        $profile=$creators->activeForMember((int)$member['id']);
+        if ($profile===null) {
+            $this->view(403,'Creator workspace unavailable',
+                '<p>Private creator workspace access is managed by this website\'s owner. '
+                .'No creator application or shared-platform membership is required.</p>');
+            return;
+        }
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload your private creator workspace.</p>');
+                return;
+            }
+            try {
+                if (($_POST['action']??null)!=='save_draft'
+                    || !is_string($_POST['title']??null)
+                    || !is_string($_POST['summary']??null)) {
+                    throw new RuntimeException('Invalid private draft input.');
+                }
+                $rawId=$_POST['draft_id']??null;
+                $rawRevision=$_POST['revision']??null;
+                if (!is_string($rawId) || !is_string($rawRevision)) {
+                    throw new RuntimeException('Invalid private draft revision.');
+                }
+                $draftId=$rawId===''?null:filter_var($rawId,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]);
+                $revision=$rawRevision===''?null:filter_var($rawRevision,FILTER_VALIDATE_INT,
+                    ['options'=>['min_range'=>1]]);
+                if ($draftId===false || $revision===false) {
+                    throw new RuntimeException('Invalid private draft revision.');
+                }
+                $creators->saveDraft((int)$member['id'],$draftId,$revision,
+                    $_POST['title'],$_POST['summary']);
+                $this->redirect('/members/creator?result=saved');
+                return;
+            } catch (RuntimeException $e) {
+                $allowed=[
+                    'Invalid private draft input.','Invalid private draft revision.',
+                    'Use a private draft title of 2–190 bytes without control characters.',
+                    'Describe the private draft in 10–1200 bytes without private evidence.',
+                    'Creator workspace unavailable.','Private draft not found.',
+                    'Draft changed; reload your workspace.','Private draft limit reached.',
+                ];
+                $message=in_array($e->getMessage(),$allowed,true)
+                    ? $e->getMessage():'Could not save your private draft.';
+                $this->view(422,'Private draft not saved','<p role="alert">'.self::e($message)
+                    .'</p><p><a href="/members/creator">Return to workspace</a></p>');
+                return;
+            }
+        }
+        $html='<p class="intro">Welcome to your private creator workspace on THIS independently '
+            .'hosted website. Text-only planning drafts are visible only to you and the '
+            .'local website owner via protected administration. '
+            .'No uploads, publishing, paid access, creator certification or independent '
+            .'age/performer consent verification is enabled here.</p>';
+        if (($_GET['result']??'')==='saved') {
+            $html.='<p role="status">Private planning draft saved. Nothing was published.</p>';
+        }
+        $html.='<section class="panel"><h2>'.self::e((string)$profile['display_name'])
+            .' — private draft planning</h2>'
+            .'<form method="post" action="/members/creator" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+            .'<input type="hidden" name="action" value="save_draft">'
+            .'<input type="hidden" name="draft_id" value="">'
+            .'<input type="hidden" name="revision" value="">'
+            .'<label>Draft title<input name="title" maxlength="190" minlength="2" required></label>'
+            .'<label>Private draft description (10–1200 bytes; no identity or consent documents)'
+            .'<textarea name="summary" minlength="10" maxlength="1200" rows="4" required></textarea></label>'
+            .'<button class="install-button">Save private draft</button></form></section>'
+            .'<section class="panel"><h2>Your saved private drafts</h2>';
+        $drafts=$creators->ownDrafts((int)$member['id']);
+        if ($drafts===[]) {
+            $html.='<p>No private planning drafts yet.</p>';
+        }
+        foreach ($drafts as $draft) {
+            $html.='<article class="panel"><h3>'.self::e((string)$draft['title']).'</h3>'
+                .'<p>Status: private; unavailable to members or the public.</p>'
+                .'<form method="post" action="/members/creator" class="install-form">'
+                .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                .'<input type="hidden" name="action" value="save_draft">'
+                .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                .'<label>Title<input name="title" maxlength="190" minlength="2" required value="'
+                .self::e((string)$draft['title']).'"></label>'
+                .'<label>Private description<textarea name="summary" rows="4" minlength="10" maxlength="1200" required>'
+                .self::e((string)$draft['summary']).'</textarea></label>'
+                .'<button class="button-secondary">Save private changes</button></form></article>';
+        }
+        $html.='</section><p><a href="/members">Back to member account</a></p>';
+        $this->view(200,'Private creator workspace',$html);
     }
 
     /** Password recovery is available without a login and never activates memberships. */
