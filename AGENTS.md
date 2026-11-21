@@ -1,3 +1,7 @@
+## 0.8.11 host deployment preflight (2026-11-20)
+
+Additive, read-only CLI `scripts/deployment-preflight.php` with `src/Capability/DeploymentPreflight.php` and local fixture/loopback agent tests. This scans requested `public/` docroot, PHP requirements, accidental public executable/symlink/private tree exposure, installed signed edition and optional Pro agent. **`--expected-edition` is an operator assertion, not authority**: the Cajun Web Pro product-specific key remains the sole edition selector. No real cPanel/shared or VPS environment was configured; the included Pro demo only proves the local handshake. Follow `docs/DEPLOYMENT_PREFLIGHT.md`, include both new test suites in CI, and do not mark 1.0 ready.
+
 ## Latest development: 0.8.10-cwp-staging-dev
 
 The CLI-only `scripts/audit-cwp-staging.php` and `src/Licensing/CwpStagingAudit.php` add an explicit, read-only, 3-request operator acceptance probe for an already-issued staging key; key file must remain outside checkout and have private permissions. Only HTTPS Cajun Web Pro hosts are accepted; the primary host requires a second explicit opt-in. Offline tests in `tests/cwp_staging_audit_tests.php` run in CI. This is NOT a real issued license, renewed subscription, merchant transaction, or catalog provisioning, and must never be silently run in CI with customer credentials. Read `docs/CWP_STAGING_PREFLIGHT.md`. Do not weaken any signed license, installer, backup, MFA or Pro gates.

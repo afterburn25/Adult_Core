@@ -1,3 +1,7 @@
+## 0.8.11 deployment preflight — development only
+
+A read-only operator CLI now triages Lite shared-host / Pro VPS capabilities and insecure `public/` layouts before and after installation. It does not choose the edition, contact the issuer, configure HTTPS/FPM, install a production Pro worker or certify actual cPanel/VPS hosting. Those real staging acceptance tests and all payment/age/consent/security release gates remain open. See `docs/DEPLOYMENT_PREFLIGHT.md`.
+
 ## 0.8.10 staging probe checkpoint
 
 Implemented CLI-only **read-only** CWP staging key product/domain acceptance probe with strict trusted HTTPS and opt-in. The four Adult_Core edition × term SKUs and one installer are unchanged. Actual CWP product rows, issuer-authorized staging keys, Authorize.Net sandbox enrollment/renewal/cancel, external Lite/Pro hosting tests and release safety/compliance remain **open**; the probe does not substitute for merchant acceptance. See `docs/CWP_STAGING_PREFLIGHT.md`.

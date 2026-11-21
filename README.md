@@ -1,3 +1,7 @@
+## Development host deployment preflight — 0.8.11
+
+Run `php scripts/deployment-preflight.php --document-root=/actual/host/document/root/public --expected-edition=lite --phase=preinstall` (use `pro` for a VPS, or `installed` after installation). The new read-only triage checks unsafe web-root placement, private tree exposure, PHP/server capabilities, Pro-agent authentication and signed-edition consistency. **The Cajun Web Pro key still selects the real edition**; the command never installs, issues, upgrades or bills a license. Even a successful check does **not** certify HTTPS, actual cPanel/FPM, Pro workers, backups or adult-content compliance. See [`docs/DEPLOYMENT_PREFLIGHT.md`](docs/DEPLOYMENT_PREFLIGHT.md).
+
 ## Read-only Cajun Web Pro staging audit (0.8.10 development)
 
 For approved staging-only verification of already-issued Lite/Pro one-time and monthly license keys, `scripts/audit-cwp-staging.php` performs three bounded HTTPS product/domain checks without issuing a key, enrolling or cancelling a subscription, or charging anything. It requires a private key file outside the repo and explicit opt-in; see `docs/CWP_STAGING_PREFLIGHT.md`. Live Cajun Web Pro catalog onboarding and merchant sandbox acceptance are **still pending**.
@@ -51,7 +55,7 @@ This does **not** add automatic background removal, public adult-content uploads
 **Verified 0.8.6-design-dev CI:** [run 44826489627](https://github.com/afterburn25/Adult_Core/actions/runs/44826489627) passed PHP 8.3 lint/unit/security tests, disposable MySQL installation and authenticated browser checks (including real PNG upload and private/public decorative-image gating) for source commit [`c427cf9`](https://github.com/afterburn25/Adult_Core/commit/c427cf957a132749555cf5f777419b024cf240b6). Apache/cPanel production deployment, real adult verification, payments and streaming are NOT certified.
 
 
-**Version: `0.8.6-design-dev` (visual theme builder development preview, not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
+**Current development version: `0.8.11-host-preflight-dev` (not a production release).** The 0.6 public page editor and 0.7 pending member-account workflows are implemented; 0.8 restricted-media authorization is a foundation only. Milestones 0.9 through 1.0 are **not complete**. See [release gates](docs/RELEASE_GATES.md) and [roadmap](docs/ROADMAP.md).
 
 [GitHub: afterburn25/Adult_Core](https://github.com/afterburn25/Adult_Core)
 

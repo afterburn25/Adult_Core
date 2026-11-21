@@ -1,3 +1,7 @@
+## Latest checkpoint — 0.8.11-host-preflight-dev
+
+Added nonmutating `DeploymentPreflight` and `scripts/deployment-preflight.php`: explicit actual absolute document root, operator-expected Lite/Pro, preinstall vs installed phase, safe text or JSON statuses, unexpected public executable/symlink/private tree guards, authenticated Pro loopback capability and locally signed installed license edition matching. The key still selects edition at installation, not script switches. Added fixture and real local Pro demo handshake/negative token tests; included in CI. No actual host, production Pro worker or CWP paid subscription sandbox was accessed or certified. Read `docs/DEPLOYMENT_PREFLIGHT.md` and test real cPanel/VPS independently. Verify GitHub CI before claiming external acceptance.
+
 ## Latest continuation — 0.8.10-cwp-staging-dev
 
 Added `src/Licensing/CwpStagingAudit.php` and CLI `scripts/audit-cwp-staging.php` for an operator-authorized, **read-only** three-check probe against an already-issued staging license. Key is input from a private Unix file outside repo, never argv/output; endpoints constrained to HTTPS Cajun Web Pro domain with opt-in for main host. `tests/cwp_staging_audit_tests.php` is offline, and CI retains existing MySQL tests. This does NOT provision any license product or test actual merchant transactions. See `docs/CWP_STAGING_PREFLIGHT.md`. Next actual gate is owner-controlled staging catalog and merchant sandbox, plus host recovery drills.

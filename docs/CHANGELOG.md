@@ -1,3 +1,9 @@
+## 0.8.11-host-preflight-dev — local deployment-readiness diagnostics (2026-11-20)
+
+- Added `src/Capability/DeploymentPreflight.php` and CLI `scripts/deployment-preflight.php` with text/JSON results for preinstall/installed Lite/Pro expectations; preserves license-key edition authority and never returns private license credentials.
+- Fail-closed checks for unsafe or wrong document root, public symlinks/executables/dotfiles and accidentally public `config/`/`storage/`/`install/`, missing PHP extensions, verified Pro loopback capability, missing/invalid signed installation state and inconsistent edition.
+- Added fixture and authenticated loopback Pro-agent tests, updated CI, and explicit manual-host-only acceptance runbook `docs/DEPLOYMENT_PREFLIGHT.md`. Real shared-host/VPS deployments, CWP merchant subscription sandbox, offsite recovery drills, age/consent verification and production certification remain open.
+
 ## 0.8.10-cwp-staging-dev — Read-only issuer staging acceptance kit
 
 - Add operator-only, explicitly confirmed diagnostic for one owner-issued Cajun Web Pro staging key; validates product/domain acceptance and two negative authorization controls over strict trusted HTTPS with no redirects, three calls total and no mutation/billing endpoints.
