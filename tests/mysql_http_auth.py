@@ -220,6 +220,38 @@ def main():
             ensure('Page editor persists and redirects', code == 303)
             code, public = req('/p/safe-page')
             ensure('Published page escaped in frontend', code == 200 and '&lt;script&gt;' in public and '<script>unsafe()</script>' not in public)
+            # A saved draft can be previewed under the existing administrator
+            # session without making the draft visible to public visitors.
+            code, _ = req('/admin/page', {
+                'csrf':edit_csrf.group(1), 'slug':'secret-preview',
+                'title':'Unpublished <b>preview</b>',
+                'body':'Private <script>not_public()</script>',
+                'status':'draft'
+            })
+            ensure('Unpublished draft page saved for admin preview',code == 303)
+            code, _ = req('/p/secret-preview')
+            ensure('Saved draft cannot be accessed on its public URL',code == 404)
+            code, saved_pages = req('/admin/pages')
+            draft_saved_match = re.search(
+                r'<tr><td>Unpublished &lt;b&gt;preview&lt;/b&gt;</td><td>secret-preview</td><td>draft</td>'
+                r'<td><a href="/admin/page\?id=(\d+)"',saved_pages)
+            ensure('Saved draft lists private preview control',
+                   code == 200 and draft_saved_match is not None
+                   and 'Preview saved' in saved_pages)
+            saved_draft_id=draft_saved_match.group(1)
+            code, saved_preview = req('/admin/page/preview?id='+saved_draft_id)
+            ensure('Authenticated saved draft renders safe public-site themed preview',
+                   code == 200 and 'ADMIN PREVIEW — SAVED PAGE' in saved_preview
+                   and 'Unpublished &lt;b&gt;preview&lt;/b&gt;' in saved_preview
+                   and 'Private &lt;script&gt;not_public()&lt;/script&gt;' in saved_preview
+                   and '<script>not_public()</script>' not in saved_preview)
+            code, _, preview_cache, _=req_binary('/admin/page/preview?id='+saved_draft_id)
+            ensure('Private draft preview is not browser/proxy cacheable',
+                   code == 200 and 'no-store' in preview_cache)
+            code, _ = req('/admin/page/preview?id=not-a-page')
+            ensure('Malformed draft preview ID is neutral not-found',code == 404)
+            code, _ = req('/admin/page/preview?id='+saved_draft_id,{'csrf':edit_csrf.group(1)})
+            ensure('Private draft preview is read-only GET',code == 405)
             # Authenticated Visual Design Studio: correct theme and escaped homepage content.
             code, studio = req('/admin/design')
             ensure('Design Studio available after migration', code == 200 and 'Noir Atelier' in studio and 'Velvet Club' in studio)
@@ -780,6 +812,9 @@ def main():
             ensure('Valid logout redirects', code == 303)
             code, body = req('/admin')
             ensure('Logged-out session denied', code == 302)
+            code, anonymous_page_preview = req('/admin/page/preview?id='+saved_draft_id)
+            ensure('Logged-out administrator cannot view private saved drafts',
+                   code == 302 and 'not_public()' not in anonymous_page_preview)
             code, _, _, logged_out_preview = req_binary('/admin/moderation/image/' + pending_media_id)
             ensure('Logged-out administrator cannot retrieve pending image bytes',
                    code == 302 and not logged_out_preview.startswith(b'\x89PNG'))

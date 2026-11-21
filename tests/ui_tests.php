@@ -35,6 +35,15 @@ uiCheck(str_contains($sample, 'href="/theme.css"'), 'Signed CSS theme hook prese
 $secondary = Layout::site('About', 'Information', [], 'Example', false);
 uiCheck(!str_contains($secondary, 'class="site-highlights"'), 'No duplicate homepage features on inner pages');
 uiCheck(str_contains($secondary, 'site-container'), 'Responsive site container');
+uiCheck(!str_contains($secondary, 'ADMIN PREVIEW'), 'Public renderer has no administrative preview banner');
+$privatePreview=Layout::site('Draft <private>', 'Only moderators can read this <script>unsafe()</script>',
+    [], 'Demo', false, [], true);
+uiCheck(str_contains($privatePreview,'ADMIN PREVIEW — SAVED PAGE'),
+    'Admin-saved page previews are visibly identified as nonpublic');
+uiCheck(str_contains($privatePreview,'Draft &lt;private&gt;')
+    && str_contains($privatePreview,'&lt;script&gt;unsafe()&lt;/script&gt;')
+    && !str_contains($privatePreview,'<script>unsafe()</script>'),
+    'Private preview renders escaped page copy with production layout');
 
 $admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
     ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
