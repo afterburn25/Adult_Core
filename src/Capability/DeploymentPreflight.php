@@ -7,9 +7,6 @@ namespace AdultCore\Capability;
 use AdultCore\Edition\EditionSelector;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Licensing\LicenseManager;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use FilesystemIterator;
 use RuntimeException;
 
 /**
@@ -80,7 +77,7 @@ final class DeploymentPreflight
                 && str_contains($apacheRules, 'Options -Indexes'),
             'Bundled Apache routing and directory-listing guards must be present; actual mod_rewrite support must be checked on hosting.');
 
-        $unsafe = $this->unsafePublicPaths($public);
+        $unsafe = PublicRootSafety::unsafePaths($public);
         $record('no_public_symlinks_or_executables', $unsafe === [], $unsafe === []
             ? 'No linked or unexpected executable files detected under public/.'
             : 'Unexpected public path(s): ' . implode(', ', array_slice($unsafe, 0, 6)) . '. Remove or investigate before deployment.');
@@ -132,39 +129,4 @@ final class DeploymentPreflight
         ];
     }
 
-    /** @return list<string> Relative paths only: never emit file contents or secrets. */
-    private function unsafePublicPaths(string $public): array
-    {
-        if (!is_dir($public) || is_link($public)) {
-            return ['public/'];
-        }
-        $bad = [];
-        $iterator = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($public, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-        $iterator->setMaxDepth(16);
-        $seen = 0;
-        foreach ($iterator as $entry) {
-            if (++$seen > 20000) { $bad[] = 'public/ (scan limit exceeded)'; break; }
-            $path = str_replace('\\', '/', substr($entry->getPathname(), strlen($public) + 1));
-            if ($entry->isLink() || !$entry->isFile() && !$entry->isDir()) {
-                $bad[] = 'public/' . $path;
-                continue;
-            }
-            if ($entry->isDir() && $iterator->getDepth() >= 16) {
-                $bad[] = 'public/' . $path . ' (scan depth exceeded)';
-                continue;
-            }
-            if (!$entry->isFile()) continue;
-            $base = basename($path);
-            if ((str_starts_with($base, '.') && $path !== '.htaccess')
-                || preg_match('/\.(?:php[0-9]?|phtml|phar|cgi|pl|sh|env|ini|sql|log|bak|pem|key)$/iD', $path) === 1
-                || preg_match('/^(?:composer\.(?:json|lock)|license(?:[._-].*)?|app-key(?:[._-].*)?|database(?:[._-].*)?)$/iD', $base) === 1) {
-                if (in_array($path, ['index.php', 'router.php', '.htaccess'], true)) continue;
-                $bad[] = 'public/' . $path;
-            }
-        }
-        return $bad;
-    }
 }

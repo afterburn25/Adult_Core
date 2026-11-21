@@ -61,6 +61,9 @@ mkdir($root . '/config');
 mkdir($root . '/install');
 mkdir($root . '/storage');
 mkdir($root . '/public');
+foreach (['index.php','router.php','.htaccess'] as $webFile) {
+    copy(dirname(__DIR__) . '/public/' . $webFile, $root . '/public/' . $webFile);
+}
 mkdir($root . '/config/editions');
 foreach (['lite','pro'] as $editionFile) copy(dirname(__DIR__).'/config/editions/'.$editionFile.'.json', $root.'/config/editions/'.$editionFile.'.json');
 $inputs = [

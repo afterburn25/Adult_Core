@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Capability\DeploymentPreflight;
+use AdultCore\Capability\HostInspector;
 use AdultCore\Installer\InstallationState;
 use AdultCore\Licensing\CajunWebClient;
 
@@ -42,6 +43,8 @@ try {
     ensure(row($fresh,'fresh_private_state')['pass'], 'No secrets on fresh setup');
     ensure(row($fresh,'no_public_symlinks_or_executables')['pass'], 'No public executables beyond router');
     ensure(row($fresh,'host_secure_public_document_root')['pass'], 'Exact document root accepted');
+    ensure(in_array('public_docroot', (new HostInspector($base))->inspect($base . '/public')['capabilities'], true),
+        'Browser installer host inspector accepts safe bundled public layout');
     ensure(count($fresh['external_verification_required']) >= 5, 'Manual checks persist even on local pass');
     ensure(!isset($fresh['license_key']), 'No key in report');
 
@@ -51,6 +54,8 @@ try {
     file_put_contents($base . '/public/assets/execute.phtml', '<?php echo 1;');
     $executable = $tool->inspect($base . '/public', 'lite', 'preinstall');
     ensure(!row($executable,'no_public_symlinks_or_executables')['pass'], 'Executable assets rejected');
+    ensure(!in_array('public_docroot', (new HostInspector($base))->inspect($base . '/public')['capabilities'], true),
+        'Installer refuses unexpected public executable even with correct document root');
     ensure(str_contains(row($executable,'no_public_symlinks_or_executables')['detail'],'execute.phtml'), 'Unsafe path diagnosed');
     unlink($base . '/public/assets/execute.phtml');
     file_put_contents($base . '/public/assets/.htaccess', 'Require all granted');
@@ -67,10 +72,14 @@ try {
     unlink($base . '/public/config');
     mkdir($base . '/public/storage');
     ensure(!row($tool->inspect($base . '/public', 'lite', 'preinstall'),'private_storage')['pass'], 'Plain copied private directory rejected');
+    ensure(!in_array('public_docroot', (new HostInspector($base))->inspect($base . '/public')['capabilities'], true),
+        'Installer refuses even an empty private storage directory inside public');
     rmdir($base . '/public/storage');
 
     file_put_contents($base . '/public/.htaccess', 'Options Indexes');
     ensure(!row($tool->inspect($base . '/public', 'lite', 'preinstall'),'apache_routing_file')['pass'], 'Broken Apache routing rejected');
+    ensure(!in_array('public_docroot', (new HostInspector($base))->inspect($base . '/public')['capabilities'], true),
+        'Installer refuses broken bundled Apache safety rules');
     copy($source . '/public/.htaccess', $base . '/public/.htaccess');
     file_put_contents($base . '/config/license.php', '<?php return '. var_export([
         'license_key' => 'FAKE-TEST-KEY-0001', 'domain' => 'staging.example.test',

@@ -1,3 +1,9 @@
+## Shared installer/public-root layout guard — 2026-11-21
+
+The installer host inspector and operator preflight share `src/Capability/PublicRootSafety.php` for read-only detection of public symlinks, unexpected executable/secret files, copied private application directories, scan-depth truncation and unreadable scans. `HostInspector::inspect()` now grants the already-required `public_docroot` capability only when the declared document root is the source `public/`, the bundled index/router/Apache guards are present and safe, and the public tree scan passes. This keeps the original license-selected Lite/Pro manifest semantics. The disposable installer-MySQL fixture now copies the real public routing files. Added regression checks for a correct docroot containing an unexpected executable, a copied private directory and broken Apache guard. These local checks cannot certify actual cPanel/Apache or VPS behavior, merchant/provider approval or production readiness; **verify CI on the resulting commit**.
+
+---
+
 ## Source ZIP audit packaging correction — 2026-11-21
 
 - The **read-only private media audit** was implemented and passed disposable MySQL [run 44895957609](https://github.com/afterburn25/Adult_Core/actions/runs/44895957609). To ship the CLI with the unified Lite/Pro source release, `scripts/build-release.php` and `tests/release_distribution_tests.php` were extended to require `src/Media/PrivateMediaAudit.php` and `scripts/audit-private-media.php`.

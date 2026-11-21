@@ -42,8 +42,17 @@ final class HostInspector
 
         $expectedDocroot = realpath($this->root . '/public');
         $actualDocroot = $documentRoot === null ? false : realpath($documentRoot);
-        $safeDocroot = $expectedDocroot !== false && $actualDocroot !== false && $expectedDocroot === $actualDocroot;
-        $check('public_docroot', 'Secure public document root', $safeDocroot, 'The domain document root must point to the project public/ directory.');
+        $public = $this->root . '/public';
+        $apache = $public . '/.htaccess';
+        $rules = is_file($apache) && !is_link($apache) ? @file_get_contents($apache) : false;
+        $safeDocroot = $expectedDocroot !== false && $actualDocroot !== false && $expectedDocroot === $actualDocroot
+            && PublicRootSafety::unsafePaths($public) === []
+            && is_file($public . '/index.php') && !is_link($public . '/index.php')
+            && is_file($public . '/router.php') && !is_link($public . '/router.php')
+            && is_string($rules) && str_contains($rules, 'RewriteEngine On')
+            && str_contains($rules, 'Options -Indexes');
+        $check('public_docroot', 'Secure public document root', $safeDocroot,
+            'The domain document root must be the bundled public/ directory with safe routing files and no private trees, unexpected scripts or symlinks.');
 
         $agentCapabilities = $this->proAgent->detectCapabilities($this->root);
         foreach ($agentCapabilities as $cap) {
