@@ -1,3 +1,11 @@
+## Legacy image serving and optional operator metadata audit — 2026-11-21
+
+Approved database status does not override byte-level privacy checks. `PrivateMedia::safeToServe()` is required after member entitlement and moderator role/draft checks on **both** `/media/ID` and `/admin/moderation/image/ID`. `DesignImages::safeToServe()` similarly gates public and administrator decorative images. Mismatched/metadata-bearing legacy bytes return 404, never media headers. Rechecking is conservative and not a substitute for safe transcoding or malware scanning.
+
+`PrivateMediaAudit::inspect(true)` and `scripts/audit-private-media.php --metadata [--json]` are read-only, aggregate-only metadata inventories with at most 100 checked files and 64 MiB per pass. `metadata_truncated` must fail closed, not silently report a complete clean scan. Do NOT output storage keys, file names, private directories, creator identities or content bytes, and NEVER auto-delete possible evidence. Maintain disposable MySQL tests including over-budget/malformed images. Real production incident handling, retention, scanning, age/consent and release certification remain separate.
+
+---
+
 ## Uploaded image metadata and private storage safeguards — 2026-11-21
 
 Keep `ImageMetadataPolicy::assertAllowed()` in **both** private draft upload (`PrivateMedia::storeVerifiedImage()`) and Design Studio image validation (`DesignImages::inspect()`) before any binary move or database write. Policy is a bounded reject-only PNG/JPEG/WebP container screen: EXIF/GPS/XMP/ICC, text, animation/unknown chunks and malformed containers must fail, while clean fixtures pass. This is not image re-encoding, malware scanning, adult-performer consent verification, or permission to publish. The authenticated HTTP suite checks refusal before an inserted `ac_media` row and before public decorative approval. Preserve no-source-secret output and max byte/dimension checks.

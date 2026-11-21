@@ -1,3 +1,12 @@
+## Legacy media delivery safety and opt-in metadata audit — 2026-11-21
+
+- `PrivateMedia::safeToServe()`, `DesignImages::safeToServe()` now recheck MIME, size and metadata policy on delivery; protected member media and moderator preview call the former after their independent authorization checks, and Design Studio asset serving calls the latter. Previously accepted unsafe legacy files cannot be served solely due to a positive DB status. The disposable synthetic gallery fixture was updated to a correctly encoded PNG.
+- `PrivateMediaAudit::inspect(true)` and `php scripts/audit-private-media.php --metadata [--json]` report read-only aggregate metadata risk and fail nonzero when a file is rejected or 100-file/64-MiB limits truncate the inspection. Default `inspect()` retains existing fast path. No secrets, filenames, identity evidence, private paths or bytes are printed, and no auto-remediation or deletion is performed.
+- `tests/mysql_private_media_audit.php` uses only disposable MySQL plus temporary paths and verifies safe images, metadata rejection, privacy-preserving counts, no deletion and scan truncation. **Check CI for the latest commits before calling this green.**
+- Real adult-appropriate merchant/identity/consent providers, legal retention, approved publication decisions, video encoding, cPanel and Pro VPS deployment, and independent security/compliance review remain open. No software/payment launch.
+
+---
+
 ## Image metadata intake and symlink storage hardening — 2026-11-21
 
 - Added `src/Media/ImageMetadataPolicy.php`: a bounded reject-only PNG/JPEG/WebP container inspector. It refuses common EXIF/GPS/XMP/ICC, PNG text/unknown chunks, JPEG APP1+ and comment markers, WebP EXIF/XMP/animation and unsupported/malformed/trailing structures before uploading to private media. It does not transform or virus scan pixels.

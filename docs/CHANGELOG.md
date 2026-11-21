@@ -1,3 +1,10 @@
+## Legacy gallery delivery and bounded operator metadata audit — 2026-11-21 (development only)
+
+- Recheck stored image MIME, byte count and metadata policy before serving a protected member gallery, private moderator preview or public/administrator decorative asset. This also denies unsafe legacy files predating the new upload guard.
+- Added opt-in `--metadata` to the existing read-only private-media audit with 100-image/64-MiB bounded inspection, aggregate-only rejection/truncation counts and nonzero exit when unsafe or incomplete.
+- Disposable gallery fixture now uses a valid PNG with correct chunk CRC; authenticated browser acceptance and MySQL-only operator audit exercise these checks.
+- No auto-deletion, automatic content remediation, malware scanning, independent ID/consent approval, real hosting certification or 1.0 readiness.
+
 ## Private image intake privacy screening — 2026-11-21 (development only)
 
 - Conservative bounded metadata/structure scanner for JPEG/PNG/WebP `ImageMetadataPolicy`; refuse EXIF/GPS/XMP/ICC and unsupported image extensions/chunks before moving verified HTTP uploads.

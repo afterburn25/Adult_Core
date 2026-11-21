@@ -1,3 +1,9 @@
+## Opt-in bounded legacy image metadata audit — 2026-11-21
+
+`php scripts/audit-private-media.php --metadata [--json]` now performs a read-only metadata inspection of registered private images, in addition to existing reference/path/size checks. It examines **at most 100 files and 64 MiB** per invocation, reports `metadata_checked`, `metadata_rejected` and `metadata_truncated` aggregate values, and exits nonzero when legacy image metadata/unsupported structures are found or the inspection budget is exceeded. Default audit remains a fast file/reference scan. No output contains storage keys, filenames, evidence, user identities or file content, and no file is modified or deleted. Disposable MySQL tests exercise clean/metadata-bearing rows and truncation. **A passing bounded result does not certify antivirus protection, media rights, production hosting or external security/compliance release.**
+
+---
+
 ## Private image metadata and storage-path safeguards — 2026-11-21
 
 Private draft image staging and Design Studio image uploads now invoke `src/Media/ImageMetadataPolicy.php` after server-side MIME/dimension validation and before moving the HTTP upload. The bounded, conservative PNG/JPEG/WebP container inspection refuses common embedded textual/EXIF/GPS/XMP/ICC metadata and unknown chunks, rather than preserving those structures in a private binary or potentially public decorative asset. It does **not** re-encode images, eliminate every conceivable covert data channel, perform malware scanning, certify rights/consent, or enable publishing. Images requiring metadata cleaning must be exported again by the uploader through trusted tooling.
