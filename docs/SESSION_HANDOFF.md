@@ -1,3 +1,12 @@
+## Source ZIP audit packaging correction — 2026-11-21
+
+- The **read-only private media audit** was implemented and passed disposable MySQL [run 44895957609](https://github.com/afterburn25/Adult_Core/actions/runs/44895957609). To ship the CLI with the unified Lite/Pro source release, `scripts/build-release.php` and `tests/release_distribution_tests.php` were extended to require `src/Media/PrivateMediaAudit.php` and `scripts/audit-private-media.php`.
+- The first release build **failed** because its historical blanket `str_contains($name, 'private')` filter accidentally dropped the safe source filename `audit-private-media.php`. Fixed at [`5c05f06bc`](https://github.com/afterburn25/Adult_Core/commit/5c05f06bc08163ba40c21d82ea4757f856672a85): the builder now excludes actual `private/` directory paths and secret file extensions but retains code filenames containing that word. This is not a customer privacy incident or runtime data change.
+- As of this handoff edit, the corrected release ZIP and full CI are **still being verified** (see [run 44896136878](https://github.com/afterburn25/Adult_Core/actions/runs/44896136878)). Do not claim final `main` green until the associated GitHub Actions run completes with `success`.
+- All ten production acceptance workstreams remain open. The audit is **read-only** and never authorizes media, deletes legal evidence, or certifies real hosting/merchant/provider approvals.
+
+---
+
 ## Private galleries, pending administrator uploads/previews and storage integrity — 2026-11-21
 
 - `src/Membership/MemberLibrary.php` now supports `/members/library/ID` read-only details for currently authorized galleries, showing only approved images and guarded `/media/ID` routes. The library does not leak unapproved titles, storage keys or media records. Missing/unauthorized gallery details respond with a uniform 404. Responsive layout, safety-report links and XSS escaping are tested. Real MySQL exercises draft/consent denial plus pending, cancelled, expired and renewed **synthetic** membership states.
