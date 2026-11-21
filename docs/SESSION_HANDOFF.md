@@ -1,3 +1,14 @@
+## Signed interrupted license replacement recovery — 2026-11-21
+
+- **New CLI-only recovery:** `src/Licensing/LicenseUpdateRecovery.php` and `scripts/recover-license-update.php --rollback`. Same-edition license replacement now takes both `.license-update.lock` and `.license-refresh.lock`, stores a private HMAC-signed snapshot of the previous license identity and cache at `storage/.license-update-pending` **before** rewriting either private file, and unlinks the marker only after both updates finish.
+- `InstallationGate::status()` reports `license_update_pending` and blocks the **entire website and admin**, with a console recovery message. A marker also blocks backups via `eligibleForBackup()`, new key-replacement calls and direct `LicenseManager::status()` refresh. Do not delete the marker by hand.
+- The server-console rollback requires a valid installed signed edition and untampered snapshot. It restores the prior license config and signed cache, or restores a prior absence of cache, under both locks; malformed snapshots or symlinked targets leave the marker and site locked. It does not contact Cajun Web Pro or grant authority. Restored explicit **denial** remains denied.
+- `tests/license_update_recovery_tests.php` exercises a successful replacement, simulated crash after a license-config update, marker lockout, signed rollback, tampering, wrong edition, symlinks, 0600 marker permissions, missing cache, denial-preserving rollback and refusal when no pending update exists. `tests/http_smoke.py` covers public/admin/installer 503 lockout. The new PHP recovery suite is required in `.github/workflows/php-tests.yml`.
+- GitHub Actions [run 44875004750](https://github.com/afterburn25/Adult_Core/actions/runs/44875004750) **passed** on commit [`17885e68`](https://github.com/afterburn25/Adult_Core/commit/17885e68d4dff31b385830739af676bc69079240), including the recovery tests, offline CWP licensing, HTTP gate and disposable MySQL suite. Later doc-only commits require their own green CI check.
+- This is fail-closed recovery, **not** a fully transactional two-file filesystem update, a live issued key, an actual payment renewal, or a real Lite shared-host/Pro VPS deployment. The Cajun Web Pro catalog, staging/merchant sandbox and real hosting acceptance prerequisites remain open in `afterburn25/Cajun_Web#399`.
+
+---
+
 ## License replacement private-target preflight — 2026-11-21
 
 - `LicenseManager::replaceLicense()` now validates both `config/license.php` and `storage/license-cache.json` destinations **under the update lock before writing either**. Existing nonregular, symlinked or unwritable destinations abort without attempting a partial license-key replacement.
