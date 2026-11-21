@@ -42,7 +42,7 @@ try {
     echo 'UNEXPECTED_INSTALL';
 } catch (\InvalidArgumentException $error) {
     http_response_code(422);
-    echo 'HOST_REJECTED';
+    echo str_contains($error->getMessage(), 'hostname') ? 'HOST_REJECTED' : 'INPUT_REJECTED';
 } catch (\RuntimeException $error) {
     http_response_code(409);
     echo str_contains($error->getMessage(), 'License not authorized')
@@ -95,7 +95,7 @@ def run():
             assert not (root / 'config' / 'license.php').exists(), 'Rejected hostname wrote license config'
 
             status, body = fetch(f'http://127.0.0.1:{port}/?case=bad_dsn')
-            assert (status, body) == (422, 'HOST_REJECTED'), (status, body)
+            assert (status, body) == (422, 'INPUT_REJECTED'), (status, body)
             assert not (root / 'storage' / 'issuer-called').exists(), 'Malformed DB DSN reached vendor'
 
             status, body = fetch(f'http://127.0.0.1:{port}/?case=match')
