@@ -1,3 +1,9 @@
+## Metadata audit mode visibility — 2026-11-21
+
+The private-media audit now includes `metadata_scan_enabled` in its text/JSON aggregate report. The default quick scan explicitly reports `false`; an operator using `--metadata` sees `true`. This prevents a zero metadata-rejection count in a **non-metadata** quick scan from being mistaken for verification. The bounded scan still refuses to certify truncated or risky data, and never outputs filenames, keys or private content. Unit/CI acceptance should be checked against the latest commit.
+
+---
+
 ## Pro signed job inbox storage-path guard — 2026-11-21
 
 `JobInbox::accept()` now checks the private `storage/` parent as well as `storage/pro-jobs/` for unsafe symlinks before creating a signed receipt. `tests/pro_release_tests.php` verifies a valid signed job cannot be redirected through a linked parent. No media worker, FFmpeg execution or streaming capability has been deployed; production Pro acceptance remains pending. **Verify the CI result on the latest commit.**
