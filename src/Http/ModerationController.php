@@ -89,11 +89,11 @@ final class ModerationController
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="new_draft">'
             .'<label for="content-title">Draft title</label><input id="content-title" name="title" maxlength="190" required>'
             .'<button class="install-button">Create unpublished draft</button></form></section>';
-        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer roster</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
+        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
         foreach ($repo->contentQueue() as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
-                .'<td>'.(int)$item['expected_performers'].'</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
+                .'<td>'.self::e(self::evidenceSummary($item)).'</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
                 .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="content_id" value="'.$id.'">'
                 .'<label>Decision<select name="action"><option value="quarantine">Quarantine</option><option value="reject">Reject</option></select></label>'
                 .'<label>Reason<input name="note" required minlength="10" maxlength="500" placeholder="Reason for review decision"></label>'
@@ -124,6 +124,22 @@ final class ModerationController
         }
         $html.='</tbody></table></section><p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Uploaded media, ID documents and performer evidence are not accepted by this prototype.</p>';
         return $html;
+    }
+
+    /** Evidence status only: never an automated approval or publishing decision. */
+    private static function evidenceSummary(array $item): string
+    {
+        $expected=(int)($item['expected_performers']??0);
+        $recorded=(int)($item['recorded_performers']??0);
+        $evidenced=(int)($item['evidenced_performers']??0);
+        if ($expected < 1) return 'Roster not declared';
+        if ($recorded !== $expected) {
+            return sprintf('Roster incomplete (%d of %d records)', $recorded, $expected);
+        }
+        if ($evidenced < $expected) {
+            return sprintf('Pending evidence (%d of %d reviewed)', $evidenced, $expected);
+        }
+        return sprintf('Evidence recorded (%d of %d) — independent approval still required', $evidenced, $expected);
     }
 
     private function render(int $code,string $title,string $body): void
