@@ -1,3 +1,9 @@
+## Real member-cookie invalidation across suspension and restoration — 2026-11-21
+
+An added authenticated HTTP regression runs a separate member browser and signs a disposable pending member into `/members`, copies the opaque member cookie, then has the authenticated site owner suspend the account and restore it only to pending. The member is redirected from `/members` while suspended; a different browser presenting the **pre-suspension cookie after restoration** is still redirected because m21 incremented the server-side session generation. This tests the actual HTTP session invalidation path, not just the database counter, and avoids touching the owner/admin browser's cookie jar. Member tokens remain private; no payment or verification evidence is created. CI approval required.
+
+---
+
 ## Member safety browser assertion checks actual forbidden actions — 2026-11-21
 
 The initial m21 HTTP test incorrectly rejected the safety screen's *warning prose* that restoration does not confer age/consent approval. The assertion now looks for actual forbidden `action=activate` or `action=approve` form controls, not protective explanatory text. This leaves all backend and CSRF controls unchanged. MySQL/MariaDB CI rerun required.

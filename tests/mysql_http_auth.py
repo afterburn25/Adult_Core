@@ -1807,6 +1807,44 @@ def main():
                    and 'Local account status:' in safety_page
                    and 'name="action" value="activate"' not in safety_page
                    and 'name="action" value="approve"' not in safety_page)
+            # Separate member browser, with its own member-only cookie jar.
+            # The owner browser's admin cookie is never shared with members.
+            member_test_jar=http.cookiejar.CookieJar()
+            member_test_opener=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(member_test_jar))
+            def independent_member_req(path, data=None, browser=None):
+                payload=urllib.parse.urlencode(data).encode() if data is not None else None
+                opener_for_member=browser if browser is not None else member_test_opener
+                try:
+                    response=opener_for_member.open(
+                        f'http://127.0.0.1:{port}{path}',
+                        data=payload,timeout=HTTP_TIMEOUT)
+                except urllib.error.HTTPError as err:
+                    response=err
+                with response:
+                    return response.status,response.read().decode('utf-8',errors='replace')
+            code, member_login_form=independent_member_req('/members/login')
+            member_login_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',member_login_form)
+            ensure('Separate local member browser can authenticate pending account',
+                   code==200 and member_login_csrf is not None)
+            code, _=independent_member_req('/members/login',{
+                'csrf':member_login_csrf.group(1),
+                'email':'bulk-member-50@example.test',
+                'password':'disposable-fixture-long-password'
+            })
+            ensure('Synthetic pending local member signs in without gaining adult media',
+                   code==303)
+            code, initial_member_account=independent_member_req('/members')
+            ensure('Pending account session is active before owner safety action',
+                   code==200 and 'bulk-member-50@example.test' in initial_member_account
+                   and 'Account status: <strong>pending</strong>' in initial_member_account)
+            # Save old cookie to replay AFTER the owner restores the account;
+            # visiting while suspended may itself revoke an active session.
+            stale_member_jar=http.cookiejar.CookieJar()
+            for old_cookie in member_test_jar:
+                stale_member_jar.set_cookie(old_cookie)
+            stale_member_browser=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(stale_member_jar))
             code, no_token=req(member_manage,{
                 'csrf':'bad','member_id':sample_id.group(1),
                 'action':'suspend','expected_status':'pending',
@@ -1843,6 +1881,9 @@ def main():
                    and '<script>private()</script>' not in suspended
                    and 'name="action" value="restore_pending"' in suspended
                    and 'name="expected_status" value="suspended"' in suspended)
+            code, kicked_member=independent_member_req('/members')
+            ensure('Suspending member immediately invalidates authenticated member account session',
+                   code==303 and 'bulk-member-50@example.test' not in kicked_member)
             code, stale_member=req(member_manage,{
                 'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
                 'action':'suspend','expected_status':'pending',
@@ -1862,6 +1903,10 @@ def main():
                    and '<td>suspended</td><td>pending</td>' in restored
                    and 'name="action" value="suspend"' in restored
                    and 'name="expected_status" value="pending"' in restored)
+            code, old_cookie_after_restore=independent_member_req(
+                '/members',browser=stale_member_browser)
+            ensure('Old pre-suspension cookie cannot revive after pending-only restore',
+                   code==303 and 'bulk-member-50@example.test' not in old_cookie_after_restore)
             code, twice=req(member_manage,{
                 'csrf':unlocked_csrf.group(1),'member_id':sample_id.group(1),
                 'action':'restore_pending','expected_status':'suspended',
