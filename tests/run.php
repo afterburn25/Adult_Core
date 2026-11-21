@@ -209,6 +209,32 @@ foreach ([
     }
 }
 
+// InstallService must revalidate normalized fields even if a caller skips the
+// browser controller. Its input has an integer port and no confirmation field.
+$serviceInput = $goodInput;
+$serviceInput['db_port'] = 3306;
+unset($serviceInput['admin_password_confirm']);
+$serviceValidated = InstallInput::validateForService($serviceInput);
+assertCheck('Service input accepts validated normalized installer fields',
+    $serviceValidated['db_port'] === 3306 && $serviceValidated['admin_email'] === 'owner@example.com');
+foreach ([
+    'Direct service rejects DSN host injection' => ['db_host', 'localhost;dbname=other'],
+    'Direct service rejects invalid database name' => ['db_name', 'bad;DROP'],
+    'Direct service rejects invalid port' => ['db_port', '3306;host=evil'],
+    'Direct service rejects invalid port type' => ['db_port', ['3306']],
+    'Direct service rejects missing administrator email' => ['admin_email', null],
+    'Direct service rejects missing administrator password' => ['admin_password', null],
+    'Direct service rejects short administrator password' => ['admin_password', '123'],
+    'Direct service rejects unsafe license hostname' => ['license_domain', 'other.test:443'],
+] as $name => [$field, $value]) {
+    try {
+        InstallInput::validateForService(array_replace($serviceInput, [$field => $value]));
+        assertCheck($name, false);
+    } catch (InvalidArgumentException) {
+        assertCheck($name, true);
+    }
+}
+
 $testRoot = sys_get_temp_dir() . '/adult-core-installer-' . bin2hex(random_bytes(6));
 mkdir($testRoot);
 AtomicFile::write($testRoot . '/secret.php', '<?php return 1;');
