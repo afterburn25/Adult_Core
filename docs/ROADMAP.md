@@ -1,3 +1,7 @@
+## 0.8.12 staging-host HTTPS acceptance (development-only)
+
+Added an opt-in read-only HTTPS routing/private-path check for an operator-controlled staging domain. CI uses offline fake transports and a localhost PHP preinstall route round trip; this **does not satisfy** the pending real cPanel/VPS hosting, real CWP catalog license, subscription sandbox, Pro worker or compliance acceptance. See `docs/STAGING_HOST_HTTP_ACCEPTANCE.md`.
+
 ## 0.8.11 deployment preflight — development only
 
 A read-only operator CLI now triages Lite shared-host / Pro VPS capabilities and insecure `public/` layouts before and after installation. It does not choose the edition, contact the issuer, configure HTTPS/FPM, install a production Pro worker or certify actual cPanel/VPS hosting. Those real staging acceptance tests and all payment/age/consent/security release gates remain open. See `docs/DEPLOYMENT_PREFLIGHT.md`.

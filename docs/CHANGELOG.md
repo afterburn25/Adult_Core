@@ -1,3 +1,9 @@
+## 0.8.12-host-https-audit-dev — 2026-11-20
+
+- Added an opt-in, read-only external HTTPS staging-host audit using a pinned, public DNS address, standard trusted TLS, no redirects or response-body reads; reports routing, private-path and security-header findings.
+- Added offline negative controls for URL/SSRF protections, DNS answer filtering, private-path exposure, unsafe redirect behavior and transient failures, including a real local PHP preinstall HTTP route round trip.
+- Added owner-only Lite shared-host/Pro VPS acceptance runbook; no live host, payment sandbox or production approval claimed.
+
 ## 0.8.11-host-preflight-dev — local deployment-readiness diagnostics (2026-11-20)
 
 - Added `src/Capability/DeploymentPreflight.php` and CLI `scripts/deployment-preflight.php` with text/JSON results for preinstall/installed Lite/Pro expectations; preserves license-key edition authority and never returns private license credentials.

@@ -15,7 +15,8 @@ foreach($dirs as $dir){
  foreach($iterator as $file){
   if($file->isLink()||!$file->isFile())continue;
   $name=substr($file->getPathname(),strlen($root)+1);
-  if(str_contains($name,'private')||preg_match('/\.(?:pem|key|log)$/D',$name))continue;
+  if(str_contains($name,'private')||str_contains('/'.$name.'/','/__pycache__/')
+     ||preg_match('/\.(?:pem|key|log|pyc|pyo)$/D',$name))continue;
   $zip->addFile($file->getPathname(),$name);
  }
 }

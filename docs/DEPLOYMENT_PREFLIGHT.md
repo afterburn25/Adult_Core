@@ -37,6 +37,10 @@ The command requires explicit `--document-root`, `--expected-edition` and `--pha
 - Presence of the bundled front controller, router and Apache `.htaccess`; unexpected public executables, dotfiles, symbolic links or a private directory accidentally copied or linked into `public/` block the local check. **Apache `mod_rewrite`, FPM identity, symlink behavior and request routing must be checked on the actual host**—the existence of `.htaccess` does not prove it is applied.
 - `--phase=preinstall` requires `install/` present and no generated database/app-key/license/cache/signed install files. `--phase=installed` requires a valid signed completion marker, physically removed `install/`, and edition consistency with the local recorded licensed SKU. Both phases preserve the fail-closed installation policy.
 
+## Additional remote HTTPS acceptance
+
+After the local report, run `python3 scripts/staging-host-audit.py --url=https://YOUR-STAGING-HOST --phase=preinstall --confirm-staging-readonly` on the **actual owned staging domain** and repeat with `--phase=installed` after successful installation and `install/` removal. See [HTTPS staging host acceptance](STAGING_HOST_HTTP_ACCEPTANCE.md). This remote check never selects an edition or accesses payment endpoints; passing it is not hosting certification.
+
 ## Real hosting acceptance still required
 
 On **Lite shared hosting**: confirm HTTPS/TLS, your actual domain's document root, Apache rewrite behavior, real PHP-FPM extension versions, that `/config/`, `/storage/`, `/install/`, `/.env`, and private data cannot be fetched by HTTP, session cookie security, mail and Cron limitations, backups, and reinstallation/restore with isolated MySQL. Do not point a shared-host domain at the checkout root.

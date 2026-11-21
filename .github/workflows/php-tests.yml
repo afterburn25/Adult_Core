@@ -44,6 +44,8 @@ jobs:
         run: php tests/deployment_preflight_tests.php
       - name: Token-authenticated Pro agent and deployment CLI contract
         run: python3 tests/deployment_agent_contract.py
+      - name: Staging-host HTTPS safety and live PHP preinstall protocol checks (offline)
+        run: python3 tests/staging_host_audit_tests.py
       - name: Public page and member-session tests
         run: php tests/site_member_tests.php
       - name: Moderation input validation
