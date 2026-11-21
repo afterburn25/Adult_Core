@@ -15,6 +15,7 @@ use AdultCore\Member\MemberSession;
 use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\MemberPasswordChange;
 use AdultCore\Member\PasswordRecoverySchema;
 $checks = 0;
 function claim(bool $ok, string $name): void { global $checks; if (!$ok) throw new RuntimeException($name); $checks++; }
@@ -111,6 +112,22 @@ foreach ([['no-email','strong-passphrase'],['user@example.com','short'],['user@e
 claim(MemberEmailSchema::VERSION==='m9_member_email_v1','Email schema has a distinct migration version');
 claim(PasswordRecoverySchema::VERSION==='m10_member_recovery_v1','Recovery schema migration version');
 PasswordRecovery::validatePassword('new-strong-password');claim(true,'Recovery password valid');
+MemberPasswordChange::validateInput('current-long-password','new-long-password','new-long-password');
+claim(true,'Member self-service password fields validated before database writes');
+foreach ([
+    ['','a-valid-new-password','a-valid-new-password'],
+    ['current-long-password','short','short'],
+    ['current-long-password','new-long-password','other-long-password'],
+    ['current-long-password',str_repeat('x',73),str_repeat('x',73)],
+] as $invalidPasswordChange) {
+    try {
+        MemberPasswordChange::validateInput(...$invalidPasswordChange);
+        throw new RuntimeException('Invalid member password change accepted.');
+    } catch (RuntimeException $e) {
+        claim($e->getMessage()!=='Invalid member password change accepted.',
+            'Invalid own-password change is refused');
+    }
+}
 foreach (['short',str_repeat('x',73)] as $bad) {
     try { PasswordRecovery::validatePassword($bad); throw new RuntimeException('Invalid recovery password accepted'); }
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid recovery password accepted','Weak recovery passwords refused'); }

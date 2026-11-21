@@ -1688,6 +1688,41 @@ try {
     try { $normalUpgrade->upgrade($proKey,'127.0.0.1');
         throw new RuntimeException('Second upgrade wrongly accepted on installed Pro edition.');
     } catch (RuntimeException $e) { if ($e->getMessage()==='Second upgrade wrongly accepted on installed Pro edition.') throw $e; }
+    // A member can rotate their own credentials without changing account
+    // status, membership entitlements, identity evidence or site licensing.
+    $rotation=new \AdultCore\Member\MemberPasswordChange($pdo);
+    $rotatingId=$accounts->register('rotation@example.test','long-original-rotation-password');
+    $oldGeneration=(new PasswordRecovery($pdo))->generation($rotatingId);
+    foreach ([
+        static fn()=> $rotation->change($rotatingId,'bad-current-password',
+            'new-rotation-password','new-rotation-password'),
+        static fn()=> $rotation->change($rotatingId,'long-original-rotation-password',
+            'new-rotation-password','wrong-confirmation'),
+        static fn()=> $rotation->change((int)$valid['id'],'super-secret-example-password',
+            'new-rotation-password','new-rotation-password'),
+    ] as $invalidRotation) {
+        try {
+            $invalidRotation();
+            throw new RuntimeException('Unsafe member credential update was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Unsafe member credential update was accepted.') throw $e;
+        }
+    }
+    $rotation->change($rotatingId,'long-original-rotation-password',
+        'new-rotation-password','new-rotation-password');
+    if ($accounts->verify('rotation@example.test','long-original-rotation-password')!==null
+        || $accounts->verify('rotation@example.test','new-rotation-password')===null
+        || (new PasswordRecovery($pdo))->generation($rotatingId)!==$oldGeneration+1
+        || $accounts->byId($rotatingId)['status']!=='pending') {
+        throw new RuntimeException('Member password change failed to revoke old credentials/sessions.');
+    }
+    try {
+        $rotation->change($rotatingId,'new-rotation-password',
+            'new-rotation-password','new-rotation-password');
+        throw new RuntimeException('Unchanged member password rotation accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Unchanged member password rotation accepted.') throw $e;
+    }
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.

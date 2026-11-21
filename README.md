@@ -1,3 +1,7 @@
+## Member password change (development)
+
+Signed-in members can choose **Change your password** on their local account page. They must enter the current password and confirm a new password. All existing member sessions and reset links are invalidated after a successful change. This never verifies age, activates paid access, changes the member's pending state or publishes content.
+
 ## Review local member safety (m21 development)
 
 An authenticated site owner can open **Admin → Members → Safety review** to suspend a local member or restore a suspended account to **pending only**, with a retained private reason and security audit. The existing secure session avoids repeated passwords for ordinary changes; a high-risk member status change uses the same short manager-authentication window as staff operations. No age/consent or paid membership approval is possible here.

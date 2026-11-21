@@ -16,6 +16,7 @@ use AdultCore\Member\MemberAccounts;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecovery;
+use AdultCore\Member\MemberPasswordChange;
 use AdultCore\Member\PasswordRecoverySchema;
 use AdultCore\Member\EmailConfirmations;
 use AdultCore\Member\EmailDelivery;
@@ -100,6 +101,10 @@ final class MemberController
                 if (!MemberSession::csrfValid($_POST['csrf'] ?? null)) { $this->view(403,'Invalid token','<p>Reload and retry.</p>'); return; }
                 MemberSession::logout(); $this->redirect('/'); return;
             }
+            if ($path === '/members/password') {
+                $this->changePassword($pdo,$method,$accounts);
+                return;
+            }
             if ($path === '/members/creator') {
                 $this->creatorWorkspace($pdo,$method,$accounts);
                 return;
@@ -152,6 +157,7 @@ final class MemberController
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
                     . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
+                    . '<p><a href="/members/password">Change your password</a></p>'
                     . ($this->creatorAccess($pdo,(int)$member['id'])
                         ? '<p><a href="/members/creator">Manage your private creator drafts</a></p>'
                         : '')
@@ -166,6 +172,61 @@ final class MemberController
         } catch (Throwable) {
             $this->view(503,'Temporarily unavailable','<p>The member service is not available.</p>');
         }
+    }
+
+    /**
+     * A password change is security-sensitive, unlike routine member edits.
+     * Require current credentials and expire every previous session. Never
+     * change the member's local status, age, consent or subscription flags.
+     */
+    private function changePassword(PDO $pdo,string $method,MemberAccounts $accounts): void
+    {
+        if (!in_array($method,['GET','POST'],true)) { $this->denyMethod('GET, POST'); return; }
+        $member=$this->member($accounts);
+        if ($member===null) { $this->redirect('/members/login'); return; }
+        $error='';
+        if ($method==='POST') {
+            if (!MemberSession::csrfValid($_POST['csrf']??null)) {
+                $this->view(403,'Invalid token','<p>Reload your password form.</p>');
+                return;
+            }
+            try {
+                (new LoginRateLimiter($this->root.'/storage','member-recovery'))
+                    ->consume((string)($_SERVER['REMOTE_ADDR']??'unknown'),$member['email']);
+                (new MemberPasswordChange($pdo))->change((int)$member['id'],
+                    $_POST['current_password']??null,$_POST['new_password']??null,
+                    $_POST['confirm_password']??null);
+                MemberSession::revoke();
+                $this->redirect('/members/login?changed=1');
+                return;
+            } catch (RuntimeException $e) {
+                $allowed=[
+                    'Current member password is incorrect.',
+                    'Choose a different member password.',
+                    'New member passwords must match.',
+                    'Password must be between 12 and 72 bytes.',
+                    'Invalid member password fields.',
+                    'Too many login attempts. Please try again later.',
+                ];
+                $error=in_array($e->getMessage(),$allowed,true)
+                    ? $e->getMessage():'Unable to change member password.';
+            } catch (Throwable) {
+                $error='Unable to change member password.';
+            }
+        }
+        $html='<p class="intro">Change the password for your own local account. '
+            .'Every previously signed-in member session and pending reset token is revoked after a successful change. '
+            .'Your local pending/active status does not change and this never enables adult media.</p>';
+        if ($error!=='') $html.='<p role="alert" class="alert-error">'.self::e($error).'</p>';
+        $html.='<section class="panel"><h2>Change your password</h2>'
+            .'<form method="post" action="/members/password" class="install-form" autocomplete="off">'
+            .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+            .'<label>Current password<input name="current_password" type="password" required maxlength="72" autocomplete="current-password"></label>'
+            .'<label>New password<input name="new_password" type="password" minlength="12" maxlength="72" required autocomplete="new-password"></label>'
+            .'<label>Confirm new password<input name="confirm_password" type="password" minlength="12" maxlength="72" required autocomplete="new-password"></label>'
+            .'<button class="install-button" type="submit">Change password and sign out</button>'
+            .'</form></section><p><a href="/members">Back to your account</a></p>';
+        $this->view($error!==''?422:200,'Member password security',$html);
     }
 
     private function creatorAccess(PDO $pdo,int $memberId): bool
