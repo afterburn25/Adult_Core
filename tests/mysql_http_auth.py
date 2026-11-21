@@ -88,6 +88,9 @@ def main():
             code, license_page = req('/admin/license')
             ensure('Licensed admin configuration accessible', code == 200 and 'SOFTWARE-ADULT-CORE' in license_page)
             ensure('License key is never shown on admin page', 'ABCD-EF12-3456-7890' not in license_page)
+            ensure('License replacement makes billing cancellation responsibilities explicit',
+                   'does not cancel an existing monthly subscription' in license_page
+                   and 'temporary link to the main site' in license_page)
             license_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', license_page)
             ensure('License changes require CSRF', license_csrf is not None)
             ensure('Manual issuer check is a separate CSRF-protected POST',

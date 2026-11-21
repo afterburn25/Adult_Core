@@ -1,6 +1,10 @@
+## Subscription licensing lifecycle tests — 0.8.6.7 development
+
+Adult_Core uses the same installer for Lite/Pro and one-time/monthly terms; the Cajun Web Pro product-specific key selects the installed edition. A new **local loopback HTTP issuer simulation** exercises all four SKUs, activation after a paid-through date, expiration, renewal/reinstatement, revoked domains, payment-service outages, cross-edition rejection, and same-edition plan changes. Run `python3 tests/cwp_subscription_contract.py`. The administrator license page explicitly warns that **changing a key does not cancel recurring billing**. No live Cajun Web Pro purchase or issuer installation was performed. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md` and `docs/CWP_CATALOG_SETUP.md`.
+
 ## License health and Cajun Web Pro catalog readiness (0.8.6.6 development)
 
-The same universal installer accepts four separately licensed Lite/Pro one-time or monthly SKU types. The administrator can open /admin/license and click Check license now to verify with the licensing authority without displaying the stored key. Exact product definitions and still-pending live publication, billing and staging requirements are in docs/CWP_CATALOG_SETUP.md.
+Adult_Core uses a single installer with four different vendor-licensed product SKUs: Lite/Pro × one-time/monthly. An authorized site manager can open `/admin/license` and select **Check license now** to verify with Cajun Web Pro immediately, without displaying the stored key; confirmed denials block access and temporary issuer failures are distinguished from authorization. Owner-priced catalog creation, published software releases and actual subscription activation are still pending. See [Cajun Web Pro catalog setup](docs/CWP_CATALOG_SETUP.md).
 
 ## Lite → Pro in-place upgrade (0.8.6.5-upgrade-dev)
 

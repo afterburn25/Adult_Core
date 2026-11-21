@@ -1,6 +1,10 @@
+# Subscription contract test handoff — 0.8.6.7 development
+
+`tests/cwp_subscription_contract.py` and `tests/fixtures/cwp_subscription_client.php` run a real localhost HTTP simulation of the CWP `POST /api/validate.php` wire contract without accessing live services or modifying shipping production URLs. This is **not merchant or live publisher acceptance**. Include the new Python test in CI. Preserve four exact SKUs, private signed caches, 72h bounded issuer-outage grace, fail-closed definitive denial, and manual installer deletion. The admin license view must warn that key replacement does not cancel subscriptions; the upgrade URL remains the CWP homepage pending owner approval. Details in `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`.
+
 # Current licensing-health milestone — 0.8.6.6-license-health-dev
 
-An authorized site manager can use the CSRF-protected, rate-limited Check license now action in /admin/license. The forced check bypasses the one-hour cache, while preserving the domain/edition, signed receipt, single-flight lock, explicit denial and grace rules. The issuer outcome is retained only in memory and must not expose license keys. See docs/CWP_CATALOG_SETUP.md; four live products and actual prices still require owner-controlled provisioning. Run the licensing, upgrade, HTTP and disposable-MySQL suites before release claims.
+`/admin/license` now includes a CSRF-protected, rate-limited, site-management-only **Check license now** action. `LicenseManager::status($host, true)` deliberately bypasses the one-hour cache but uses the existing lock, domain/edition checks and signed HMAC receipt; `lastAuthorityResponse()` reports only `valid`, `denied`, `transient` in-memory (never persists a key or vendor response). A 5xx/429/TLS failure is inconclusive, and existing grace is bounded; a positive result after revocation restores status only if explicitly verified again. See `docs/CWP_CATALOG_SETUP.md`; four live catalog products/prices remain owner-controlled and unprovisioned. Run `php tests/licensing_tests.php`, `python3 tests/http_smoke.py` and GitHub disposable-MySQL browser CI. Never claim live checkout or subscription readiness.
 
 # Current upgrade milestone — 0.8.6.5-upgrade-dev
 

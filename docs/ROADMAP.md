@@ -1,6 +1,10 @@
-# Cajun Web Pro licensing health — 0.8.6.6-license-health-dev
+# Subscription activation contract milestone — 0.8.6.7 (2026-11-20)
 
-Implemented in development: authorized manual validation with signed revocation tracking, IP rate limit and explicit issuer-error reporting. Four Lite/Pro one-time/monthly product requirements and staging acceptance are documented in docs/CWP_CATALOG_SETUP.md. Live product registration, prices, production subscriptions, real customer licenses and hosting/compliance certifications are still pending.
+**Implemented locally:** HTTP loopback simulation of all four Cajun Web Pro license products, monthly paid-through expiration and renewal, cancellation/revocation, wrong domain, transient errors, manual recovery, same-edition license replacement, and edition separation. New CLI/Python fixtures do not enable billing or replace the issuer. Admin licensing now explains cancellation remains with CWP. **Still blocked:** owner-created products and prices, real sandbox issuer/payment/renewal tests, real production subscriptions, administrator MFA and independent production certification. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`. GitHub CI result must be checked after publishing.
+
+# Licensing health and Cajun Web Pro catalog readiness — 0.8.6.6-license-health-dev (2026-11-20)
+
+**Implemented in development:** Live administrator recheck through the existing vendor endpoint, with site-management authorization, CSRF, IP rate limit, signed cache, explicit-denial enforcement, and a visible distinction between vendor outage and active authorization. Four Lite/Pro × one-time/monthly product requirements and a staging acceptance matrix are documented in `docs/CWP_CATALOG_SETUP.md`. **Not live:** Cajun Web Pro catalog SKU creation, prices, production subscriptions, merchant approval, owner issuance or actual staging payments; these require owner action and verified external acceptance. Do not claim 1.0.
 
 # Lite-to-Pro verified transition — 0.8.6.5-upgrade-dev (2026-11-20)
 

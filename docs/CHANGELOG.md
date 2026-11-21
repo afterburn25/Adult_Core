@@ -1,9 +1,16 @@
+## 0.8.6.7-subscription-contract-dev — 2026-11-20
+
+- Added an isolated stateful loopback HTTP simulator for Cajun Web Pro's product-bound license validation, and PHP fixture exercising the actual Adult_Core resolver/signed-cache/license manager without an external network or charge. Covers four products and active/unpaid/expired/renewed/cancelled/revoked/wrong-domain/outage/transfer flows.
+- Added the test to PHP CI, retaining the disposable MySQL and authenticated browser tests. No actual CWP catalog, payment, subscription or gateway code is modified by the simulator.
+- Administrator licensing clarifies that the API does not reveal upcoming charge dates and that swapping installed keys does not cancel recurring charges; the billing link remains the CWP homepage placeholder.
+- Next gates: verify GitHub CI, owner-controlled staging SKU provisioning and real merchant sandbox, then admin MFA and complete backup/restore certification. Not a production release.
+
 ## 0.8.6.6-license-health-dev — 2026-11-20
 
-- Added an administrator Check license now button, limited to site managers, with CSRF and IP rate limiting.
-- Distinguishes a positive vendor response, explicit denial and temporary issuer errors while preserving signed cache/grace rules and never echoing a license key.
-- Added revocation, recovery, cached-result and vendor-outage unit checks; extended authenticated HTTP checks for invalid CSRF and actions.
-- Documented four Cajun Web Pro catalog entries and owner-controlled staging tasks without enabling live billing.
+- Added a real-time **Check license now** control to the authenticated administrator license screen; restricted mutating license actions to site-managing roles and kept explicit CSRF and rate limits.
+- Added one-request-only vendor-result classification (`valid`/`denied`/`transient`) without storing or exposing license keys. One-hour cached verdicts remain intact unless the administrator requests a recheck; any denied response overwrites the signed cache.
+- Added unit checks for forced validation, revocation, subsequent recovery, and temporary outage grace, plus authenticated HTTP checks for the check form's CSRF and invalid actions.
+- Added a four-SKU, owner-controlled Cajun Web Pro catalog/staging checklist. No real license issuance, prices or merchant activation.
 
 ## 0.8.6.5-upgrade-dev — In-place Lite-to-Pro transition (2026-11-20)
 

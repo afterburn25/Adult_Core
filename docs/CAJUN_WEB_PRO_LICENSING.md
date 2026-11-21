@@ -1,6 +1,10 @@
+## 0.8.6.7 subscription-lifecycle verification boundary
+
+Automated isolated HTTP contract simulation exercises product binding, initial monthly activation, paid-through expiration, renewal/restoration, cancellation, definitive revocation, wrong domains, rate limits and transient service failures with the actual Adult_Core resolver and signed license cache. `tests/cwp_subscription_contract.py` **does not use the actual Cajun Web Pro issuer server**. The license screen now explicitly states that key replacement cannot cancel monthly payments and that Adult_Core does not know the next bill date; the billing link remains `https://cajunwebpro.com`. Real Cajun Web Pro catalog and approved merchant sandbox acceptance are still required. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`.
+
 ## Manual license health check (0.8.6.6-license-health-dev)
 
-The administrator license screen now has Check license now, a site-settings-authorized CSRF-protected, rate-limited POST. It bypasses the hourly signed cache without bypassing domain, SKU, HMAC receipt, lock, or bounded outage-grace rules. The current attempt is classified independently as valid, denied or transient without exposing a key or changing the installed edition. Four product records and real subscription testing remain pending on Cajun Web Pro; see docs/CWP_CATALOG_SETUP.md.
+The administrator's `/admin/license` screen now has **Check license now**: an authenticated CSRF-protected, rate-limited POST, available only to `site.settings.manage`. It bypasses the usual one-hour signed verdict cache while keeping single-flight locking, exact SKU/domain and 72-hour grace semantics. It displays `valid`/`denied`/`transient` *for the current attempt* without exposing keys or treating an outage as revocation. The same edition remains selected by the already-validated key; check now never changes edition. Four catalog entries, pricing and real subscription staging work remain pending at Cajun Web Pro; see `docs/CWP_CATALOG_SETUP.md`.
 
 # Adult_Core licensing — Cajun Web Pro integration (0.8.6.5-upgrade-dev)
 

@@ -187,8 +187,11 @@ final class AdminController
             }) . '</p>')
             . '<p><strong>Licensed edition:</strong> ' . self::escape(strtoupper((string)($saved['edition'] ?? 'Unknown'))) . '</p>'
             . '<p><strong>Billing term:</strong> ' . self::escape(($saved['term'] ?? '') === 'month' ? 'Monthly subscription' : 'One-time / unconfigured') . '</p>'
+            . (($saved['term'] ?? '') === 'month'
+                ? '<p class="muted"><strong>Subscription billing:</strong> Renewals, the paid-through date, cancellation and failed-payment recovery are managed exclusively by Cajun Web Pro. This application receives only an authorized/denied verdict; it does not know your next charge date.</p>'
+                : '')
             . '<p><strong>Product SKU:</strong> ' . self::escape((string)($saved['sku'] ?? 'not configured')) . '</p>'
-            . '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p>'
+. '<p><strong>Registered hostname:</strong> ' . self::escape($domain === '' ? 'not configured' : $domain) . '</p>'
             . '<p class="muted">The status is cached for up to one hour. Check now contacts Cajun Web Pro without displaying your key; a temporary outage is not proof of revocation.</p>'
             . '<form method="post" action="/admin/license"><input type="hidden" name="csrf" value="' . self::escape(AdminSession::csrf()) . '">'
             . '<input type="hidden" name="license_action" value="check"><button type="submit" class="btn btn-outline">Check license now</button></form>'
@@ -200,7 +203,7 @@ final class AdminController
             . '<label for="license-key">License key</label><input id="license-key" name="license_key" type="password" required autocomplete="off" maxlength="255">'
             . '<label for="license-domain">Registered domain</label><input id="license-domain" name="license_domain" required maxlength="253" value="' . self::escape($domain) . '">'
             . '<button type="submit" class="install-button">Validate and save license</button></form>'
-            . '<p class="muted">Replacing a key here cannot change Lite into Pro. To preserve your existing website, use the <a href="/admin/upgrade">verified Lite-to-Pro upgrade</a> with a purchased Pro license. Purchase or manage subscriptions at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a>.</p></section>';
+            . '<p class="muted">Replacing a key here cannot change Lite into Pro. To preserve your existing website, use the <a href="/admin/upgrade">verified Lite-to-Pro upgrade</a> with a purchased Pro license. <strong>Replacing or changing the installed key does not cancel an existing monthly subscription or stop recurring charges.</strong> Manage billing and cancellation directly at <a href="https://cajunwebpro.com" target="_blank" rel="noopener noreferrer">Cajun Web Pro</a> (temporary link to the main site).</p></section>';
         $this->page('License activation', $content);
     }
 
