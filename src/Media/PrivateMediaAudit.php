@@ -19,6 +19,9 @@ final class PrivateMediaAudit
     /** @return array{ok:bool,db_rows:int,stored_files:int,missing_files:int,orphan_files:int,unsafe_paths:int,invalid_records:int,invalid_sizes:int,truncated:bool} */
     public function inspect(): array
     {
+        // Repeated operator checks must reflect files changed since the
+        // prior inspection, not PHP's process-local cached filesystem stats.
+        clearstatcache(true);
         $result=[
             'ok'=>false,
             'db_rows'=>0,
