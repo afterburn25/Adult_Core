@@ -13,6 +13,22 @@ $secret=str_repeat('s',32);$inbox=new JobInbox($root);
 $job=JobEnvelope::create('pro-job-00001','video.transcode',['asset_id'=>7],$secret);
 ck($inbox->accept($job,$secret),'Valid envelope recorded');
 ck(!$inbox->accept($job,$secret),'Replay blocked');
+$conflict=JobEnvelope::create('pro-job-00001','video.transcode',['asset_id'=>999],$secret);
+try {$inbox->accept($conflict,$secret);throw new RuntimeException('Conflicting job accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Conflicting job accepted','Reused Pro job ID with different asset rejected');}
+$receiptPath=$root.'/storage/pro-jobs/'.hash('sha256','pro-job-00001').'.json';
+$original=file_get_contents($receiptPath);
+file_put_contents($receiptPath,'{"unfinished":');
+try {$inbox->accept($job,$secret);throw new RuntimeException('Truncated receipt accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Truncated receipt accepted','Truncated Pro job receipt rejected');}
+file_put_contents($receiptPath,$original);
+$changed=json_decode($original,true,12,JSON_THROW_ON_ERROR);
+$changed['job']['payload']['asset_id']=987;
+file_put_contents($receiptPath,json_encode($changed,JSON_THROW_ON_ERROR));
+try {$inbox->accept($job,$secret);throw new RuntimeException('Altered persisted receipt accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Altered persisted receipt accepted','Conflicting on-disk job receipt rejected');}
+file_put_contents($receiptPath,$original);
+ck(!$inbox->accept($job,$secret),'Restored valid job remains idempotent');
 $bad=JobEnvelope::create('pro-job-00002','video.transcode',['asset_id'=>7,'path'=>'/etc/passwd'],$secret);
 try{$inbox->accept($bad,$secret);throw new RuntimeException('Path payload accepted');}catch(RuntimeException $e){ck($e->getMessage()!=='Path payload accepted','Payload allowlist');}
 $job['signature']=str_repeat('0',64);
