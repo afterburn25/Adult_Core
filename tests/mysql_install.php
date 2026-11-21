@@ -278,7 +278,7 @@ try {
     $tiers->rename($newTierId,(int)$valid['id'],'Founders & <Test>','Founders preview');
     $tierRows=$tiers->all();
     if (count($tierRows)!==1 || $tierRows[0]['id']!==$newTierId
-        || $tierRows[0]['name']!=='Founders preview' || $tierRows[0]['is_active']!==1) {
+        || $tierRows[0]['name']!=='Founders preview' || $tierRows[0]['is_active']!==0) {
         throw new RuntimeException('Private tier label catalog did not persist.');
     }
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_memberships')->fetchColumn()!==0) {

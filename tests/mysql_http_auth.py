@@ -181,6 +181,7 @@ def main():
             code, tier_page = req('/admin/tiers')
             ensure('Stored tier labels are escaped in admin UI',
                    code == 200 and 'Founders &lt;script&gt;alert(1)&lt;/script&gt;' in tier_page
+                   and 'Disabled (staging only)' in tier_page
                    and initial_tier not in tier_page)
             created_tier=re.search(r'name="tier_id" value="(\d+)"',tier_page)
             ensure('New tier has stable numeric ID',created_tier is not None)
@@ -396,7 +397,7 @@ def main():
                 'content_id':draft_id,'expected_tier_id':tier_id,'tier_id':'999999999'
             })
             ensure('Draft refuses nonexistent tier',
-                   code == 422 and 'Choose an existing enabled membership tier' in invalid_tier)
+                   code == 422 and 'Choose an existing membership tier' in invalid_tier)
             # Draft edits require administrator CSRF and the exact previously
             # displayed title. A concurrent moderator edit must not overwrite.
             code, _ = req('/admin/moderation', {

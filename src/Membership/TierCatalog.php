@@ -42,7 +42,7 @@ final class TierCatalog
         return $rows;
     }
 
-    /** Creating a label does not create an active paid subscriber. */
+    /** Creating a label does not activate any paid-access entitlement. */
     public function create(string $name, int $actorId): int
     {
         $name=self::validateName($name);
@@ -53,7 +53,9 @@ final class TierCatalog
                 throw new RuntimeException('Tier catalog limit reached.');
             }
             $this->assertUniqueName($name,null);
-            $q=$this->pdo->prepare('INSERT INTO ac_membership_tiers (name,is_active) VALUES (?,1)');
+            // Disable the entitlement bit until a vetted merchant/fulfillment
+            // lifecycle exists. Labels can still be staged on private drafts.
+            $q=$this->pdo->prepare('INSERT INTO ac_membership_tiers (name,is_active) VALUES (?,0)');
             $q->execute([$name]);
             $id=(int)$this->pdo->lastInsertId();
             $this->pdo->commit();

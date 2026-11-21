@@ -143,7 +143,7 @@ final class ModerationController
                 'Pending private draft image not found.','Invalid draft tier assignment.',
                 'Only private, unreviewed drafts can receive a tier.',
                 'Draft tier changed; reload the moderation queue.',
-                'Draft tier assignment is unchanged.','Choose an existing enabled membership tier.'];
+                'Draft tier assignment is unchanged.','Choose an existing membership tier.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -238,10 +238,10 @@ final class ModerationController
                     .'<label>Future required tier<select name="tier_id">'
                     .'<option value="">No tier assigned</option>';
                 foreach ($tiers as $tier) {
-                    if ($tier['is_active']!==1) continue;
                     $tid=(int)$tier['id'];
                     $html.='<option value="'.$tid.'"'.($priorTier===(string)$tid?' selected':'').'>'
-                        .self::e($tier['name']).'</option>';
+                        .self::e($tier['name'])
+                        .($tier['is_active']===1?'':' (staging only; disabled for access)').'</option>';
                 }
                 $html.='</select></label><button class="button-secondary">Save future tier</button></form>'
                     .'<small>Staging only — no access granted</small>';

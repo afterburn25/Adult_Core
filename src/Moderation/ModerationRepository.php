@@ -123,11 +123,13 @@ final class ModerationRepository
             }
             if ($prior===$tierId) throw new RuntimeException('Draft tier assignment is unchanged.');
             if ($tierId!==null) {
-                $tier=$this->pdo->prepare('SELECT is_active FROM ac_membership_tiers WHERE id=? LIMIT 1');
+                $tier=$this->pdo->prepare('SELECT id FROM ac_membership_tiers WHERE id=? LIMIT 1');
                 $tier->execute([$tierId]);
-                if ((int)$tier->fetchColumn()!==1) {
-                    throw new RuntimeException('Choose an existing enabled membership tier.');
+                if ($tier->fetchColumn()===false) {
+                    throw new RuntimeException('Choose an existing membership tier.');
                 }
+                // An inactive catalog label may be prepared on a PRIVATE draft.
+                // This never changes the tier's entitlement-active flag.
             }
             $this->pdo->prepare('UPDATE ac_content SET tier_id=? WHERE id=?')->execute([$tierId,$contentId]);
             $this->audit($contentId,null,$actorId,'draft_tier_changed',

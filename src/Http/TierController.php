@@ -93,6 +93,7 @@ final class TierController
         $csrf=self::e(AdminSession::csrf());
         $html='<p class="intro">Define labels for membership tiers without creating subscriptions or processing payments. '
             .'A tier label is not proof of payment or permission to view adult media. '
+            .'New tiers begin disabled for access until a verified merchant integration is implemented. '
             .'Existing subscription states, prices and entitlements are not changed here.</p>';
         if (($_GET['result']??'')==='saved') {
             $html.='<p role="status">Tier label saved. No membership was granted.</p>';
@@ -110,7 +111,7 @@ final class TierController
             $id=(int)$tier['id'];
             $name=self::e($tier['name']);
             $html.='<tr><td>'.$id.'</td><td>'.$name.'</td>'
-                .'<td>'.($tier['is_active']===1?'Enabled (existing data only)':'Disabled').'</td><td>'
+                .'<td>'.($tier['is_active']===1?'Enabled (existing data only)':'Disabled (staging only)').'</td><td>'
                 .'<form method="post" action="/admin/tiers" class="install-form">'
                 .'<input type="hidden" name="csrf" value="'.$csrf.'">'
                 .'<input type="hidden" name="action" value="rename">'
