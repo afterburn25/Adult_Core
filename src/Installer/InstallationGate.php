@@ -68,6 +68,9 @@ final class InstallationGate
         $licenseFile = $this->projectRoot . '/config/license.php';
         $licenseCache = $this->projectRoot . '/storage/license-cache.json';
         if (!is_file($stateFile) || is_link($stateFile)) {
+            // A directory, symlink or other unexpected object at the marker
+            // path is corruption, not an empty installation.
+            if (file_exists($stateFile) || is_link($stateFile)) return self::INVALID_STATE;
             // A missing marker plus generated private files is an incomplete
             // installation, NOT a fresh site. Never offer the setup form or
             // silently reinitialize an existing database in this state.
@@ -76,7 +79,6 @@ final class InstallationGate
                     return self::INVALID_STATE;
                 }
             }
-            if (is_link($stateFile)) return self::INVALID_STATE;
             return $installDirectoryPresent ? self::SETUP_REQUIRED : self::INSTALLER_MISSING;
         }
 
