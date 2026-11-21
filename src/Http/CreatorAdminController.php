@@ -69,7 +69,7 @@ final class CreatorAdminController
             $html='<p class="intro">Creators belong to THIS self-hosted website and are assigned '
                 .'directly by its owner/admin. There is no central creator service, application, '
                 .'software-vendor approval or cross-site account. Granting workspace access '
-                .'does not verify a person\\'s age/identity, authorize content distribution '
+                .'does not independently verify age or identity, authorize content distribution '
                 .'or enable payment and public publishing.</p>';
             if (($_GET['result']??'')==='saved') {
                 $html.='<p role="status">Local creator setting saved. No content was published.</p>';

@@ -238,8 +238,8 @@ final class MemberController
             }
         }
         $html='<p class="intro">Welcome to your private creator workspace on THIS independently '
-            .'hosted website. Text-only planning drafts are visible only to you and the '
-            .'local website owner via protected administration. '
+            .'hosted website. Text-only planning drafts remain in your authenticated '
+            .'account and cannot be viewed through any public URL. '
             .'No uploads, publishing, paid access, creator certification or independent '
             .'age/performer consent verification is enabled here.</p>';
         if (($_GET['result']??'')==='saved') {
