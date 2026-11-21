@@ -61,6 +61,9 @@ try {
 
     $marker = $root.LicenseUpdateRecovery::MARKER;
     AtomicFile::write($marker, $snapshot);
+    $mode = fileperms($marker);
+    $check('Signed rollback snapshot is private owner-only storage',
+        is_int($mode) && ($mode & 0077) === 0);
     // Simulate a crash after publishing the new license config but before
     // replacing its signed cache. No real vendor or database is touched.
     file_put_contents($root.'/config/license.php',
@@ -127,6 +130,21 @@ try {
     try { (new LicenseUpdateRecovery($root))->rollback(); $blocked = false; }
     catch (RuntimeException) { $blocked = true; }
     $check('Rollback refuses absent pending marker', $blocked);
+
+    // A marker symlink is never followed, even if it points to a signed
+    // installation record. It must not restore or authorize anything.
+    if (!@symlink($root.'/storage/install-state.json', $marker)) {
+        throw new RuntimeException('Could not create marker symlink test fixture.');
+    }
+    try {
+        $check('Marker symlink locks the installation', $gate->status() === InstallationGate::LICENSE_UPDATE_PENDING);
+        $check('Marker symlink blocks installed license status', $once->status($domain) === 'unavailable');
+        try { (new LicenseUpdateRecovery($root))->rollback(); $blocked = false; }
+        catch (RuntimeException) { $blocked = true; }
+        $check('Recovery never follows marker symlink', $blocked);
+    } finally {
+        unlink($marker);
+    }
 
     // Missing-cache history must be restored as missing, not forged valid.
     unlink($cachePath);
