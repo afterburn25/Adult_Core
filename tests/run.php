@@ -177,6 +177,38 @@ foreach ([
         assertCheck($name, true);
     }
 }
+foreach ([
+    ['example.test', 'example.test'],
+    ['example.test', 'WWW.EXAMPLE.TEST'],
+    ['www.example.test', 'example.test:443'],
+    ['example.test', 'example.test:8443'],
+] as [$registeredHost, $requestHost]) {
+    try {
+        InstallInput::assertRequestHost($registeredHost, $requestHost);
+        assertCheck('Installer accepts matching request host '.$requestHost, true);
+    } catch (InvalidArgumentException) {
+        assertCheck('Installer accepts matching request host '.$requestHost, false);
+    }
+}
+foreach ([
+    ['example.test', 'other.example.test'],
+    ['example.test', 'example.test.evil.test'],
+    ['example.test', 'example.test:0'],
+    ['example.test', 'example.test:65536'],
+    ['example.test', 'https://example.test'],
+    ['example.test', 'example.test/path'],
+    ['example.test', 'example.test:443@evil.test'],
+    ['example.test', 'example.test\\r\\nHost: evil.test'],
+    ['example.test', '127.0.0.1'],
+] as [$registeredHost, $requestHost]) {
+    try {
+        InstallInput::assertRequestHost($registeredHost, $requestHost);
+        assertCheck('Installer rejects mismatched/unsafe request host '.$requestHost, false);
+    } catch (InvalidArgumentException) {
+        assertCheck('Installer rejects mismatched/unsafe request host '.$requestHost, true);
+    }
+}
+
 $testRoot = sys_get_temp_dir() . '/adult-core-installer-' . bin2hex(random_bytes(6));
 mkdir($testRoot);
 AtomicFile::write($testRoot . '/secret.php', '<?php return 1;');
