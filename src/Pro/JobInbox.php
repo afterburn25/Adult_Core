@@ -25,8 +25,13 @@ final class JobInbox
         if (!JobEnvelope::verify($envelope,$secret) || !self::validPayload($envelope['data'])) {
             throw new RuntimeException('Invalid or expired signed Pro job.');
         }
-        $dir=$this->root.'/storage/pro-jobs';
-        if (is_link($dir) || (!is_dir($dir) && !mkdir($dir,0700,true)) || !is_writable($dir)) {
+        $storage=$this->root.'/storage';
+        $dir=$storage.'/pro-jobs';
+        // Signed job receipts are private. An attacker-controlled or mistaken
+        // symlink at the storage parent cannot redirect writes elsewhere.
+        if (!is_dir($storage) || is_link($storage)
+            || is_link($dir) || (!is_dir($dir) && !mkdir($dir,0700))
+            || !is_writable($dir)) {
             throw new RuntimeException('Pro job storage unavailable.');
         }
         @chmod($dir,0700);

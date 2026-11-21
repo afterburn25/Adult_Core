@@ -49,6 +49,31 @@ foreach ([[8193,1],[1,8193],[8000,5000],[0,100],[200,0],[-1,400],[],[1.2,1],['50
     ck(!PrivateMedia::validDimensions($size),'Unsafe or malformed private image dimensions refused');
 }
 ck(!ReleaseReadiness::productionReady(),'Production release fails closed');
+// Never allow a signed receipt to be redirected through a linked storage
+// parent, even though the envelope itself is authentic.
+$linkRoot=sys_get_temp_dir().'/ac-pro-linked-'.bin2hex(random_bytes(5));
+mkdir($linkRoot);
+mkdir($linkRoot.'/real-storage');
+try {
+    if (!symlink($linkRoot.'/real-storage',$linkRoot.'/storage')) {
+        throw new RuntimeException('Pro linked storage fixture unavailable.');
+    }
+    $linkedInbox=new JobInbox($linkRoot);
+    $guarded=JobEnvelope::create('pro-storage-link-01','video.thumbnail',['asset_id'=>5],$secret);
+    try {
+        $linkedInbox->accept($guarded,$secret);
+        throw new RuntimeException('Linked storage accepted a signed Pro receipt.');
+    } catch (RuntimeException $e) {
+        ck($e->getMessage() !== 'Linked storage accepted a signed Pro receipt.',
+            'Pro inbox rejects linked storage parent');
+    }
+    ck(!is_dir($linkRoot.'/real-storage/pro-jobs'),
+        'Refused linked Pro storage writes no receipt');
+} finally {
+    @unlink($linkRoot.'/storage');
+    @rmdir($linkRoot.'/real-storage');
+    @rmdir($linkRoot);
+}
 foreach(glob($root.'/storage/pro-jobs/*')?:[] as $p)unlink($p);
 rmdir($root.'/storage/pro-jobs');rmdir($root.'/storage');rmdir($root);
 echo "Passed $checks Pro/release checks.\n";
