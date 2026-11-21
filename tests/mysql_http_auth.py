@@ -187,7 +187,7 @@ def main():
             ensure('Staff can only be provisioned as a restricted moderator',code == 303)
             code, staff_page=req('/admin/staff')
             new_staff_row=re.search(
-                r'<tr><td>(\d+)</td><td>new-staff@example.test</td><td>active</td>',staff_page)
+                r'<tr><td>(\d+)</td><td>new-staff@example.test</td><td>active</td><td>Not enrolled</td>',staff_page)
             ensure('Staff dashboard lists restricted moderator and private create audit',
                    code == 200 and new_staff_row is not None
                    and 'created' in staff_page

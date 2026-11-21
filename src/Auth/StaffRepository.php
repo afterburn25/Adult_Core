@@ -36,14 +36,18 @@ final class StaffRepository
         return $password;
     }
 
-    /** @return list<array{id:int,email:string,status:string}> */
+    /** @return list<array{id:int,email:string,status:string,mfa_enabled:int}> */
     public function moderators(int $actorId): array
     {
         $this->requireManager($actorId);
-        $q=$this->pdo->query("SELECT id,email,status FROM ac_users WHERE role='moderator' ORDER BY id DESC LIMIT 50");
+        $q=$this->pdo->query("SELECT u.id,u.email,u.status,
+            CASE WHEN m.user_id IS NULL THEN 0 ELSE 1 END AS mfa_enabled
+            FROM ac_users u LEFT JOIN ac_admin_mfa m ON m.user_id=u.id
+            WHERE u.role='moderator' ORDER BY u.id DESC LIMIT 50");
         $items=[];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $item) {
-            $items[]=['id'=>(int)$item['id'],'email'=>(string)$item['email'],'status'=>(string)$item['status']];
+            $items[]=['id'=>(int)$item['id'],'email'=>(string)$item['email'],
+                'status'=>(string)$item['status'],'mfa_enabled'=>(int)$item['mfa_enabled']];
         }
         return $items;
     }

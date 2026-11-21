@@ -269,6 +269,10 @@ try {
     if ($createdStaff<1 || count($staff->recentActions((int)$valid['id']))!==1) {
         throw new RuntimeException('Manager could not create audited restricted moderator.');
     }
+    $mfaStaffList=$staff->moderators((int)$valid['id']);
+    if ($mfaStaffList[0]['mfa_enabled']!==0) {
+        throw new RuntimeException('Staff MFA state was incorrectly claimed as enrolled.');
+    }
     $managed=$auth->verifyCredentials('staff.managed@example.test','first-unique-moderator-password');
     $firstEpoch=$auth->staffSessionEpoch($createdStaff);
     if (($managed['role']??null)!=='moderator'

@@ -122,10 +122,12 @@ final class StaffController
             .'<label>Confirm your manager password<input name="manager_password" type="password" maxlength="72" required autocomplete="current-password"></label>'
             .'<button class="install-button" type="submit">Create moderator</button></form></section>'
             .'<section class="panel"><h2>Moderator accounts</h2>'
-            .'<table class="page-table"><thead><tr><th>ID</th><th>Email</th><th>Status</th><th>Account action</th></tr></thead><tbody>';
+            .'<table class="page-table"><thead><tr><th>ID</th><th>Email</th><th>Status</th><th>Authenticator</th><th>Account action</th></tr></thead><tbody>';
         foreach ($repo->moderators($actorId) as $item) {
             $id=$item['id'];$status=$item['status'];
-            $html.='<tr><td>'.$id.'</td><td>'.self::e($item['email']).'</td><td>'.self::e($status).'</td><td>';
+            $html.='<tr><td>'.$id.'</td><td>'.self::e($item['email']).'</td>'
+                .'<td>'.self::e($status).'</td>'
+                .'<td>'.($item['mfa_enabled']===1?'Enrolled':'Not enrolled').'</td><td>';
             if ($status==='active') {
                 $html.='<form method="post" action="/admin/staff" class="install-form" autocomplete="off">'
                     .'<input type="hidden" name="csrf" value="'.$csrf.'">'
