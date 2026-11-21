@@ -2,7 +2,7 @@
 
 - Record each moderator's `changes`/`rejected` review note with actor, submitted draft revision and UTC timestamp in a new local `ac_creator_feedback_history` table; unique per reviewed submission revision and written transactionally with the original decision.
 - Add read-only, bounded private feedback timelines for the currently enabled creator and site owner/admin. Old private feedback persists through plan edits/resubmission instead of being overwritten. Escaped rendering and separate member/site-admin authorization remain mandatory.
-- Add repeatable m15 site-setup migration and fail-closed UI setup guards; ZIP inventory and MySQL/MariaDB/HTTP/encrypted-restore regression coverage. Pre-m15 decisions are not falsely reconstructed with guessed reviewers.
+- Add repeatable m15 site-setup migration and fail-closed UI setup guards; ZIP inventory and MySQL/MariaDB/HTTP/encrypted-restore regression coverage. The migration safely backfills an existing current m14 feedback note only with a matching latest numeric review event; earlier overwritten notes and unproven reviewers are never fabricated. Duplicate migration runs cannot insert the same submitted revision twice.
 
 ## Creator private-state recovery coverage — 2026-11-21
 

@@ -513,7 +513,7 @@ try {
     }
     $secondToken=$emailConfirmations->issue((int)$secondMember['id']);
     if (!$emailConfirmations->confirm($secondToken)) throw new RuntimeException('Second member confirmation failed.');
-    $creators->provision((int)$valid['id'],'secondcreator@example.test','Second creator');
+    $secondCreatorId=$creators->provision((int)$valid['id'],'secondcreator@example.test','Second creator');
     if ($creators->ownDrafts((int)$secondMember['id'])!==[]) {
         throw new RuntimeException('One creator could read another creator\'s private drafts.');
     }
@@ -814,6 +814,38 @@ try {
         throw new RuntimeException('Rejected plan could be archived to evade review.');
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Rejected plan could be archived to evade review.') throw $e;
+    }
+    // Verify m14 -> m15 upgrade preserves ONLY feedback with an actual
+    // matching last review event, never inventing a reviewer for corrupt data.
+    // This disposable test deliberately writes an old-style m14 decision
+    // directly because the current live decision path already requires m15.
+    $legacyDraftId=$creators->saveDraft((int)$secondMember['id'],null,null,
+        'Pre-m15 text review','An older local plan whose current feedback must survive upgrade.');
+    $textReview->submit((int)$secondMember['id'],$legacyDraftId,1);
+    $pdo->prepare("UPDATE ac_creator_drafts
+        SET status='changes',review_note=?,revision=revision+1,updated_at=UTC_TIMESTAMP()
+        WHERE id=?")->execute(['Original m14 review feedback with verified provenance.',$legacyDraftId]);
+    $pdo->prepare("INSERT INTO ac_creator_draft_events(draft_id,actor_id,action,created_at)
+        VALUES (?,?,'changes',UTC_TIMESTAMP())")->execute([$legacyDraftId,$moderatorId]);
+    CreatorFeedbackSchema::migrate($pdo);
+    CreatorFeedbackSchema::migrate($pdo);
+    $legacyFeedback=$feedbackRepo->forMember((int)$secondMember['id']);
+    if (count($legacyFeedback)!==1 || (int)$legacyFeedback[0]['draft_id']!==$legacyDraftId
+        || (int)$legacyFeedback[0]['submitted_revision']!==2
+        || $legacyFeedback[0]['decision']!=='changes'
+        || !str_contains((string)$legacyFeedback[0]['feedback'],'Original m14')
+        || (int)$feedbackRepo->forOwner((int)$valid['id'],$secondCreatorId)[0]['reviewer_id']!==$moderatorId) {
+        throw new RuntimeException('Repeatable m15 upgrade lost event-backed m14 current feedback.');
+    }
+    $unprovenDraftId=$creators->saveDraft((int)$secondMember['id'],null,null,
+        'No verified reviewer','An old draft with no matching review event cannot be attributed.');
+    $textReview->submit((int)$secondMember['id'],$unprovenDraftId,1);
+    $pdo->prepare("UPDATE ac_creator_drafts
+        SET status='changes',review_note=?,revision=revision+1,updated_at=UTC_TIMESTAMP()
+        WHERE id=?")->execute(['A note without a matching reviewer event is not backfilled.',$unprovenDraftId]);
+    CreatorFeedbackSchema::migrate($pdo);
+    if (count($feedbackRepo->forMember((int)$secondMember['id']))!==1) {
+        throw new RuntimeException('Creator migration guessed unverified historic reviewer attribution.');
     }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');

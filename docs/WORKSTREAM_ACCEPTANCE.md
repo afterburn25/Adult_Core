@@ -1,3 +1,9 @@
+## Verified m14 → m15 feedback migration — development-only
+
+On upgrade, a current request-changes/rejected draft note is preserved in the private feedback history only when the *last* m14 numeric event proves the same decision, actor and review time. Older overwritten notes and data without a matching event are not reconstructed. The unique (draft, submitted revision) constraint and INSERT IGNORE make repeated migration calls idempotent. Disposable SQL tests cover both provenance-backed import and refusal to attribute unproven legacy notes.
+
+---
+
 ## Local private creator feedback timeline — internal development acceptance
 
 For creator text plans, each new local decision now retains a separate private reviewer note with submitted revision, actor and time, and a numeric-only global audit event. Member access is restricted to an active email-confirmed local creator's own drafts; owner/admin can inspect site-local retained notes even if the creator is suspended. No unverified staff member, third-party tenant or public route can expose the timeline. Private notes are HTML-escaped and capped at 500 bytes, and queries have a 100-entry limit. Additive m15 migration and encrypted backup/restore regressions are covered in disposable CI. This does not close performer identity/consent, adult merchant billing, real-host cPanel/VPS installation, moderation publication or production legal/security signoff.

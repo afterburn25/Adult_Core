@@ -4,7 +4,7 @@ On each self-hosted installation, a moderator's request-changes or reject decisi
 
 A currently enabled local creator sees the latest 100 feedback decisions for their **own** text plans on `/members/creator`; the local owner/admin sees the latest 100 on the protected read-only `/admin/creators/drafts/{creator_id}` view, including decisions for a suspended profile. Both pages escape text and disable caching/search indexing. The full timeline is **not** visible to moderators through their review queue, other members, or anonymous visitors. The system **never** approves, publishes or licenses a creator through this process.
 
-An owner runs **Admin → Setup** after a backup to apply repeatable `CreatorFeedbackSchema` m15 following m14; history views and review writes fail closed until it is applied. Existing m14 `review_note` data stays intact, but older decisions completed before this migration are **not reconstructed** or assigned guessed reviewers. Only decisions occurring after m15 are captured. The history is backed up by the encrypted local database backup/recovery workflow; real production drills remain outstanding.
+An owner runs **Admin → Setup** after a backup to apply repeatable `CreatorFeedbackSchema` m15 following m14; history views and review writes fail closed until it is applied. The migration also **preserves one currently visible m14 review note when its exact last numeric event proves the reviewer and decision**. It does not reconstruct earlier overwritten notes or invent a reviewer when no matching event exists. All decisions after m15 use transactional history snapshots. The history is backed up by the encrypted local database backup/recovery workflow; real production drills remain outstanding.
 
 ---
 

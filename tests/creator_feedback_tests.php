@@ -20,6 +20,9 @@ $check(CreatorReviewSchema::VERSION==='m14_creator_text_review_v1',
     'Review history has local m14 prerequisite');
 $schema=file_get_contents(dirname(__DIR__).'/src/Creator/CreatorFeedbackSchema.php');
 $check(str_contains($schema,'UNIQUE KEY uq_review_revision')
+    && str_contains($schema,'INSERT IGNORE INTO ac_creator_feedback_history')
+    && str_contains($schema,'e.action=d.status')
+    && str_contains($schema,'MAX(e2.id)')
     && str_contains($schema,'FOREIGN KEY (draft_id)')
     && str_contains($schema,'FOREIGN KEY (reviewer_id)'),
     'Immutable local revision/actor references and duplicate review constraint');
