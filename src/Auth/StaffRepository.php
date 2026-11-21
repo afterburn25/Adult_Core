@@ -99,7 +99,8 @@ final class StaffRepository
         try {
             $target=$this->lockedModerator($moderatorId);
             if ($target['status']!=='active') throw new RuntimeException('Moderator is not active.');
-            $this->pdo->prepare("UPDATE ac_users SET status='suspended' WHERE id=?")
+            $this->pdo->prepare("UPDATE ac_users SET status='suspended',
+                staff_session_epoch=staff_session_epoch+1 WHERE id=?")
                 ->execute([$moderatorId]);
             $this->log($actorId,$moderatorId,'suspended');
             $this->pdo->commit();
@@ -124,7 +125,8 @@ final class StaffRepository
         try {
             $target=$this->lockedModerator($moderatorId);
             if ($target['status']!=='suspended') throw new RuntimeException('Moderator is not suspended.');
-            $this->pdo->prepare("UPDATE ac_users SET password_hash=?,status='active' WHERE id=?")
+            $this->pdo->prepare("UPDATE ac_users SET password_hash=?,status='active',
+                staff_session_epoch=staff_session_epoch+1 WHERE id=?")
                 ->execute([$hash,$moderatorId]);
             $this->log($actorId,$moderatorId,'restored');
             $this->pdo->commit();

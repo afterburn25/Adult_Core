@@ -19,6 +19,14 @@ final class StaffSchema
         if ((int)$q->fetchColumn()!==1) {
             throw new \RuntimeException('Apply the member account migration first.');
         }
+        $epoch=$pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users'
+                AND COLUMN_NAME='staff_session_epoch'");
+        if ((int)$epoch->fetchColumn()===0) {
+            // Monotonic per-account revocation barrier. Old session cookies
+            // remain invalid even after a suspended moderator is restored.
+            $pdo->exec("ALTER TABLE ac_users ADD COLUMN staff_session_epoch BIGINT UNSIGNED NOT NULL DEFAULT 0");
+        }
         $pdo->exec("CREATE TABLE IF NOT EXISTS ac_staff_actions (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             actor_id BIGINT UNSIGNED NOT NULL,

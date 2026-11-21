@@ -362,6 +362,9 @@ final class AdminController
                             return;
                         }
                         AdminSession::authenticate($account['id']);
+                        if ($account['role']==='moderator') {
+                            AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($account['id']));
+                        }
                         $this->redirect((new LicenseManager($this->root))->status() === 'valid'
                             ? ($account['role']==='moderator' ? '/admin/moderation' : '/admin') : '/admin/license');
                         return;
@@ -397,7 +400,13 @@ final class AdminController
         }
         try {
             $pdo = Connection::open($this->root);
-            $admin = (new AdminAccounts($pdo))->authorizedById($id);
+            $accounts=new AdminAccounts($pdo);
+            $admin = $accounts->authorizedById($id);
+            if ($admin!==null && $admin['role']==='moderator'
+                && AdminSession::staffEpoch()!==$accounts->staffSessionEpoch($id)) {
+                AdminSession::revoke();
+                return null;
+            }
             if ($admin !== null && (new AdminMfa($pdo, $this->root))->enabledFor($id)
                 && !AdminSession::mfaVerified()) {
                 AdminSession::revoke();

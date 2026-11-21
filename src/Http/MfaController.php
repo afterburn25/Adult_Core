@@ -41,6 +41,9 @@ final class MfaController
                         if ($admin !== null && (new AdminMfa($pdo,$this->root))->enabledFor($id)
                             && (new AdminMfa($pdo,$this->root))->consume($id,trim($factor))) {
                             AdminSession::authenticate($id,null,true);
+                            if ($admin['role']==='moderator') {
+                                AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($id));
+                            }
                             $route=(new LicenseManager($this->root))->status()==='valid'
                                 ? ($admin['role']==='moderator'?'/admin/moderation':'/admin')
                                 : '/admin/license';
@@ -99,6 +102,9 @@ final class MfaController
                             if ($secret===null || !is_string($factor)) throw new RuntimeException('Enrollment expired. Start again.');
                             $codes=$mfa->enable($admin['id'],$secret,trim($factor));
                             AdminSession::authenticate($admin['id'],null,true);
+                            if ($admin['role']==='moderator') {
+                                AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($admin['id']));
+                            }
                             $enabled=true;
                         } elseif ($action === 'disable' && $enabled) {
                             $this->reauthenticate($pdo,$admin,$_POST['password'] ?? null);
@@ -108,6 +114,9 @@ final class MfaController
                             }
                             $mfa->disable($admin['id']);
                             AdminSession::authenticate($admin['id'],null,false);
+                            if ($admin['role']==='moderator') {
+                                AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($admin['id']));
+                            }
                             header('Location: /admin/security?disabled=1',true,303);return;
                         } else {
                             throw new RuntimeException('Requested MFA operation is unavailable.');

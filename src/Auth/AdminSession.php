@@ -71,6 +71,24 @@ final class AdminSession
         ];
     }
 
+    /**
+     * Bind the authenticated moderator session to the DB revocation epoch.
+     * Session regeneration discards this field; callers must rebind on login.
+     */
+    public static function bindStaffEpoch(int $epoch): void
+    {
+        if ($epoch<0 || !is_array($_SESSION['admin_auth']??null)) {
+            throw new RuntimeException('Cannot bind staff session.');
+        }
+        $_SESSION['admin_auth']['staff_epoch']=$epoch;
+    }
+
+    public static function staffEpoch(): ?int
+    {
+        $epoch=$_SESSION['admin_auth']['staff_epoch']??null;
+        return is_int($epoch) && $epoch>=0 ? $epoch : null;
+    }
+
     /** A password-only result never creates an authenticated session when MFA is enabled. */
     public static function beginMfa(int $id): void
     {

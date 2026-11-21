@@ -49,6 +49,23 @@ final class AdminAccounts
         return ['id' => (int) $user['id'], 'email' => (string) $user['email'], 'role' => (string) $user['role']];
     }
 
+    /**
+     * Staff revocation version, absent on an installation before site setup.
+     * A suspended/restored moderator must obtain a NEW session after rotation.
+     */
+    public function staffSessionEpoch(int $id): int
+    {
+        if ($id<1) return -1;
+        $schema=$this->pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users'
+                AND COLUMN_NAME='staff_session_epoch'");
+        if ((int)$schema->fetchColumn()===0) return 0;
+        $q=$this->pdo->prepare('SELECT staff_session_epoch FROM ac_users WHERE id=? LIMIT 1');
+        $q->execute([$id]);
+        $epoch=$q->fetchColumn();
+        return $epoch===false ? -1 : (int)$epoch;
+    }
+
     /** @return array{id: int, email: string, role: string}|null */
     public function authorizedById(int $id): ?array
     {
