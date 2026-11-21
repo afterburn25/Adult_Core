@@ -1,3 +1,11 @@
+## Local creator encrypted disaster recovery regression — 2026-11-21
+
+- Expanded the existing full `tests/mysql_backup_restore.php` integration fixture: after adding m9 email + m13 creator + m14 review migrations, the source site seeds an owner-provisioned local creator with an archived revised draft, submitted draft, rejected draft, escaped private reviewer feedback and numeric audit history. The unchanged `SiteBackup` implementation already captures all ordinary `ac_` InnoDB tables.
+- After the encrypted `.acfull` archive is created, the disposable DB is wiped and restored into an empty target. The test compares the full owner-only creator snapshot, verified inbox flag, additive migration markers and private moderation queue and asserts that none of the creator plans leaked into `ac_content`.
+- Full MySQL 8/MariaDB 10.11 CI must pass before claiming recovery acceptance. Real cPanel/VPS restore rehearsals, media files/consent, merchant billing and independent production release still remain incomplete.
+
+---
+
 ## Reversible local creator planning archives — 2026-11-21
 
 Added `LocalCreators::changeDraftArchive(memberId,draftId,revision,action)`, allowing only `private → archived → private` on an active local creator's **own** unsent text. It locks creator then draft, requires current revision, retains DB row and 50-plan slot, increments revision, emits numeric-only `archived`/`restored` draft events and creator action records; no public media, age, payment or consent state changes. `ownDrafts` and owner protected draft detail include `archived` status, while submitted/rejected/changes plans cannot be archived.

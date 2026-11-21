@@ -1,3 +1,9 @@
+## Creator private-state recovery coverage — 2026-11-21
+
+- Test full encrypted backup and empty-database restoration of a local creator account, email confirmation, archived/submitted/rejected text plans, private reviewer feedback and numeric events.
+- Verify creator records do not enter public content tables after recovery and require no SaaS service or vendor-managed creator identity.
+- Keep existing offline key, maintenance/quiescence and real-host disaster recovery release gates.
+
 ## Creator draft archive and restoration — 2026-11-21
 
 - Allow enabled creators to archive and restore their **own unsent private text plans** without deleting data, bypassing review or changing publication state.

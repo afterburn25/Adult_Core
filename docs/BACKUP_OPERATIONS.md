@@ -1,3 +1,11 @@
+## Creator planning recovery coverage — 2026-11-21 (development)
+
+The encrypted backup engine discovers all ordinary local `ac_` InnoDB tables rather than a fixed table list, including the additive `ac_creator_profiles`, `ac_creator_drafts`, `ac_creator_actions`, `ac_creator_draft_events` and member email confirmation records. The disposable MySQL recovery integration now creates an independently installed website's owner-provisioned creator, saved/archived/submitted/rejected text plans, private feedback and numeric review events. It exports an authenticated encrypted `.acfull` archive, destroys the test DB tables, restores to a fresh empty database and verifies the entire creator snapshot, email confirmation and review queue are identical to the source. No cross-site identity or SaaS data is involved.
+
+This is a **disposable CI recovery proof only**, not a live customer's real host recovery drill. The operator must still quiesce all writers, retain the offline key separately, copy the archive offsite and verify restore on the actual target hosting environment before relying on backups.
+
+---
+
 # Backup operations, verification and private vault rotation — 0.8.9-backup-ops-dev
 
 **Development safety milestone — NOT a production backup SLA or certified offsite solution.** This extends, but does not change, the original `.acfull` format or the intentionally **fresh/empty-database-only** restore procedure in [Portable Backup Recovery](PORTABLE_BACKUP_RECOVERY.md). All commands are CLI-only and valid for either edition; the installed edition and Cajun Web Pro subscriptions are **not** altered by making a backup. Real host disaster drills remain required.

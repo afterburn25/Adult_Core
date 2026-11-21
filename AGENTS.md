@@ -1,3 +1,9 @@
+## Creator state in encrypted self-hosted backups — 2026-11-21
+
+Backup/restore must include **all** local creator records (m13 profile and private drafts, m14 review notes/events, local audit, confirmed email state). `SiteBackup::listTables` automatically includes ordinary `ac_` InnoDB tables; do not add exclusions or secret-copy shortcuts. Keep actual disposable encrypted `.acfull` export → wipe → empty restore tests for archived, submitted and rejected creator text (and numeric event history). The restored site must not auto-publish or grant age/consent/paid entitlement. Do not suggest real host continuity until an operator has performed a verified offsite and host-level recovery drill.
+
+---
+
 ## Reversible private creator planning archives — 2026-11-21
 
 `LocalCreators::changeDraftArchive()` is only for the currently authenticated, active local creator's own `private`/ `archived` draft with a matching revision, under creator-first and draft-second SQL locks. Archive is **never deletion**, retains original text and numeric events, and keeps the retained 50-draft cap. Do not let archived, submitted, rejected or changes-requested text bypass moderation or become public; restoration returns an archived plan to **private**, not submitted or published. Match existing CSRF, role, no-store, optimistic concurrency and MySQL/MariaDB/HTTP tests. Local owner audit may expose numeric event history, never public URLs or consent/identity approval.

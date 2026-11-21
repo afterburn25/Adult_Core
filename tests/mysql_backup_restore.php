@@ -15,6 +15,12 @@ use AdultCore\Installer\InstallationGate;
 use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Website\SiteSchema;
 use AdultCore\Member\MemberSchema;
+use AdultCore\Member\MemberEmailSchema;
+use AdultCore\Member\EmailConfirmations;
+use AdultCore\Creator\CreatorSchema;
+use AdultCore\Creator\CreatorReviewSchema;
+use AdultCore\Creator\LocalCreators;
+use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Design\DesignSchema;
 
 if(getenv('AC_TEST_DB_CONFIRM')!=='YES_THIS_IS_A_DISPOSABLE_DATABASE')throw new RuntimeException('Do not run against a real installation.');
@@ -64,11 +70,45 @@ try{
     (new InstallService($src,$client))->install($inputs);
     unlink($src.'/install/index.php');rmdir($src.'/install');
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
+    MemberEmailSchema::migrate($pdo);
+    CreatorSchema::migrate($pdo);
+    CreatorReviewSchema::migrate($pdo);
     $pdo->prepare("UPDATE ac_pages SET title=?, body=?, status='published' WHERE slug='home'")
         ->execute(['Recovered creator page','Original member content preserved.']);
     $pdo->exec("UPDATE ac_design_settings SET theme_key='velvet-plum' WHERE id=1");
     $pdo->prepare('INSERT INTO ac_users(email,password_hash,role,created_at,status) VALUES(?,?,?,UTC_TIMESTAMP(),?)')
         ->execute(['member@example.test',password_hash('member pass',PASSWORD_DEFAULT),'member','pending']);
+    $memberId=(int)$pdo->lastInsertId();
+    $ownerId=(int)$pdo->query("SELECT id FROM ac_users WHERE email='owner@example.test' AND role='admin'")->fetchColumn();
+    verifyRecovery($memberId>0 && $ownerId>0,'Disposable local owner and member accounts exist');
+    $emailConfirmation=new EmailConfirmations($pdo);
+    verifyRecovery($emailConfirmation->confirm($emailConfirmation->issue($memberId)),
+        'Local member email confirmation fixture established');
+    $creators=new LocalCreators($pdo);
+    $review=new CreatorDraftReview($pdo);
+    $creatorId=$creators->provision($ownerId,'member@example.test','Recoverable <Creator>');
+    $archiveDraftId=$creators->saveDraft($memberId,null,null,
+        'Original private <plan>','This is local private planning text for an encrypted backup.');
+    $review->submit($memberId,$archiveDraftId,1);
+    $review->decide($ownerId,$archiveDraftId,2,'changes',
+        'Revise the plan privately and do not upload identity evidence.');
+    $creators->saveDraft($memberId,$archiveDraftId,3,
+        'Archived revised <plan>','This revised planning text must remain private even after a restore.');
+    $creators->changeDraftArchive($memberId,$archiveDraftId,4,'archive');
+    $submittedDraftId=$creators->saveDraft($memberId,null,null,
+        'Pending local review','This submission remains private while awaiting a local moderator.');
+    $review->submit($memberId,$submittedDraftId,1);
+    $rejectedDraftId=$creators->saveDraft($memberId,null,null,
+        'Rejected local plan','A rejected plan with preserved private feedback and review history.');
+    $review->submit($memberId,$rejectedDraftId,1);
+    $review->decide($ownerId,$rejectedDraftId,2,'rejected',
+        'Rejected <script>example</script> feedback that must remain in private storage.');
+    $beforeCreatorRecovery=$creators->privatePlansForOwner($ownerId,$creatorId);
+    verifyRecovery(is_array($beforeCreatorRecovery)
+        && count($beforeCreatorRecovery['drafts'])===3
+        && count($beforeCreatorRecovery['events'])===6
+        && count($review->queue($ownerId))===1,
+        'Local creator private text states and numeric review event history seeded');
     mkdir($src.'/storage/design-assets');
     $asset='\x89PNG\r\n\x1a\n'.random_bytes(300000); // binary-safe data preservation, not a public image
     file_put_contents($src.'/storage/design-assets/creator.png',$asset);
@@ -114,6 +154,18 @@ try{
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
     verifyRecovery($pdo->query("SELECT title FROM ac_pages WHERE slug='home'")->fetchColumn()==='Recovered creator page','Creator page retained');
     verifyRecovery($pdo->query('SELECT theme_key FROM ac_design_settings WHERE id=1')->fetchColumn()==='velvet-plum','Selected theme retained');
+    $creatorAfterRecovery=(new LocalCreators($pdo))->privatePlansForOwner($ownerId,$creatorId);
+    verifyRecovery($creatorAfterRecovery===$beforeCreatorRecovery,
+        'All private local creator drafts, submitted/rejected/archived statuses, feedback and numeric audit are recovered exactly');
+    verifyRecovery((new EmailConfirmations($pdo))->verified($memberId)
+        && (int)$pdo->query("SELECT COUNT(*) FROM ac_schema_migrations WHERE version IN ('m13_local_creator_workspace_v1','m14_creator_text_review_v1')")->fetchColumn()===2,
+        'Local creator account confirmation and additive migration markers survived restore');
+    $restoredQueue=(new CreatorDraftReview($pdo))->queue($ownerId);
+    verifyRecovery(count($restoredQueue)===1
+        && (int)$restoredQueue[0]['id']===$submittedDraftId,
+        'Private creator moderator queue is restored without public publication');
+    verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()===0,
+        'Restored local creator planning records did not create public content');
     verifyRecovery($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()==='lite','Edition retained');
     verifyRecovery($pdo->query("SELECT password_hash FROM ac_users WHERE email='owner@example.test'")->fetchColumn()===$originalMfaHash,'Password hash retained');
     verifyRecovery(file_get_contents($dst.'/storage/design-assets/creator.png')===$asset,'Design images recover byte-identically');
