@@ -113,11 +113,11 @@ final class ModerationController
             .'<label>Existing unpublished draft ID<input type="number" name="content_id" min="1" required></label>'
             .'<label>Private image<input type="file" name="draft_image" accept="image/jpeg,image/png,image/webp" required></label>'
             .'<button class="button-secondary" type="submit">Store image privately for review</button></form></section>';
-        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
+        $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
         foreach ($repo->contentQueue() as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
-                .'<td>'.self::e(self::evidenceSummary($item)).'</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
+                .'<td>'.self::e(self::evidenceSummary($item)).'</td><td>'.(int)($item['pending_images']??0).' pending</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
                 .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="content_id" value="'.$id.'">'
                 .'<label>Decision<select name="action"><option value="quarantine">Quarantine</option><option value="reject">Reject</option></select></label>'
                 .'<label>Reason<input name="note" required minlength="10" maxlength="500" placeholder="Reason for review decision"></label>'
