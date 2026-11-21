@@ -1,3 +1,7 @@
+## Member lookup without email URLs (development)
+
+**Admin → Members** now includes a private POST-only exact email search. Search results are read-only; account safety changes continue to require the existing 30-minute manager authorization window, and no identity, subscription or publishing approvals are available.
+
 ## Owner dashboard overview (development)
 
 Your self-hosted administrator dashboard now summarizes pending member accounts, unpublished site pages, open reports and submitted creator text plans from the **local** database. The counters are read-only, and features not yet migrated are labeled **Not configured**. No member activation, payment authorization or adult publishing is implied.

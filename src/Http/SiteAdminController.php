@@ -113,6 +113,7 @@ final class SiteAdminController
                 $this->identity($pdo,$method);
                 return;
             }
+            if ($path === '/admin/members/find') { $this->findMemberByEmail($pdo,$method); return; }
             if ($path === '/admin/pages') { $this->pages($pdo); return; }
             if ($path === '/admin/page') { $this->edit($pdo, $method); return; }
             if ($path === '/admin/members') { $this->members($pdo); return; }
@@ -620,6 +621,48 @@ final class SiteAdminController
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }
 
+    /** An authenticated POST-only local email lookup, never a member action. */
+    private function findMemberByEmail(PDO $pdo,string $method): void
+    {
+        if ($method!=='POST') {
+            header('Allow: POST');
+            $this->render(405,'Member lookup requires POST',
+                '<p><a href="/admin/members">Open the member directory</a>.</p>');
+            return;
+        }
+        $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+        $q->execute([MemberSchema::VERSION]);
+        if ((int)$q->fetchColumn()!==1) {
+            $this->render(503,'Member directory setup required',
+                '<p>Apply local member setup in <a href="/admin/setup">Site setup</a>.</p>');
+            return;
+        }
+        try {
+            $row=(new MemberDirectory($pdo))->byEmail($_POST['email']??null);
+        } catch (RuntimeException) {
+            $this->render(422,'Invalid email lookup',
+                '<p role="alert">Enter a valid local member email address.</p>'
+                .'<p><a href="/admin/members">Back to member directory</a></p>');
+            return;
+        }
+        if ($row===null) {
+            $this->render(200,'Local member search',
+                '<p>No local member account matched the supplied email.</p>'
+                .'<p><a href="/admin/members">Back to member directory</a></p>');
+            return;
+        }
+        $id=$row['id'];
+        $html='<p class="intro">One local account was found. Searching never approves age, '
+            .'consent, billing or private media access.</p>'
+            .'<section class="panel"><h2>Local member #'.$id.'</h2>'
+            .'<p><strong>Email:</strong> '.self::e($row['email']).'</p>'
+            .'<p><strong>Locally recorded status:</strong> '.self::e($row['status']).'</p>'
+            .'<p><strong>Registered (UTC):</strong> '.self::e($row['created_at']).'</p>'
+            .'<p><a href="/admin/members/manage?id='.$id.'">Review account safety</a></p>'
+            .'</section><p><a href="/admin/members">Back to member directory</a></p>';
+        $this->render(200,'Local member search',$html);
+    }
+
     private function members(PDO $pdo): void
     {
         $q=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
@@ -701,7 +744,14 @@ final class SiteAdminController
             $html.='<p><a href="/admin/members">Back to all local members</a></p>';
         }
         $html.='<p class="muted">50 accounts per page. No password hashes, verification evidence, '
-            .'billing details, or account activation controls appear here.</p></section>';
+            .'billing details, or account activation controls appear here.</p></section>'
+            .'<section class="panel"><h2>Find a member by email</h2>'
+            .'<p>The private form submits without putting email addresses in website URLs.</p>'
+            .'<form method="post" action="/admin/members/find" class="install-form" autocomplete="off">'
+            .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+            .'<label for="member-email-search">Exact local member email</label>'
+            .'<input id="member-email-search" name="email" type="email" maxlength="190" required>'
+            .'<button class="button-secondary" type="submit">Find member account</button></form></section>';
         $this->render(200,'Registered members',$html);
     }
 

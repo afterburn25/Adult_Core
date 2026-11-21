@@ -157,7 +157,7 @@ final class AdminController
             (new ModerationController($this->root))->handle($method, $admin);
             return;
         }
-        if (in_array($path, ['/admin/setup', '/admin/pages', '/admin/page', '/admin/page/preview', '/admin/page/history', '/admin/site', '/admin/members'], true)) {
+        if (in_array($path, ['/admin/setup', '/admin/pages', '/admin/page', '/admin/page/preview', '/admin/page/history', '/admin/site', '/admin/members', '/admin/members/find'], true)) {
             (new SiteAdminController($this->root))->handle($path, $method, $admin);
             return;
         }

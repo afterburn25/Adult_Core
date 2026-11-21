@@ -1,3 +1,9 @@
+## Authenticated private member-email search form — 2026-11-21
+
+An owner/admin can now use **Admin → Members → Find a member by email**. It posts the exact email in a CSRF-protected request to `/admin/members/find`, with no email URL parameter or browser history entry. The route is behind the existing signed-in administrator, role/License/MFA checks; GET returns HTTP 405, and no local member matches are reported as a safe read-only empty result. Results show only escaped member ID, email, locally recorded status and registration time, with an ID-only link to the separate step-up-protected member safety page. The form cannot change accounts, activate membership, certify age/consent, issue paid entitlements or expose adult media. ZIP and SQL backend are unchanged; HTTP and moderator denial tests follow. Real-host release blockers remain open.
+
+---
+
 ## Exact POST-ready local member email query — 2026-11-21
 
 `MemberDirectory::byEmail()` adds a prepared, bounded, normalized exact-match query that exposes only local member ID/email/status/registration time, never password hashes, account age/consent details, merchant information, creator content or staff accounts. Input rejects control characters, invalid addresses and overlong strings before SQL; unknown accounts return null. Disposable MySQL/MariaDB regressions cover case normalization, staff exclusion, missing accounts and malicious inputs. Do not expose private emails in GET URLs: a separately authenticated POST-only owner form is the next increment. All existing member security step-ups and adult release gates remain intact.
