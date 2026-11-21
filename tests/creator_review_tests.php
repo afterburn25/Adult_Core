@@ -31,6 +31,12 @@ $assert(RolePolicy::allows('owner','content.moderate')
     && !RolePolicy::allows('member','content.moderate'),
     'Only active local moderation staff can review creator plans');
 $source=(string)file_get_contents(dirname(__DIR__).'/src/Creator/CreatorDraftReview.php');
+$assert(str_contains($source,'public function queuePage(')
+    && str_contains($source,'parseQueueCursor(')
+    && str_contains($source,'LIMIT 51')
+    && str_contains($source,'d.updated_at>?')
+    && str_contains($source,'requireModerator($moderatorId,false)'),
+    'Local private moderator queue has bounded authenticated keyset paging');
 $assert(str_contains($source,"['changes','rejected']")
     && !str_contains($source,"['changes','approved']")
     && !str_contains($source,"SET status='approved'")
@@ -39,6 +45,10 @@ $assert(str_contains($source,"['changes','rejected']")
     && !str_contains($source,'UPDATE ac_age_verifications'),
     'Private text review has no approval, media, public or age-verification transition');
 $controller=(string)file_get_contents(dirname(__DIR__).'/src/Http/CreatorReviewController.php');
+$assert(str_contains($controller,'Next submitted plans')
+    && str_contains($controller,'rawurlencode($page[\'next\'])')
+    && str_contains($controller,'Invalid private review queue cursor.'),
+    'Review UI provides safe cursor links and rejects malformed cursors');
 $assert(str_contains($controller,"'content.moderate'")
     && str_contains($controller,'AdminSession::csrfValid')
     && str_contains($controller,'Cache-Control: private, no-store')

@@ -35,6 +35,15 @@ final class CreatorFeedbackSchema
             FOREIGN KEY (draft_id) REFERENCES ac_creator_drafts(id),
             FOREIGN KEY (reviewer_id) REFERENCES ac_users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        // Bound review queue scans as creator counts grow locally.
+        // Additive DDL is safe to repeat on either supported MySQL/MariaDB.
+        $index=$pdo->query("SELECT COUNT(*) FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_creator_drafts'
+                AND INDEX_NAME='ix_creator_review_queue'");
+        if ((int)$index->fetchColumn()===0) {
+            $pdo->exec('ALTER TABLE ac_creator_drafts
+                ADD INDEX ix_creator_review_queue(status,updated_at,id)');
+        }
         // Preserve the CURRENT, provenance-backed feedback from an m14
         // installation during upgrade. The last numeric draft event must
         // match the draft's current review decision. Earlier overwritten

@@ -73,8 +73,13 @@ final class CreatorReviewController
                 $html.='<p role="status">Local review feedback saved privately. No public change occurred.</p>';
             }
             $html.='<section class="panel"><h2>Submitted private plans</h2>';
-            $queue=$review->queue($admin['id']);
-            if ($queue===[]) $html.='<p>No submitted private plans await review.</p>';
+            $after=$_GET['after']??null;
+            if ($after!==null && !is_string($after)) {
+                throw new RuntimeException('Invalid private review queue cursor.');
+            }
+            $page=$review->queuePage($admin['id'],$after);
+            $queue=$page['drafts'];
+            if ($queue===[]) $html.='<p>No submitted private plans await review on this page.</p>';
             foreach ($queue as $draft) {
                 $html.='<article class="panel"><h3>'.self::e((string)$draft['title']).'</h3>'
                     .'<p>Creator: '.self::e((string)$draft['display_name'])
@@ -95,6 +100,14 @@ final class CreatorReviewController
                     .'<button class="button-secondary">Send private review feedback</button>'
                     .'</form></article>';
             }
+            if ($page['next']!==null) {
+                $html.='<p><a href="/admin/creator-review?after='
+                    .rawurlencode($page['next'])
+                    .'">Next submitted plans</a></p>';
+            }
+            if ($after!==null) {
+                $html.='<p><a href="/admin/creator-review">Back to first submitted plans</a></p>';
+            }
             $html.='</section>';
             $this->render(200,'Creator text review',$html,$admin['role']);
         } catch (RuntimeException $e) {
@@ -102,7 +115,7 @@ final class CreatorReviewController
                 'Invalid creator review decision.','Enter 10–500 bytes of private review feedback.',
                 'Only submitted private plans can be reviewed.',
                 'Draft changed; reload the review queue.',
-                'Moderation permission required.',
+                'Moderation permission required.','Invalid private review queue cursor.',
             ];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Private review decision refused.';
             $this->render(422,'Creator review refused','<p role="alert">'.self::e($message).'</p>',$admin['role']);
