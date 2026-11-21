@@ -1,3 +1,9 @@
+## Private unpublished draft detail remains read-only — 2026-11-21
+
+`ModerationRepository::privateDraftDetail()` may return only `visibility='private'` and `draft/quarantined/rejected` records; keep the fields limited to safe status, numeric image and performer record references, and bounded audit notes. No `private_storage_key`, performer identity documents or raw verification evidence reaches the route. `ModerationController::draftPage()` MUST require current `content.moderate`, allow GET only, send no-store/noindex, and HTML-escape all user-controlled text; only pending images on still-pending private drafts get links to independently authorized `/admin/moderation/image/ID`. No approve/publish/restore/upload shortcuts in this view. Preserve explicit admin/moderator/anonymous HTTP regression tests including rejection/revocation behavior and sitewide licensing gates.
+
+---
+
 ## Restricted active moderator login — 2026-11-21
 
 A moderator may have `admin.access` and `content.moderate` only; NEVER grant `admin.dashboard.view`, `site.settings.manage`, `members.manage` or `modules.manage` to this role. An active moderator's post-login/MFA destination is `/admin/moderation`, and their `Layout::admin(..., role:'moderator')` navigation must omit site, billing, licensing, Pro upgrade and add-on controls. They may access `/admin/security` only for **their own MFA**, using the existing password/second-factor flow. Service methods must still check active current DB role and locked unpublished states; no approve/publish code. Keep separate-cookie moderator/admin real HTTP tests and disposable SQL/role tests. Account provisioning and commercial compliance remain unimplemented.

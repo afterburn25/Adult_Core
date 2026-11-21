@@ -1,3 +1,9 @@
+## Role-guarded private draft detail — development only
+
+The moderation workspace now links unpublished, private content to `/admin/moderation/draft/ID`, a read-only, noindex/no-store protected detail view. It displays only a bounded queue of numeric pending/rejected image references, consent/identity *status cues*, and escaped private audit notes; it does not deliver private keys or original performer evidence. Individual pending-image preview remains restricted to a still-pending private draft and rechecks permission per byte request. This does not add a moderation approval/publish path or verify lawful consent; workstreams #3, #5 and #10 remain open.
+
+---
+
 ## Restricted moderator role workflow — local development only
 
 An independently provisioned active `moderator` account can now sign in and access a restricted navigation limited to content moderation and its own MFA/security page. Server role checks still deny manager-only site, membership tiers, licensing, modules, design and upgrades. The moderation repository checks active current role for each mutation and preserves default-deny image visibility; only pending private drafts can be staged, never published or approved. Disposable SQL and separate-cookie-jar HTTP checks verify role authorization, CSRF and restricted navigation. No owner-side staff invitation/approval or performer consent delegation is implemented; independent least-privilege review remains required.

@@ -1,3 +1,10 @@
+## Private draft detail for moderation teams — 2026-11-21 (development only)
+
+- Add role-scoped, GET-only `/admin/moderation/draft/ID` for unpublished private content with image queue, performer evidence-state summary and bounded audit history.
+- Show guarded pending-image review links only when both image and entire draft remain private/pending; otherwise show record state without clickable image access.
+- No raw storage keys, performer evidence documents, unapproved media or member authorization are exposed; responses use no-store/noindex headers.
+- Add disposable real HTTP and MySQL tests for moderator access, unknown IDs, rejected images, post-logout refusal and safe private metadata.
+
 ## Restricted moderation role login and navigation — 2026-11-21 (development only)
 
 - Allow active `moderator` accounts to authenticate into the restricted workspace, redirect to moderation instead of the manager dashboard, and perform server-checked content moderation operations.

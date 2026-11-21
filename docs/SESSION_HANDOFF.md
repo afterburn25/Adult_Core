@@ -1,3 +1,11 @@
+## Moderator private draft detail UI — 2026-11-21
+
+- Added `ModerationRepository::privateDraftDetail(id)` returning bounded summary for only `visibility='private'` unpublished `draft/quarantined/rejected` records: image ID/MIME/review state (never storage keys), performer ID/status/timestamps cues (never evidence documents), and private audited action notes.
+- `AdminController` dispatches `/admin/moderation/draft/ID` to `ModerationController::draftPage()` after current account session/MFA/license gates. The new action enforces `content.moderate`, GET-only, no-store/noindex and escaped HTML. Pending preview links are included ONLY for still-pending images on a still-pending private draft, and image bytes are independently guarded by the existing review endpoint.
+- The moderation queue now links eligible private records to the detailed review page. Disposable MySQL and real authenticated HTTP tests check administrator + restricted moderator access, invalid IDs, rejected media review-link denial, no storage key leakage and logged-out denial. Verify new CI before claiming green. All external compliance and payment/hosting launch gates remain open.
+
+---
+
 ## Moderator sign-in and least privilege — 2026-11-21
 
 - Updated `RolePolicy` so an existing active `moderator` can enter the authenticated admin area but still lacks `admin.dashboard.view` and all site management/edition/license/package permissions. `AdminController` and MFA success route redirect moderators to `/admin/moderation`; `ModerationRepository::requireModerator()` accepts the current active moderator for actual private-only review actions.

@@ -1,3 +1,11 @@
+## Private draft review detail for moderators — 2026-11-21
+
+Authorized moderators and administrators can now use `GET /admin/moderation/draft/CONTENT_ID` to inspect a saved private, unpublished draft (including quarantined or rejected drafts) as a single coherent review page. The server returns only the draft's safe metadata, allowlisted image MIME/review states and numeric image IDs, performer *evidence-status indicators* (no documents or private record keys), and a bounded private audit history. A clickable `/admin/moderation/image/ID` review URL appears only for an unreviewed pending image in a still-private pending draft; every actual image response independently enforces authentication/MFA, role, storage integrity and current draft state. Rejected/quarantined image links remain unavailable. The detail route is GET-only, no-store/noindex, requires current `content.moderate` permission and cannot change review/publication or grant member access. SQL and HTTP tests use separate administrator/moderator sessions, invalid IDs, rejection and logout.
+
+This is a review UI increment, **not** a creator uploader, approved content publication, external ID/consent determination, scanning service or real production hosting test. Workstream #5 remains open.
+
+---
+
 ## Restricted moderator account end-to-end workflow — 2026-11-21
 
 Existing active accounts with role `moderator` can now authenticate through the regular administrator login and land directly in `/admin/moderation`, with an appropriately restricted sidebar. Moderators can view review queues, create private pending drafts, inspect protected pending images, reject/quarantine, record report dispositions and consult audit history. Every mutation still requires current database-backed role, CSRF and private media/content gates; the default admin dashboard, membership tier management, site design/pages, packages, license/edition upgrades and setup remain denied. Moderators may configure **their own** authenticator MFA via `/admin/security` and see only permitted navigation.
