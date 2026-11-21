@@ -386,9 +386,6 @@ def main():
                    and '<img' not in library)
             code, rejected_post = req('/members/library', {'test': 'unsafe'})
             ensure('Member library forbids mutating HTTP methods', code == 405)
-            code, _, _, pending_image_bytes = req_binary('/media/'+pending_media_id)
-            ensure('Pending member account cannot retrieve unreviewed uploaded images',
-                   code == 403 and not pending_image_bytes.startswith(b'\x89PNG'))
             code, forbidden_detail = req(f'/members/library/{draft_id}')
             ensure('Pending member does not see draft gallery detail',
                    code == 404 and 'Private test draft' not in forbidden_detail
@@ -600,6 +597,9 @@ def main():
                    code == 200 and content_type.startswith('image/png')
                    and 'no-store' in cache_control
                    and png_bytes.startswith(b'\x89PNG\r\n\x1a\n'))
+            code, _, _, pending_image_bytes = req_binary('/media/'+pending_media_id)
+            ensure('Even verified active members cannot retrieve unreviewed draft images',
+                   code == 404 and not pending_image_bytes.startswith(b'\x89PNG'))
 
             subprocess.check_output(php_fixture + ['revoke-gallery', gallery_id], cwd=root)
             code, revoked_catalog = req('/members/library')
