@@ -1,3 +1,9 @@
+## Unified source archive covers page editing migrations — 2026-11-21
+
+The Lite/Pro source ZIP required-file inventory and reopened-archive regression now require PageRepository, PageRevisionSchema and PageNavigationSchema. A developer cannot build a seemingly complete release ZIP if either new additive page migration or the underlying page repository is absent. The archive still contains both edition descriptors, does not package customer secrets, and is not a signed production update or proof of deployment acceptance.
+
+---
+
 ## Encrypted recovery regression for m16/m17 page data — 2026-11-21
 
 The disposable MySQL/MariaDB full backup and empty-database restore test now covers the new page revision and navigation migrations. It backs up a published but unlisted page plus a versioned homepage, then checks exact restored row snapshots, migration markers and the distinction between published URLs and visible menu links. Existing creator feedback, media, license, installer and archive-integrity checks remain. This is local CI evidence, not independent real-host disaster recovery or adult-content production certification.
