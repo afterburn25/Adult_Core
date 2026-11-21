@@ -1,3 +1,13 @@
+## Unpublished draft workflow and staging-only membership tiers — 2026-11-21
+
+Moderators can now edit a still-private pending draft's title, prepare a future tier assignment and reject an individual staged image. Every mutation is checked server-side against a current active moderator/admin, CSRF, the locked draft's status, and (for edits) the expected old value to avoid lost updates. Rejected image database records and private bytes are retained for appropriate legal/incident handling, while their moderator preview disappears; no approve/publish route is added. The moderation queue now offers named draft selectors for upload/roster creation, and an administrator-only 50-entry audit-history view with escaped notes.
+
+The new `/admin/tiers` admin page can create and rename tier **labels only**. New tiers are explicitly saved with `is_active=0`, so even a fabricated active membership row would not satisfy paid access. A private draft can reference one of these disabled labels to prepare future pricing, but its visibility remains `private` and its review status remains `pending`. The page cannot set prices, delete or activate tiers, sign up members, accept checkout, or create memberships. The same installable Lite/Pro software package includes both tier-admin source files. Automated unit, disposable MySQL, and authenticated HTTP tests cover CSRF, escaping, stale edits, inactive-tier entitlement denial, individual media rejection and audit history.
+
+**Production still blocked:** independently approved merchant/age/consent providers, full creator onboarding, secure image re-encoding/malware scanning, publish/restore/takedown lifecycle, real cPanel and Pro VPS installation, video delivery and independent legal/security certification. These staging features are not evidence that a lawful paid adult-content storefront is operational.
+
+---
+
 ## Disposable real Apache preinstall route check — 2026-11-21
 
 The bundled `public/.htaccess` now rejects direct execution of unexpected PHP/script filenames (including a nested `assets/index.php`) while keeping the root `public/index.php` as the only Apache PHP entrypoint. New `tests/apache_preinstall_smoke.py` runs the preinstall application through a disposable official PHP 8.3/Apache container with `mod_rewrite` enabled, host-ephemeral loopback port and a temporary synthetic source copy. It checks the installer route and static CSS, confirms private paths remain behind the setup gate and verifies that deliberately injected executable files are **403** rather than executed. This does not use real licenses, production files, a customer database, HTTPS or external hosts.

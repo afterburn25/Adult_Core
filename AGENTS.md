@@ -1,3 +1,11 @@
+## Staged private draft title, media rejection and inactive tier catalog — 2026-11-21
+
+`ModerationRepository::renameDraft()`, `rejectDraftImage()` and `assignDraftTier()` are server-side **pending private draft** actions only. Lock parent draft rows before changes, reject stale expected title/tier values, enforce current moderator/admin role, use route CSRF, keep audit notes escaped/private and never add an approve/publish fallback. Image rejection changes review state to `rejected` and immediately denies moderator preview, but NEVER deletes protected blobs or legal-retention evidence. Reject replays, unknown media IDs, and use `tests/mysql_http_auth.py` and `tests/mysql_install.php` to verify no member media release.
+
+`TierCatalog` and `TierController` use the existing `ac_membership_tiers` schema without new grants or migrations. New tier labels MUST explicitly set `is_active=0` (despite the legacy schema default of 1), and admin UI supports only create/rename; it must not expose a tier activation/deletion action, checkout, member enrollment or payment test bypass. `assignDraftTier()` may reference a disabled tier but MUST keep content `draft/private/pending`. `Entitlements::canView()` still denies disabled tiers even with a synthetic active membership record. Maintain the unified release ZIP required files, and document all merchant/creator production gates as open.
+
+---
+
 ## Apache direct script denial and non-production HTTP smoke — 2026-11-21
 
 Keep `public/.htaccess` denying unexpected executable paths through its rewrite rule (exact root `index.php` remains the only Apache PHP entrypoint) and defense-in-depth `FilesMatch`. Never allow `public/router.php` or nested `assets/index.php` as Apache entrypoints, and keep source `src/config/storage/install/tests/scripts` above the document root. `tests/apache_preinstall_smoke.py` exercises an **isolated** official Apache container over a loopback ephemeral port with synthetic test-only unexpected PHP files. No customer data, license key or production payment system is involved. This test is not HTTPS/cPanel/VPS certification, and it never authorizes publishing adult content or bypassing release gates.

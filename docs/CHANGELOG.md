@@ -1,3 +1,11 @@
+## Private draft editing and inactive membership tier catalog — 2026-11-21 (development only)
+
+- Enable CSRF-protected, stale-edit-aware private draft title edits, single pending-image rejection (no file deletion or automatic publication) and draft-only future tier association with private moderation audit notes.
+- Add named private-draft selectors and a permission-gated, escaped 50-event moderation history panel.
+- Add `/admin/tiers`, `TierCatalog` and `TierController`: administrator-only create/rename of tier labels, no checkout/grants/tier deletion or deactivation. New tier records are explicitly **inactive for entitlements** until a real merchant lifecycle is integrated.
+- Extend unit, real HTTP and disposable MySQL tests for CSRF, rejection, stale edits, disabled-tier denial and XSS escaping. The unified source archive now requires both tier classes.
+- No provider activation, customer billing, age verification, creator publishing, real hosting certification or release signoff.
+
 ## Apache HTTP preinstall and direct-script denial — 2026-11-21 (development only)
 
 - Deny unexpected executable files in `public/` at the Apache routing layer, with root `index.php` as the only public PHP entrypoint; refuse unexpected scripts independently of the installer's file preflight.

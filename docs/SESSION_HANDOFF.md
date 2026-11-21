@@ -1,3 +1,12 @@
+## Private draft editing, single-image rejection and tier label admin — 2026-11-21
+
+- Added `ModerationRepository::renameDraft()` with an expected-title concurrency check, `rejectDraftImage()` for one pending draft image (private bytes retained), and `assignDraftTier()` for future tier references only. Each checks current admin/moderator DB role and locked private/pending status, persists private audit history, and cannot approve/publish.
+- `ModerationController` exposes authenticated CSRF-protected POST forms, safely escaped audit-history viewer, and named private-draft selectors. Confirmed HTTP/SQL test coverage includes invalid CSRF, stale state, XSS display, pending preview revocation and unrelated-image preservation.
+- Added `src/Membership/TierCatalog.php` + `src/Http/TierController.php` at `/admin/tiers` for owner/admin catalog **label management only**. New labels are explicitly `is_active=0` and lack any activation, pricing, billing or entitlement grant action. Disabled labels can be assigned to drafts without changing `draft/private/pending`; the SQL test proves disabled tiers refuse even a synthetic active membership. Added tier unit tests, live authenticated HTTP controls and release ZIP class inclusion checks.
+- Existing one-codebase license-key-selected Lite/Pro contract and every production release gate remain unchanged. CI on the latest commit must be independently verified; genuine CWP merchant/identity providers, public publishing, media antivirus/re-encoding, cPanel/VPS hosting and commercial signoff remain outstanding.
+
+---
+
 ## Real Apache container preinstall smoke (not actual cPanel) — 2026-11-21
 
 - `public/.htaccess` now denies unexpected direct PHP/script resources at the Apache layer, including nested `assets/index.php`, while preserving root `public/index.php` and existing rewrite/private-file guards. This prevents accidental public executable files from running even before installation.

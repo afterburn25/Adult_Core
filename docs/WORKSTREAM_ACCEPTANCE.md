@@ -1,3 +1,13 @@
+## Private draft staging and tier label configuration (2026-11-21 development increment)
+
+New private, unreviewed draft actions support title edits, preparation of future tier assignments and **individual pending-image rejection**. Moderator and admin authorization, CSRF, locked draft/asset status checks and stale-edit rejection remain mandatory. Rejection removes preview eligibility but retains protected file records for lawful review; it does not delete evidence. Moderators may read an escaped, bounded decision history for a selected content ID, and may choose pending drafts by name for staging/roster setup.
+
+The membership catalog UI `/admin/tiers` creates and renames names and stable IDs only. All new catalog rows start `is_active=0` to avoid accidental paid entitlement authorization. Draft tier assignment is preparatory and **does not** switch visibility, approve the draft, create a member subscription, confirm payment or charge a card. Only approved adult-content merchant integration and separately reviewed provider fulfillment could justify future activation. The four Cajun Web Pro *software license SKUs* and the one Lite/Pro installer are unrelated and unchanged.
+
+Workstreams #3, #4, #5, #8 and #10 remain open. Do not count these interface and local test contracts as production payment, identity/consent, content-publication or real-host acceptance.
+
+---
+
 ## Legacy image-byte and metadata audit safeguard (development only)
 
 Member gallery bytes, moderator draft previews and public decorative images now undergo an additional MIME, size and conservative metadata-container verification at delivery. This protects against old image records that were written before upload screening existed, but it does not turn synthetic approvals into genuine entitlement or legal consent. Operators can request a non-mutating, privacy-preserving scan with `php scripts/audit-private-media.php --metadata --json`. The opt-in scan reviews at most 100 existing media files / 64 MiB, and reports `metadata_rejected` or `metadata_truncated` rather than exposing private filenames or silently deleting media. An incomplete scan is not a green release signal. Workstreams #3, #5, #9 and #10 remain open for real providers, full rights/retention lifecycle, safe re-encoding/malware scanning, actual host permission testing and independent certification.
