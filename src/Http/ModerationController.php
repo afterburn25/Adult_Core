@@ -9,6 +9,7 @@ use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
+use AdultCore\Media\PrivateMedia;
 use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
@@ -47,6 +48,17 @@ final class ModerationController
                     $repo->createDraft($_POST['title'], $admin['id']);
                 } elseif ($action==='declare_performers') {
                     $repo->declarePerformers(self::positiveId($_POST['content_id']??null),$admin['id'],self::positiveId($_POST['performer_count']??null));
+                } elseif ($action==='upload_draft_image') {
+                    $upload=$_FILES['draft_image']??null;
+                    if (!is_array($upload) || ($upload['error']??null)!==UPLOAD_ERR_OK
+                        || !is_string($upload['tmp_name']??null)
+                        || !is_uploaded_file($upload['tmp_name'])) {
+                        throw new RuntimeException('Choose an uploaded JPEG, PNG or WebP image.');
+                    }
+                    $repo->attachPrivateImage(
+                        self::positiveId($_POST['content_id']??null),
+                        $admin['id'], $upload['tmp_name'], true, new PrivateMedia($this->root)
+                    );
                 } elseif (in_array($action,['quarantine','reject'],true)) {
                     $repo->moderateContent(self::positiveId($_POST['content_id']??null),$admin['id'],$action,self::safeString($_POST['note']??null));
                 } elseif (in_array($action,['resolved','dismissed'],true)) {
@@ -58,7 +70,10 @@ final class ModerationController
             }
             $this->render(200,'Content moderation',$this->dashboard($repo));
         } catch (RuntimeException $e) {
-            $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.'];
+            $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.',
+                'Choose an uploaded JPEG, PNG or WebP image.','Invalid private draft image upload.',
+                'Only private, unreviewed drafts accept images.','Private draft image limit reached.',
+                'Invalid or oversized image upload.','Image type not allowed.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -89,6 +104,15 @@ final class ModerationController
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="new_draft">'
             .'<label for="content-title">Draft title</label><input id="content-title" name="title" maxlength="190" required>'
             .'<button class="install-button">Create unpublished draft</button></form></section>';
+        $html.='<section class="panel"><h2>Stage a private draft image</h2>'
+            .'<p>Only JPEG, PNG or WebP (up to 8 MiB). Files remain outside the public web root and '
+            .'pending review. This action never verifies performers, approves media, or publishes a gallery.</p>'
+            .'<form method="post" action="/admin/moderation" enctype="multipart/form-data" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.$csrf.'">'
+            .'<input type="hidden" name="action" value="upload_draft_image">'
+            .'<label>Existing unpublished draft ID<input type="number" name="content_id" min="1" required></label>'
+            .'<label>Private image<input type="file" name="draft_image" accept="image/jpeg,image/png,image/webp" required></label>'
+            .'<button class="button-secondary" type="submit">Store image privately for review</button></form></section>';
         $html.='<section class="panel"><h2>Content queue</h2><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Open reports</th><th>Review action</th></tr></thead><tbody>';
         foreach ($repo->contentQueue() as $item) {
             $id=(int)$item['id'];
