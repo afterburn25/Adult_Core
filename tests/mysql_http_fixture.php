@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -28,6 +28,15 @@ if (!is_string($name) || !is_string($user) || !is_string($pass)
     throw new RuntimeException('Missing or unsafe disposable test database configuration.');
 }
 $pdo = new PDO("mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4", $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+if ($action === 'suspend-owner' || $action === 'reactivate-owner') {
+    // Disposable-only admin security regression; never parameterize user IDs.
+    $state=$action==='suspend-owner'?'suspended':'active';
+    $q=$pdo->prepare("UPDATE ac_users SET status=? WHERE email='owner@example.test' AND role='admin'");
+    $q->execute([$state]);
+    if ($q->rowCount()!==1) throw new RuntimeException('Disposable administrator fixture not found.');
+    echo 'Disposable administrator status updated.';
+    exit;
+}
 if ($action === 'issue-email') {
     // Disposable CLI test helper only. This token MUST NEVER be emitted by production routes.
     $q=$pdo->prepare("SELECT id FROM ac_users WHERE email='member@test.example' AND role='member' LIMIT 1");

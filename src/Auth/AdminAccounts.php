@@ -6,7 +6,7 @@ namespace AdultCore\Auth;
 
 use PDO;
 
-/** Database-backed first-admin login and continuous role verification. */
+/** Only active privileged accounts may log in or retain admin sessions. */
 final class AdminAccounts
 {
     public function __construct(private readonly PDO $pdo)
@@ -21,7 +21,7 @@ final class AdminAccounts
             return null;
         }
         $email = strtolower(trim($email));
-        $statement = $this->pdo->prepare('SELECT id, email, password_hash, role FROM ac_users WHERE email = ? LIMIT 1');
+        $statement = $this->pdo->prepare("SELECT id, email, password_hash, role FROM ac_users WHERE email = ? AND status='active' LIMIT 1");
         $statement->execute([$email]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
         // Always perform a password hash comparison even for unknown accounts.
@@ -42,7 +42,7 @@ final class AdminAccounts
         if ($id < 1) {
             return null;
         }
-        $statement = $this->pdo->prepare('SELECT id, email, role FROM ac_users WHERE id = ? LIMIT 1');
+        $statement = $this->pdo->prepare("SELECT id, email, role FROM ac_users WHERE id = ? AND status='active' LIMIT 1");
         $statement->execute([$id]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
         if (!is_array($user) || !RolePolicy::allows((string) $user['role'], 'admin.access')) {
