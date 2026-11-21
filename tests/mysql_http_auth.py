@@ -450,7 +450,7 @@ def main():
             })
             ensure('Moderator can stage a private-only content draft',code == 303)
             for forbidden in ('/admin/staff','/admin/tiers','/admin/upgrade','/admin/license',
-                              '/admin/pages','/admin/site','/admin/health','/admin/members/manage?id=1','/admin/packages','/admin/page/preview?id=1'):
+                              '/admin/pages','/admin/site','/admin/health','/admin/members/find','/admin/members/manage?id=1','/admin/packages','/admin/page/preview?id=1'):
                 code, _=mod_req(forbidden)
                 ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
             code, mod_mfa=mod_req('/admin/security')
@@ -1788,6 +1788,28 @@ def main():
                    code==200 and older_members is not None
                    and 'bulk-member-50@example.test' in member_list
                    and 'password_hash' not in member_list)
+            email_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',member_list)
+            ensure('Owner email lookup is private CSRF POST, not a GET query',
+                   code==200 and email_csrf is not None
+                   and 'method="post" action="/admin/members/find"' in member_list)
+            code, denied_email_get=req('/admin/members/find')
+            ensure('Private member email search refuses GET requests',code==405)
+            code, denied_email_csrf=req('/admin/members/find',{
+                'csrf':'invalid','email':'bulk-member-50@example.test'})
+            ensure('Private member email search requires CSRF',code==403)
+            code, matched_email=req('/admin/members/find',{
+                'csrf':email_csrf.group(1),'email':'BULK-MEMBER-50@EXAMPLE.TEST'})
+            ensure('Exact email POST finds only a local member, with no credential disclosure',
+                   code==200 and 'bulk-member-50@example.test' in matched_email
+                   and 'Review account safety' in matched_email
+                   and 'password_hash' not in matched_email)
+            code, missing_email=req('/admin/members/find',{
+                'csrf':email_csrf.group(1),'email':'unknown-local-member@example.test'})
+            ensure('Unknown member email returns safe empty lookup result',
+                   code==200 and 'No local member account matched' in missing_email)
+            code, invalid_email=req('/admin/members/find',{
+                'csrf':email_csrf.group(1),'email':'bad\x00@example.test'})
+            ensure('Malformed email lookup is refused',code==422 and 'Invalid email lookup' in invalid_email)
             sample_id=re.search(r'<tr><td>(\d+)</td><td>bulk-member-50@example\.test</td>',member_list)
             ensure('Read-only owner member directory exposes numeric local IDs',
                    sample_id is not None)

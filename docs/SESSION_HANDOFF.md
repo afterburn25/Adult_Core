@@ -1,3 +1,9 @@
+## Authenticated HTTP and moderator-denial tests for private member-email lookup — 2026-11-21
+
+Real disposable MySQL/MariaDB HTTP regressions now exercise the owner-only `/admin/members/find` POST flow: the directory advertises a CSRF-protected POST form; GET is 405; missing CSRF is 403; uppercase exact addresses resolve to the correct local member with no password hashes; unknown addresses return a neutral empty result; NUL input is rejected with 422. A signed-in moderator is independently denied the search route before any lookup. This feature never serializes email in GET URLs, modifies account status, creates age/consent/payment entitlements, or reveals private media. CI must finish before marking the flow verified.
+
+---
+
 ## Authenticated private member-email search form — 2026-11-21
 
 An owner/admin can now use **Admin → Members → Find a member by email**. It posts the exact email in a CSRF-protected request to `/admin/members/find`, with no email URL parameter or browser history entry. The route is behind the existing signed-in administrator, role/License/MFA checks; GET returns HTTP 405, and no local member matches are reported as a safe read-only empty result. Results show only escaped member ID, email, locally recorded status and registration time, with an ID-only link to the separate step-up-protected member safety page. The form cannot change accounts, activate membership, certify age/consent, issue paid entitlements or expose adult media. ZIP and SQL backend are unchanged; HTTP and moderator denial tests follow. Real-host release blockers remain open.
