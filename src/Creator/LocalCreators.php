@@ -104,13 +104,20 @@ final class LocalCreators
     }
 
     /** @return list<array<string,mixed>> */
-    public function managed(int $actorId): array
+    public function managed(int $actorId,?int $before=null): array
     {
         $this->requireManager($actorId,false);
-        $q=$this->pdo->query("SELECT c.id,c.member_id,c.display_name,c.status,c.revision,u.email,
+        if ($before!==null && $before<1) {
+            throw new RuntimeException('Invalid local creator page cursor.');
+        }
+        // One sentinel record beyond the 50 visible entries enables the
+        // owner to page all local profiles instead of hiding older creators.
+        $sql="SELECT c.id,c.member_id,c.display_name,c.status,c.revision,u.email,
             (SELECT COUNT(*) FROM ac_creator_drafts d WHERE d.creator_id=c.id) AS draft_count
-            FROM ac_creator_profiles c JOIN ac_users u ON u.id=c.member_id
-            ORDER BY c.id DESC LIMIT 100");
+            FROM ac_creator_profiles c JOIN ac_users u ON u.id=c.member_id";
+        if ($before!==null) $sql.=' WHERE c.id<?';
+        $q=$this->pdo->prepare($sql.' ORDER BY c.id DESC LIMIT 51');
+        $q->execute($before===null?[]:[$before]);
         return $q->fetchAll(PDO::FETCH_ASSOC);
     }
 

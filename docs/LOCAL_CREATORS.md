@@ -21,3 +21,7 @@ This is an early local planning workspace, **not** a creator-verification or pub
 ## Database and tests
 
 `CreatorSchema::migrate()` runs from Admin → Setup after the existing member and email migrations. It adds `ac_creator_profiles`, `ac_creator_drafts` and `ac_creator_actions`; it does not alter software licensing or introduce a remote service. Both the Lite and Pro source ZIP retain these classes. Run `php tests/local_creator_tests.php` for input/control tests; the disposable `php tests/mysql_install.php` and `python3 tests/mysql_http_auth.py` exercise real database and protected HTTP behavior against MySQL 8 and MariaDB 10.11 in CI. Production release acceptance is still blocked.
+
+## Many local creators
+
+The owner listing is paginated in descending local creator ID order, 50 per page, with an **Older local creators** link when more records exist. Cursor pagination never adds cross-site access or bypasses manager permissions, and prevents older profiles from becoming unmanageable under the per-installation catalog limit.

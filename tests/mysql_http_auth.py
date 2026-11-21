@@ -938,6 +938,9 @@ def main():
                    code == 200 and creator_row is not None
                    and '<script>alert(1)</script>' not in creator_admin)
             creator_id=creator_row.group(1)
+            code, empty_older=req('/admin/creators?before='+creator_id)
+            ensure('Admin creator pagination uses a numeric keyset cursor',
+                   code == 200 and '<td>member@test.example</td>' not in empty_older)
             code, member_home=req('/members')
             ensure('Enabled local creator sees draft workspace link',
                    code == 200 and 'href="/members/creator"' in member_home)

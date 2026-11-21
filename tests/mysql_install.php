@@ -528,6 +528,12 @@ try {
     } catch (RuntimeException $e) {
         if ($e->getMessage()==='Moderator read privileged owner draft plans.') throw $e;
     }
+    $olderManaged=$creators->managed((int)$valid['id'],$creatorId+1);
+    $tooOldManaged=$creators->managed((int)$valid['id'],$creatorId);
+    if (count($olderManaged)!==1 || (int)$olderManaged[0]['id']!==$creatorId
+        || $tooOldManaged!==[]) {
+        throw new RuntimeException('Local creator manager pagination leaked older/other records.');
+    }
     $managed=$creators->managed((int)$valid['id']);
     if (count($managed)!==2 || (int)$managed[1]['id']!==$creatorId ||
         (int)$managed[1]['draft_count']!==1) {

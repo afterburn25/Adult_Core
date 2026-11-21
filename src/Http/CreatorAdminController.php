@@ -150,7 +150,11 @@ final class CreatorAdminController
                 .'<table class="page-table"><thead><tr><th>ID</th><th>Member</th>'
                 .'<th>Display name</th><th>Workspace</th><th>Private drafts</th><th>Control</th>'
                 .'</tr></thead><tbody>';
-            foreach ($creators->managed($admin['id']) as $row) {
+            $before=isset($_GET['before'])?self::positive($_GET['before']):null;
+            $page=$creators->managed($admin['id'],$before);
+            $more=count($page)>50;
+            if ($more) array_pop($page);
+            foreach ($page as $row) {
                 $id=(int)$row['id'];
                 $revision=(int)$row['revision'];
                 $status=(string)$row['status'];
@@ -173,7 +177,13 @@ final class CreatorAdminController
                 }
                 $html.='</td></tr>';
             }
-            $html.='</tbody></table></section><section class="panel"><h2>Private local action history</h2>'
+            $html.='</tbody></table>';
+            if ($more && $page!==[]) {
+                $last=end($page);
+                $html.='<p><a href="/admin/creators?before='.(int)$last['id']
+                    .'">Older local creators</a></p>';
+            }
+            $html.='</section><section class="panel"><h2>Private local action history</h2>'
                 .'<p>Recent 50 actions record only numeric actor/creator references and action types.</p>'
                 .'<table class="page-table"><thead><tr><th>Actor</th><th>Creator</th>'
                 .'<th>Action</th><th>UTC</th></tr></thead><tbody>';
@@ -198,6 +208,7 @@ final class CreatorAdminController
                 'Creator is not in the required state.',
                 'Creator member account or email is no longer eligible.',
                 'Invalid local creator input.','Unsupported local creator action.',
+                'Invalid local creator page cursor.',
             ];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Local creator change was refused.';
             $this->render(422,'Creator change refused',
