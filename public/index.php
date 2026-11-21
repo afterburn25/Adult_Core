@@ -72,7 +72,7 @@ if ($path === '/install') {
 // site with a missing, revoked, wrong-domain or stale-unverified license stays
 // inaccessible. Only authenticated license recovery and admin sign-in remain.
 $licenseStatus = (new \AdultCore\Licensing\LicenseManager($root))->status();
-if ($licenseStatus !== 'valid' && !in_array($path, ['/admin/login', '/admin/logout', '/admin/license', '/admin/upgrade'], true)) {
+if ($licenseStatus !== 'valid' && !in_array($path, ['/admin/login', '/admin/logout', '/admin/mfa', '/admin/license', '/admin/upgrade'], true)) {
     http_response_code(503);
     header('Retry-After: 1800');
     $heading = 'Adult_Core license authorization required';

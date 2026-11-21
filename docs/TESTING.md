@@ -1,3 +1,7 @@
+## Administrator MFA (0.8.7-mfa-dev)
+
+Run `php tests/mfa_tests.php` for TOTP test vectors, clock windows and session controls. Disposable MySQL integration tests in `php tests/mysql_install.php` validate persisted encrypted MFA, replay, recovery and removal detection. Real PHP HTTP integration in `python3 tests/mysql_http_auth.py` exercises enrollment, passwords, challenge, CSRF, backup codes, replay and disabling. Both integration suites *refuse* any database without `AC_TEST_DB_CONFIRM=YES_THIS_IS_A_DISPOSABLE_DATABASE` and environment-provided credentials. No live licensing endpoint or merchant gateway is used.
+
 ## 0.8.2-dev additional checks
 
 ```sh

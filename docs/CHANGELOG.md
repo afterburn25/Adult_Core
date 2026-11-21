@@ -1,3 +1,11 @@
+## 0.8.7-mfa-dev — Administrator authenticator MFA (2026-11-20)
+
+- Add additive `ac_admin_mfa` state with encrypted 160-bit TOTP secrets, 30-second RFC 6238 codes, ±1-step skew allowance and transactional replay prevention.
+- Add password-reauthenticated `/admin/security` enrollment/disable, 5-minute `/admin/mfa` challenge, 10-minute pending enrollment and ten single-use 64-bit recovery codes stored only as keyed digests.
+- Rotate sessions after password verification and full second-factor completion, revalidate MFA status on every authenticated admin route, and refuse silent downgrade after MFA DB row/table removal.
+- Add rate limiting, CSRF, role checks, PHPUnit-free unit tests and disposable MySQL/real HTTP workflow coverage.
+- Not complete: WebAuthn, independent security assessment, live hosting certification, backup/restore, actual Cajun Web Pro subscription billing activation, and adult-content provider/compliance gates.
+
 ## 0.8.6.7-subscription-contract-dev — 2026-11-20
 
 - Added an isolated stateful loopback HTTP simulator for Cajun Web Pro's product-bound license validation, and PHP fixture exercising the actual Adult_Core resolver/signed-cache/license manager without an external network or charge. Covers four products and active/unpaid/expired/renewed/cancelled/revoked/wrong-domain/outage/transfer flows.

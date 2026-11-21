@@ -1,3 +1,7 @@
+## Administrator MFA milestone (0.8.7-mfa-dev)
+
+New authenticator MFA and recovery paths are implemented for review and CI, but do not certify production authentication. Audit RFC 6238 behavior, recovery and backup of private application key, real HTTPS cookie settings, manual recovery policy, device compromise, independent browser and database tests, and administrator role changes before release. Other production gates (age/identity and performer consent, permitted billing, streaming, backups and release upgrade) remain open.
+
 ## 0.8.4-dev status
 
 The member password-recovery security increment is implemented, but does NOT close the production email-deliverability, administrative MFA, compliance, payment, Pro-worker, backup/restore or hosting-certification gates. The release check must continue to refuse production 1.0.

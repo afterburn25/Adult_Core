@@ -1,3 +1,9 @@
+## Current milestone: administrator MFA — 0.8.7-mfa-dev
+
+Keep `src/Auth/{AdminMfa,AdminMfaSchema,Totp}.php`, `src/Http/MfaController.php`, `/admin/mfa`, `/admin/security`, and the login/session enforcement together. Password success NEVER authenticates an enrolled administrator until a TOTP or single-use recovery code is consumed. Maintain app-key AES-GCM encryption, `FOR UPDATE` replay protection, post-enrollment enforced marker, reauthentication and CSRF controls, and signed commercial-license gate exception for the *challenge only*. Existing-site setup is additive, and owner cannot bypass via membership recovery. See `docs/ADMIN_MFA.md`; production and Cajun Web Pro real billing gates stay open.
+
+---
+
 # Subscription contract test handoff — 0.8.6.7 development
 
 `tests/cwp_subscription_contract.py` and `tests/fixtures/cwp_subscription_client.php` run a real localhost HTTP simulation of the CWP `POST /api/validate.php` wire contract without accessing live services or modifying shipping production URLs. This is **not merchant or live publisher acceptance**. Include the new Python test in CI. Preserve four exact SKUs, private signed caches, 72h bounded issuer-outage grace, fail-closed definitive denial, and manual installer deletion. The admin license view must warn that key replacement does not cancel subscriptions; the upgrade URL remains the CWP homepage pending owner approval. Details in `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`.

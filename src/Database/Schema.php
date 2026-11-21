@@ -10,7 +10,7 @@ use RuntimeException;
 /** Minimal install schema; membership/content migrations will be separate. */
 final class Schema
 {
-    private const TABLES = ['ac_schema_migrations', 'ac_users', 'ac_settings', 'ac_installations'];
+    private const TABLES = ['ac_schema_migrations', 'ac_users', 'ac_settings', 'ac_installations', 'ac_admin_mfa'];
 
     public static function assertFresh(PDO $pdo): void
     {
@@ -25,6 +25,7 @@ final class Schema
         // MySQL DDL auto-commits: see recovery notes in docs/INSTALLATION_LIFECYCLE.md.
         $pdo->exec('CREATE TABLE ac_schema_migrations (version VARCHAR(80) NOT NULL PRIMARY KEY, applied_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
         $pdo->exec('CREATE TABLE ac_users (id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, email VARCHAR(190) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, role VARCHAR(32) NOT NULL, created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
+        \AdultCore\Auth\AdminMfaSchema::migrate($pdo);
         $pdo->exec('CREATE TABLE ac_settings (setting_key VARCHAR(120) NOT NULL PRIMARY KEY, setting_value TEXT NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
         $pdo->exec('CREATE TABLE ac_installations (id TINYINT UNSIGNED NOT NULL PRIMARY KEY, edition VARCHAR(8) NOT NULL, installed_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci');
     }

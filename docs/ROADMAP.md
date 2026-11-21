@@ -1,3 +1,9 @@
+# Current development milestone — 0.8.7-mfa-dev
+
+Implemented: administrator authenticator MFA enrollment and challenged login, encrypted TOTP secret storage, single-use recovery codes, replay protection, reauthentication for disabling, and additive schema preparation, with local tests and CI acceptance required. This is **not production certification**. Next security work: full backup/restore drills and session revocation/password rotation; Cajun Web Pro still needs actual catalog products and verified paid sandbox renewals; age/identity, consent and billing gates remain blocked. See `docs/ADMIN_MFA.md`.
+
+---
+
 # Subscription activation contract milestone — 0.8.6.7 (2026-11-20)
 
 **Implemented locally:** HTTP loopback simulation of all four Cajun Web Pro license products, monthly paid-through expiration and renewal, cancellation/revocation, wrong domain, transient errors, manual recovery, same-edition license replacement, and edition separation. New CLI/Python fixtures do not enable billing or replace the issuer. Admin licensing now explains cancellation remains with CWP. **Still blocked:** owner-created products and prices, real sandbox issuer/payment/renewal tests, real production subscriptions, administrator MFA and independent production certification. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md`. GitHub CI result must be checked after publishing.

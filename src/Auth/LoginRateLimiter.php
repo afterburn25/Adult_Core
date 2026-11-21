@@ -22,7 +22,7 @@ final class LoginRateLimiter
 
     private function consumeKey(string $kind, string $value, int $limit, int $now): void
     {
-        $scope = in_array($this->scope, ['admin','member','member-recovery'], true) ? $this->scope : 'admin';
+        $scope = in_array($this->scope, ['admin','admin-mfa','admin-security','member','member-recovery'], true) ? $this->scope : 'admin';
         $file = $this->storage . '/.' . $scope . '-login-' . $kind . '-' . hash('sha256', $value);
         $handle = @fopen($file, 'c+');
         if ($handle === false) {

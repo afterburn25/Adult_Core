@@ -129,6 +129,7 @@ final class Layout
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
             ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
             ['url' => '/admin/license', 'label' => 'License', 'icon' => 'shield'],
+            ['url' => '/admin/security', 'label' => 'Account security', 'icon' => 'shield'],
             ['url' => '/admin/upgrade', 'label' => 'Edition upgrade', 'icon' => 'settings'],
             ['url' => '/admin/members', 'label' => 'Members', 'icon' => 'members'],
             ['url' => '/admin/moderation', 'label' => 'Moderation', 'icon' => 'shield'],

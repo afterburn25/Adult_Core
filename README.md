@@ -1,3 +1,7 @@
+## Administrator MFA milestone — 0.8.7-mfa-dev
+
+The owner can enroll standard authenticator-app (TOTP) MFA under `/admin/security`. Once enabled, `/admin/mfa` requires a fresh authenticator or single-use recovery code after password verification, including on Lite and Pro. Secrets are AES-256-GCM encrypted using the private application key and recovery codes are stored as keyed hashes; previous password-only sessions cannot stay privileged. This is a development feature, not an audited production release. **Existing sites must apply additive `/admin/setup` migration first; preserve tested off-server backups.** See [Administrator MFA guide](docs/ADMIN_MFA.md). Cajun Web Pro licensing/subscription catalog activation and production deployment remain pending.
+
 ## Subscription licensing lifecycle tests — 0.8.6.7 development
 
 Adult_Core uses the same installer for Lite/Pro and one-time/monthly terms; the Cajun Web Pro product-specific key selects the installed edition. A new **local loopback HTTP issuer simulation** exercises all four SKUs, activation after a paid-through date, expiration, renewal/reinstatement, revoked domains, payment-service outages, cross-edition rejection, and same-edition plan changes. Run `python3 tests/cwp_subscription_contract.py`. The administrator license page explicitly warns that **changing a key does not cancel recurring billing**. No live Cajun Web Pro purchase or issuer installation was performed. See `docs/SUBSCRIPTION_ACTIVATION_TESTING.md` and `docs/CWP_CATALOG_SETUP.md`.

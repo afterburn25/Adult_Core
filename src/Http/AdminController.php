@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Http;
 
 use AdultCore\Auth\AdminAccounts;
+use AdultCore\Auth\AdminMfa;
 use AdultCore\Auth\AdminSession;
 use AdultCore\Auth\LoginRateLimiter;
 use AdultCore\Auth\RolePolicy;
@@ -49,6 +50,12 @@ final class AdminController
             return;
         }
 
+        // This route accepts only short-lived password-verified challenge sessions.
+        if ($path === '/admin/mfa') {
+            (new MfaController($this->root))->challenge($method);
+            return;
+        }
+
         if ($path === '/admin/logout') {
             if ($method !== 'POST') {
                 $this->methodNotAllowed('POST');
@@ -66,6 +73,10 @@ final class AdminController
         $admin = $this->currentAdmin();
         if ($admin === null) {
             $this->redirect('/admin/login', 302);
+            return;
+        }
+        if ($path === '/admin/security') {
+            (new MfaController($this->root))->security($method, $admin);
             return;
         }
         // License repair remains available to a signed-in administrator even
@@ -298,6 +309,10 @@ final class AdminController
             $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
             return;
         }
+        if (AdminSession::pendingMfaId() !== null) {
+            $this->redirect('/admin/mfa', 302);
+            return;
+        }
         $error = null;
         if ($method === 'POST') {
             if (!AdminSession::csrfValid($_POST['csrf'] ?? null)) {
@@ -314,12 +329,18 @@ final class AdminController
                     (new LoginRateLimiter($this->root . '/storage'))->consume(
                         (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), $email,
                     );
-                    $account = (new AdminAccounts(Connection::open($this->root)))->verifyCredentials($email, $password);
+                    $pdo = Connection::open($this->root);
+                    $account = (new AdminAccounts($pdo))->verifyCredentials($email, $password);
                     if ($account === null) {
                         $error = 'Invalid email or password.';
                     } else {
+                        if ((new AdminMfa($pdo, $this->root))->enabledFor($account['id'])) {
+                            AdminSession::beginMfa($account['id']);
+                            $this->redirect('/admin/mfa');
+                            return;
+                        }
                         AdminSession::authenticate($account['id']);
-$this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
+                        $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admin' : '/admin/license');
                         return;
                     }
                 } catch (\RuntimeException $e) {
@@ -352,7 +373,13 @@ $this->redirect((new LicenseManager($this->root))->status() === 'valid' ? '/admi
             return null;
         }
         try {
-            $admin = (new AdminAccounts(Connection::open($this->root)))->authorizedById($id);
+            $pdo = Connection::open($this->root);
+            $admin = (new AdminAccounts($pdo))->authorizedById($id);
+            if ($admin !== null && (new AdminMfa($pdo, $this->root))->enabledFor($id)
+                && !AdminSession::mfaVerified()) {
+                AdminSession::revoke();
+                return null;
+            }
         } catch (Throwable) {
             // Database failures must never produce an authenticated response.
             return null;

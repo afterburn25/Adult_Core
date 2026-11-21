@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Http;
 
 use AdultCore\Auth\AdminSession;
+use AdultCore\Auth\AdminMfaSchema;
 use AdultCore\Auth\RolePolicy;
 use AdultCore\Database\Connection;
 use AdultCore\Website\PageRepository;
@@ -67,6 +68,7 @@ final class SiteAdminController
         if ($method === 'POST') {
             // Additive DDL only. A partly-applied migration can be safely re-run.
             SiteSchema::migrate($pdo);
+            AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
             MemberSchema::migrate($pdo);

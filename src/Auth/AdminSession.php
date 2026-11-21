@@ -56,7 +56,7 @@ final class AdminSession
             && hash_equals(self::csrf(), $candidate);
     }
 
-    public static function authenticate(int $id, ?int $now = null): void
+    public static function authenticate(int $id, ?int $now = null, bool $mfaVerified = false): void
     {
         if ($id < 1) {
             throw new RuntimeException('Invalid administrator ID.');
@@ -67,8 +67,52 @@ final class AdminSession
         $now ??= time();
         $_SESSION = [
             'admin_csrf' => bin2hex(random_bytes(32)),
-            'admin_auth' => ['id' => $id, 'issued_at' => $now, 'last_seen_at' => $now],
+            'admin_auth' => ['id' => $id, 'issued_at' => $now, 'last_seen_at' => $now, 'mfa_verified' => $mfaVerified],
         ];
+    }
+
+    /** A password-only result never creates an authenticated session when MFA is enabled. */
+    public static function beginMfa(int $id): void
+    {
+        if ($id < 1 || !session_regenerate_id(true)) {
+            throw new RuntimeException('Cannot initialize MFA challenge.');
+        }
+        $_SESSION = ['admin_csrf'=>bin2hex(random_bytes(32)),
+            'admin_mfa_pending'=>['id'=>$id,'issued_at'=>time()]];
+    }
+
+    public static function pendingMfaId(?int $now = null): ?int
+    {
+        $now ??= time();
+        $entry=$_SESSION['admin_mfa_pending'] ?? null;
+        if (!is_array($entry) || !is_int($entry['id']??null) || ($entry['id']??0)<1
+            || !is_int($entry['issued_at']??null) || $entry['issued_at']>$now
+            || $now-$entry['issued_at']>300) {
+            unset($_SESSION['admin_mfa_pending']);
+            return null;
+        }
+        return $entry['id'];
+    }
+
+    public static function mfaVerified(): bool
+    {
+        return ($_SESSION['admin_auth']['mfa_verified'] ?? false) === true;
+    }
+
+    public static function setEnrollmentSecret(int $id, string $secret): void
+    {
+        $_SESSION['admin_mfa_enrollment']=['id'=>$id,'secret'=>$secret,'issued_at'=>time()];
+    }
+
+    public static function enrollmentSecret(int $id, ?int $now=null): ?string
+    {
+        $now??=time();$entry=$_SESSION['admin_mfa_enrollment']??null;
+        if (!is_array($entry) || ($entry['id']??null)!==$id
+            || !is_string($entry['secret']??null)|| !is_int($entry['issued_at']??null)
+            || $entry['issued_at']>$now || $now-$entry['issued_at']>600) {
+            unset($_SESSION['admin_mfa_enrollment']);return null;
+        }
+        return $entry['secret'];
     }
 
     public static function authenticatedId(?int $now = null): ?int
@@ -89,7 +133,7 @@ final class AdminSession
 
     public static function revoke(): void
     {
-        unset($_SESSION['admin_auth']);
+        unset($_SESSION['admin_auth'], $_SESSION['admin_mfa_pending'], $_SESSION['admin_mfa_enrollment']);
         if (!session_regenerate_id(true)) {
             throw new RuntimeException('Cannot revoke administrator session.');
         }

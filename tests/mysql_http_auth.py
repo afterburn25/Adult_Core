@@ -4,7 +4,11 @@ Run only with the AC_TEST_DB_* vars in docs/TESTING.md, against a NEW disposable
 MySQL database. Sets up a temporary COPY of source; does not change the working
 repository. The fixture deletes only its ac_ tables after the test.
 """
+import base64
+import hashlib
+import hmac
 import http.cookiejar
+import struct
 import os
 import pathlib
 import re
@@ -397,6 +401,85 @@ def main():
             ensure('Admin rejection recorded', code == 303)
             code, moderation = req('/admin/moderation')
             ensure('Rejected content remains blocked', code == 200 and 'rejected / rejected' in moderation)
+            # Real authenticated two-factor enrollment, verification, recovery and replay.
+            code, security = req('/admin/security')
+            ensure('MFA settings available to installed administrator', code == 200 and 'Set up authenticator' in security)
+            security_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', security).group(1)
+            code, refused = req('/admin/security', {'csrf':'bad','action':'begin','password':'strong-example-admin-password'})
+            ensure('MFA enrollment requires CSRF', code == 403)
+            code, refused = req('/admin/security', {'csrf':security_csrf,'action':'begin','password':'wrong-password'})
+            ensure('MFA enrollment requires correct administrator password', code == 422)
+            code, _ = req('/admin/security', {'csrf':security_csrf,'action':'begin','password':'strong-example-admin-password'})
+            ensure('Authorized MFA setup redirects', code == 303)
+            code, setup = req('/admin/security')
+            secret_match = re.search(r'<code>([A-Z2-7]{32})</code>', setup)
+            ensure('Setup key displayed privately after password verification',code==200 and secret_match is not None)
+            secret = base64.b32decode(secret_match.group(1))
+            def totp(secret_bytes):
+                counter = int(time.time()//30)
+                digest = hmac.new(secret_bytes, struct.pack('>Q',counter),hashlib.sha1).digest()
+                offset = digest[-1] & 15
+                value = (int.from_bytes(digest[offset:offset+4],'big') & 0x7fffffff) % 1000000
+                return f'{value:06d}'
+            otp = totp(secret)
+            code, _ = req('/admin/security', {'csrf':'bad','action':'confirm','factor':otp})
+            ensure('MFA confirmation requires CSRF', code == 403)
+            code, recovery_page = req('/admin/security', {'csrf':security_csrf,'action':'confirm','factor':otp})
+            codes = re.findall(r'(?m)^[A-F0-9]{16}$', recovery_page)
+            ensure('MFA enrollment confirms and displays ten one-time recovery codes',code==200 and len(codes)==10)
+            ensure('MFA page does not expose plaintext secret after activation',secret_match.group(1) not in recovery_page)
+            code, dashboard = req('/admin')
+            ensure('Fully verified session retains dashboard access',code==200)
+            logout_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"',dashboard).group(1)
+            code, _=req('/admin/logout',{'csrf':logout_csrf})
+            ensure('MFA enabled administrator can sign out',code==303)
+            code, signin = req('/admin/login')
+            signin_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',signin).group(1)
+            code, _=req('/admin/login',{'csrf':signin_csrf,'email':'owner@example.test','password':'strong-example-admin-password'})
+            ensure('MFA enrolled password redirects only to second factor',code==303)
+            code, _=req('/admin')
+            ensure('Password-only session cannot open dashboard',code==302)
+            code, challenge = req('/admin/mfa')
+            challenge_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',challenge).group(1)
+            ensure('MFA challenge form present',code==200 and 'Complete sign in' in challenge)
+            code, _=req('/admin/mfa',{'csrf':'bad','factor':codes[0]})
+            ensure('MFA challenge requires CSRF',code==403)
+            code, _=req('/admin/mfa',{'csrf':challenge_csrf,'factor':otp})
+            ensure('Enrollment TOTP time step cannot be replayed',code==401)
+            code, _=req('/admin/mfa',{'csrf':challenge_csrf,'factor':codes[0]})
+            ensure('Single-use recovery code completes sign in',code==303)
+            code, _=req('/admin')
+            ensure('Recovered MFA session reaches dashboard',code==200)
+            _,dashboard=req('/admin')
+            logout_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',dashboard).group(1)
+            req('/admin/logout',{'csrf':logout_csrf})
+            code, signin=req('/admin/login')
+            signin_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',signin).group(1)
+            req('/admin/login',{'csrf':signin_csrf,'email':'owner@example.test','password':'strong-example-admin-password'})
+            code, challenge=req('/admin/mfa')
+            challenge_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',challenge).group(1)
+            code, _=req('/admin/mfa',{'csrf':challenge_csrf,'factor':codes[0]})
+            ensure('Consumed recovery code rejected on second login',code==401)
+            code, _=req('/admin/mfa',{'csrf':challenge_csrf,'factor':codes[1]})
+            ensure('Different unused recovery code signs in',code==303)
+            code, security=req('/admin/security')
+            security_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',security).group(1)
+            ensure('Recovery use is reported without exposing codes',code==200 and 'Remaining recovery codes:' in security and '>8<' in security)
+            code, _=req('/admin/security',{'csrf':security_csrf,'action':'disable','password':'wrong-password','factor':codes[2]})
+            ensure('MFA cannot be disabled with wrong password',code==422)
+            code, _=req('/admin/security',{'csrf':security_csrf,'action':'disable','password':'strong-example-admin-password','factor':codes[2]})
+            ensure('Reauthenticated MFA disable works',code==303)
+            code, dashboard=req('/admin')
+            ensure('Security settings disable retains admin session',code==200)
+            logout_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',dashboard).group(1)
+            req('/admin/logout',{'csrf':logout_csrf})
+            code, signin=req('/admin/login')
+            signin_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',signin).group(1)
+            code, _=req('/admin/login',{'csrf':signin_csrf,'email':'owner@example.test','password':'strong-example-admin-password'})
+            ensure('Password sign in resumes only after verified MFA disable',code==303)
+            code, dashboard=req('/admin')
+            ensure('Dashboard recovered after disabling MFA',code==200)
+
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
             csrf_match = re.search(r'name="csrf" value="([a-f0-9]{64})"', body)

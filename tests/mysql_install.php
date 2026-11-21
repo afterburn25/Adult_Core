@@ -143,6 +143,33 @@ try {
     if ($auth->authorizedById($valid['id']) === null) {
         throw new RuntimeException('Restored administrator role not recognized.');
     }
+    // Authenticator MFA is installed with the base schema and remains additive.
+    \AdultCore\Auth\AdminMfaSchema::migrate($pdo);
+    \AdultCore\Auth\AdminMfaSchema::migrate($pdo);
+    $mfa = new \AdultCore\Auth\AdminMfa($pdo,$root);
+    if (!$mfa->ready() || $mfa->enabledFor((int)$valid['id'])) {
+        throw new RuntimeException('Fresh administrator MFA schema was not prepared correctly.');
+    }
+    $secret = $mfa->newSecret();
+    $code = \AdultCore\Auth\Totp::code($secret,intdiv(time(),30));
+    $recovery = $mfa->enable((int)$valid['id'],$secret,$code);
+    if (count($recovery)!==10 || !$mfa->enabledFor((int)$valid['id']) || $mfa->remainingRecoveryCodes((int)$valid['id'])!==10) {
+        throw new RuntimeException('MFA enrollment failed on real MySQL.');
+    }
+    if ($mfa->consume((int)$valid['id'],$code)) throw new RuntimeException('Authenticator code replay allowed.');
+    if (!$mfa->consume((int)$valid['id'],$recovery[0]) || $mfa->consume((int)$valid['id'],$recovery[0])
+        || $mfa->remainingRecoveryCodes((int)$valid['id'])!==9) {
+        throw new RuntimeException('Recovery codes were not consumed exactly once.');
+    }
+    $pdo->prepare('DELETE FROM ac_admin_mfa WHERE user_id=?')->execute([(int)$valid['id']]);
+    try {$mfa->enabledFor((int)$valid['id']);throw new RuntimeException('Missing enabled MFA row silently disabled protection.');}
+    catch (RuntimeException $e) {if (str_contains($e->getMessage(),'silently')) throw $e;}
+    // Restore a valid factor row to exercise the supported disabling path.
+    $secret=$mfa->newSecret();
+    $code=\AdultCore\Auth\Totp::code($secret,intdiv(time(),30));
+    $mfa->enable((int)$valid['id'],$secret,$code);
+    $mfa->disable((int)$valid['id']);
+    if ($mfa->enabledFor((int)$valid['id']))throw new RuntimeException('MFA disable did not clear enforcement state.');
     // M6/M7 additive migrations and site/member access against actual MySQL.
     SiteSchema::migrate($pdo);
     SiteSchema::migrate($pdo);  // Repeat-safe.
@@ -421,7 +448,7 @@ try {
     echo "Passed real MySQL installation, administrator login/role revocation, signed marker, cleanup and Lite-to-Pro upgrade/rollback tests.\n";
 } finally {
     // Only touch the four tables this test created. The database is explicitly disposable.
-    foreach (['ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
+    foreach (['ac_admin_mfa','ac_design_settings','ac_design_assets','ac_verification_receipts', 'ac_moderation_actions', 'ac_media', 'ac_content_reports', 'ac_performer_records', 'ac_memberships', 'ac_content', 'ac_membership_tiers', 'ac_age_verifications', 'ac_member_password_resets', 'ac_member_email_confirmations', 'ac_pages', 'ac_installations', 'ac_settings', 'ac_users', 'ac_schema_migrations'] as $table) {
         $pdo->exec("DROP TABLE IF EXISTS {$table}");
     }
     foreach (['lite','pro'] as $ed) @unlink($root.'/config/editions/'.$ed.'.json');
