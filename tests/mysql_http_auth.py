@@ -1793,6 +1793,24 @@ def main():
             code, performer_invalid=req('/admin/moderation?performer_before=not-a-number')
             ensure('Invalid performer cursor fails closed',code==422
                    and 'Invalid performer summary cursor' in performer_invalid)
+            binary_ids=subprocess.check_output(php_fixture+['seed-images'],cwd=root,text=True).strip()
+            ids_match=re.fullmatch(r'([1-9][0-9]*):([1-9][0-9]*)',binary_ids)
+            ensure('51 private pending test images created with numeric references only',
+                   ids_match is not None)
+            first_image,last_image=ids_match.groups()
+            code, images_first=req('/admin/moderation')
+            image_next=re.search(r'href="/admin/moderation\?image_before=(\d+)"',images_first)
+            ensure('Pending private images list has authenticated older-page link',
+                   code==200 and image_next is not None
+                   and f'href="/admin/moderation/image/{last_image}"' in images_first
+                   and f'href="/admin/moderation/image/{first_image}"' not in images_first)
+            code, images_second=req('/admin/moderation?image_before='+image_next.group(1))
+            ensure('Oldest unapproved image is still reachable for authenticated moderation',
+                   code==200 and f'href="/admin/moderation/image/{first_image}"' in images_second
+                   and 'Back to newest pending images' in images_second)
+            code, invalid_image_cursor=req('/admin/moderation?image_before=invalid')
+            ensure('Malformed pending-image cursor fails closed',
+                   code==422 and 'Invalid pending image queue cursor' in invalid_image_cursor)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)

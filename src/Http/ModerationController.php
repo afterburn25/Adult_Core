@@ -230,7 +230,7 @@ final class ModerationController
                 'Draft tier changed; reload the moderation queue.',
                 'Draft tier assignment is unchanged.','Choose an existing membership tier.',
                 'Invalid moderation queue cursor.','Invalid private report queue cursor.',
-                'Invalid performer summary cursor.'];
+                'Invalid performer summary cursor.','Invalid pending image queue cursor.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -358,10 +358,15 @@ final class ModerationController
         }
         if ($queue===[]) $html.='<p>No content records on this page.</p>';
         $html.='</section>';
+        $rawImageCursor=$_GET['image_before']??null;
+        $imageBefore=$rawImageCursor===null?null:(is_string($rawImageCursor)
+            ? filter_var($rawImageCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+        if ($imageBefore===false) throw new RuntimeException('Invalid pending image queue cursor.');
+        $images=$repo->pendingDraftImagesPage($imageBefore);
         $html.='<section class="panel"><h2>Pending private draft images</h2>'
             .'<p>Previews require moderator sign-in and can be viewed only while the draft remains unpublished. '
             .'Previewing a staged image never constitutes consent, approval, or publication.</p><ul>';
-        foreach ($repo->pendingDraftImages() as $image) {
+        foreach ($images['items'] as $image) {
             $id=(int)$image['id'];
             $html.='<li>Draft #'.(int)$image['content_id'].' — '
                 .self::e((string)$image['title']).' ('.self::e((string)$image['mime_type']).') '
@@ -375,7 +380,16 @@ final class ModerationController
                 .' placeholder="Reason image cannot be accepted"></label>'
                 .'<button class="button-secondary">Reject this pending image</button></form></li>';
         }
-        $html.='</ul></section>';
+        $html.='</ul>';
+        if ($images['next']!==null) {
+            $html.='<p><a href="/admin/moderation?image_before='
+                .(int)$images['next'].'">Older pending images</a></p>';
+        }
+        if ($imageBefore!==null) {
+            $html.='<p><a href="/admin/moderation">Back to newest pending images</a></p>';
+        }
+        if ($images['items']===[]) $html.='<p>No pending private images on this page.</p>';
+        $html.='</section>';
         $html.='<section class="panel"><h2>Declare performer roster (draft only)</h2><p>Enter the number of people depicted in the draft. This does not verify anyone or permit publication. Each record receives a private numeric reference for the contracted verification provider.</p>'
             .'<form method="post" action="/admin/moderation" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="declare_performers">'

@@ -1,3 +1,7 @@
+## Pending image moderation beyond 80 records (development)
+
+Authenticated moderators can now page through pending, private draft images without losing older items from the review list. Preview access is still separately checked and no upload, review or publication safety gate has been opened.
+
 ## Pending performer-record review (development)
 
 Authenticated moderators can navigate older performer-roster status summaries 50 at a time, without receiving any local identity/consent approval capability. Real independent verification and release safeguards remain mandatory.

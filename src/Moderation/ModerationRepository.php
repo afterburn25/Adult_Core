@@ -291,6 +291,30 @@ final class ModerationRepository
     }
 
     /**
+     * Bounded pending PRIVATE image queue; binary media remains served only
+     * from the separately authenticated and revalidated preview endpoint.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function pendingDraftImagesPage(?int $before=null): array
+    {
+        if ($before!==null && $before<1) {
+            throw new RuntimeException('Invalid pending image queue cursor.');
+        }
+        $sql="SELECT m.id,m.content_id,c.title,m.mime_type
+            FROM ac_media m JOIN ac_content c ON c.id=m.content_id
+            WHERE m.review_status='pending' AND c.status='draft'
+                AND c.visibility='private' AND c.review_status='pending'";
+        if ($before!==null) $sql.=' AND m.id<?';
+        $q=$this->pdo->prepare($sql.' ORDER BY m.id DESC LIMIT 51');
+        $q->execute($before===null?[]:[$before]);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        return ['items'=>$rows,
+            'next'=>$more && $rows!==[] ? (int)$rows[count($rows)-1]['id'] : null];
+    }
+
+    /**
      * Private draft review summary, with only safe numeric record references.
      * Does not return private image keys, provider evidence, or member access.
      * The calling HTTP controller must enforce current moderator permissions.

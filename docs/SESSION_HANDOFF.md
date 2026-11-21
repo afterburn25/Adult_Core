@@ -1,3 +1,9 @@
+## Paginated pending-private-image moderation inventory — 2026-11-21
+
+The authenticated moderator dashboard's pending private image section now uses `pendingDraftImagesPage()` and 50-record numeric-keyset Older/Back navigation, replacing the previous invisible 80-image ceiling. Each listed image must remain pending, linked to an unpublished private, unreviewed draft; the image itself is still served only by the existing authenticated binary preview endpoint with revalidation at access time. Upload and rejection actions remain under moderator role, CSRF, content state and file inspection controls. Disposable real HTTP tests place 51 known safe PNG bytes in test-only private storage, one per synthetic unapproved draft, and verify the oldest image remains reviewable, malformed cursors fail with 422 and no media approval or publishing occurs. This does not add creator uploads, remote storage, provider consent or payment processing.
+
+---
+
 ## Pending performer status pagination without self-verification — 2026-11-21
 
 Added `performerQueuePage()` with bounded 50-record numeric-keyset pages to the authenticated moderator dashboard. The old 100-row summary limit no longer silently hides older local performer-roster entries; links expose only numeric record IDs, content IDs and **read-only provider assertion status**. Staff cannot upload identity evidence, mark age/consent verified, self-certify a performer or publish any adult media. A disposal-confirmed HTTP fixture allocates one unverified pending roster entry to each of 51 existing synthetic private drafts, and tests older-page navigation and malformed-cursor denial. MySQL and MariaDB direct tests cover empty page behavior and invalid IDs. Real provider onboarding, record retention compliance and independent legal acceptance are still missing.

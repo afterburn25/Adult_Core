@@ -1217,6 +1217,16 @@ try {
     $pdo->prepare("INSERT INTO ac_performer_records (content_id,private_record_key,verified_at,consent_at,review_status) VALUES (?,'test-fixture',UTC_TIMESTAMP(),UTC_TIMESTAMP(),'approved')")
         ->execute([$contentId]);
     if (!$policy->canView($member['id'],$contentId)) throw new RuntimeException('Approved test fixture was denied.');
+    $imagePage=(new ModerationRepository($pdo))->pendingDraftImagesPage();
+    if (!is_array($imagePage['items']) || $imagePage['next']!==null) {
+        throw new RuntimeException('Pending image queue page structure invalid.');
+    }
+    try {
+        (new ModerationRepository($pdo))->pendingDraftImagesPage(0);
+        throw new RuntimeException('Invalid pending image cursor accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Invalid pending image cursor accepted.') throw $e;
+    }
     $performerPage=(new ModerationRepository($pdo))->performerQueuePage();
     if (!is_array($performerPage['items']) || $performerPage['next']!==null) {
         throw new RuntimeException('Performer summary paging returned invalid shape.');

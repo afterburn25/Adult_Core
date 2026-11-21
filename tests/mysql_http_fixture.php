@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers', 'seed-images'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -139,6 +139,39 @@ if ($action === 'seed-performers') {
         $insert->execute([(int)$id,'disposable-unverified-'.(int)$id]);
     }
     echo 'Unverified private performer summaries prepared.';
+    exit;
+}
+if ($action === 'seed-images') {
+    // A metadata-free 1px PNG is copied only into the disposable site's
+    // protected storage. Every synthetic image remains pending and belongs
+    // to one PRIVATE, unapproved test draft; never publish or certify it.
+    $drafts=$pdo->query("SELECT id FROM ac_content
+        WHERE title LIKE 'Bulk moderation %' AND status='draft'
+          AND visibility='private' AND review_status='pending'
+        ORDER BY id ASC LIMIT 51")->fetchAll(PDO::FETCH_COLUMN);
+    if (count($drafts)!==51) throw new RuntimeException('Disposable pending image drafts missing.');
+    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGO4p2gOAAMXATf6OqxSAAAAAElFTkSuQmCC',true);
+    if (!is_string($png) || strlen($png)<40) throw new RuntimeException('Missing disposable PNG bytes.');
+    $dir=dirname(__DIR__).'/storage/private-media';
+    if (!is_dir($dir) && !mkdir($dir,0700,true)) {
+        throw new RuntimeException('Disposable private media directory unavailable.');
+    }
+    $add=$pdo->prepare("INSERT INTO ac_media
+        (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'image/png','pending')");
+    $first=0;$last=0;
+    foreach ($drafts as $draft) {
+        $key=bin2hex(random_bytes(20));
+        $file=$dir.'/'.$key.'.bin';
+        if (file_put_contents($file,$png,LOCK_EX)!==strlen($png)) {
+            throw new RuntimeException('Disposable private image storage failed.');
+        }
+        chmod($file,0600);
+        $add->execute([(int)$draft,$key]);
+        $last=(int)$pdo->lastInsertId();
+        if ($first===0) $first=$last;
+    }
+    echo $first.':'.$last;
     exit;
 }
 if ($action === 'issue-email') {
