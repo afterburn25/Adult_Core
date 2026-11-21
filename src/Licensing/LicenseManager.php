@@ -84,8 +84,13 @@ final class LicenseManager
         if ($record === null) return 'license_required';
         try {
             $incoming = $host ?? (string) ($_SERVER['HTTP_HOST'] ?? '');
-            // An HTTP Host may include a port on local test servers. Do not allow URLs.
-            if (!preg_match('/^([^:]+?)(?::[0-9]{1,5})?$/D', $incoming, $hostMatch)) return 'domain_mismatch';
+            // An HTTP Host may include a port on local test servers, but
+            // malformed/overflow ports and URL syntax must not pass domain
+            // authorization even when the hostname itself matches.
+            if (!preg_match('/^([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?$/D', $incoming, $hostMatch)
+                || (isset($hostMatch[2]) && ((int) $hostMatch[2] < 1 || (int) $hostMatch[2] > 65535))) {
+                return 'domain_mismatch';
+            }
             $actualHost = CajunWebClient::domain($hostMatch[1]);
         } catch (\Throwable) { return 'domain_mismatch'; }
         if (!hash_equals($record['domain'], $actualHost)) return 'domain_mismatch';
