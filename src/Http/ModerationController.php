@@ -158,6 +158,17 @@ final class ModerationController
     private function dashboard(ModerationRepository $repo): string
     {
         $csrf=self::e(AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
+        $queue=$repo->contentQueue();
+        $draftOptions='<option value="">Choose an unpublished draft</option>';
+        $rosterOptions='<option value="">Choose a draft without a roster</option>';
+        foreach ($queue as $draft) {
+            if ($draft['status']!=='draft' || $draft['visibility']!=='private'
+                || $draft['review_status']!=='pending') continue;
+            $option='<option value="'.(int)$draft['id'].'">'
+                .'#'.(int)$draft['id'].' — '.self::e((string)$draft['title']).'</option>';
+            $draftOptions.=$option;
+            if ((int)$draft['expected_performers']===0) $rosterOptions.=$option;
+        }
         $html='<p class="intro">Private content stays unpublished until independent age, consent, and media review integrations are implemented. This panel supports draft preparation, quarantine, rejection, and report triage only. Closing a report does not restore content.</p>';
         if (($_GET['result']??'')==='saved') $html.='<p role="status">Moderation action recorded.</p>';
         $html.='<section class="panel"><h2>Create private content draft</h2><form method="post" action="/admin/moderation" class="install-form">'
@@ -171,11 +182,12 @@ final class ModerationController
             .'<form method="post" action="/admin/moderation" enctype="multipart/form-data" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'">'
             .'<input type="hidden" name="action" value="upload_draft_image">'
-            .'<label>Existing unpublished draft ID<input type="number" name="content_id" min="1" required></label>'
+            .'<label for="draft-image-content">Unpublished draft</label>'
+            .'<select id="draft-image-content" name="content_id" required>'.$draftOptions.'</select>'
             .'<label>Private image<input type="file" name="draft_image" accept="image/jpeg,image/png,image/webp" required></label>'
             .'<button class="button-secondary" type="submit">Store image privately for review</button></form></section>';
         $html.='<section class="panel"><h2>Content queue</h2><p class="muted">Draft names can be edited only while unpublished and pending review. Concurrent edits are refused until the queue is reloaded.</p><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th><th>Draft title</th></tr></thead><tbody>';
-        foreach ($repo->contentQueue() as $item) {
+        foreach ($queue as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
                 .'<td>'.self::e(self::evidenceSummary($item)).'</td><td>'.(int)($item['pending_images']??0).' pending</td><td>'.(int)$item['open_reports'].'</td><td><form method="post" action="/admin/moderation">'
@@ -195,7 +207,8 @@ final class ModerationController
             } else {
                 $html.='<span class="muted">Not editable</span>';
             }
-            $html.='</td></tr>';
+            $html.='<p><a href="/admin/moderation?audit_content='.$id.'">View audit history</a></p>'
+                .'</td></tr>';
         }
         $html.='</tbody></table></section>';
         $html.='<section class="panel"><h2>Pending private draft images</h2>'
@@ -219,7 +232,8 @@ final class ModerationController
         $html.='<section class="panel"><h2>Declare performer roster (draft only)</h2><p>Enter the number of people depicted in the draft. This does not verify anyone or permit publication. Each record receives a private numeric reference for the contracted verification provider.</p>'
             .'<form method="post" action="/admin/moderation" class="install-form">'
             .'<input type="hidden" name="csrf" value="'.$csrf.'"><input type="hidden" name="action" value="declare_performers">'
-            .'<label>Draft content ID<input name="content_id" type="number" min="1" required></label>'
+            .'<label for="roster-draft">Draft without a roster</label>'
+            .'<select id="roster-draft" name="content_id" required>'.$rosterOptions.'</select>'
             .'<label>Number of performers<input name="performer_count" type="number" min="1" max="20" required></label>'
             .'<button class="button-secondary">Create pending records</button></form></section>';
         $html.='<section class="panel"><h2>Performer verification records</h2><table class="page-table"><thead><tr><th>Record ID</th><th>Content ID</th><th>Identity</th><th>Consent</th><th>Review</th></tr></thead><tbody>';
@@ -238,7 +252,22 @@ final class ModerationController
             } else { $html.='Closed'; }
             $html.='</td></tr>';
         }
-        $html.='</tbody></table></section><p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Draft images can be staged privately but remain pending and unpublished. Identity documents and performer verification evidence are never accepted by this admin page.</p>';
+        $html.='</tbody></table></section>';
+        $auditId=filter_var($_GET['audit_content']??null,FILTER_VALIDATE_INT,
+            ['options'=>['min_range'=>1]]);
+        if ($auditId!==false && $auditId!==null) {
+            $html.='<section class="panel"><h2>Private moderation history for content #'.(int)$auditId.'</h2>'
+                .'<p class="muted">Newest 50 recorded actions. This private history does not grant review or publication rights.</p>'
+                .'<table class="page-table"><thead><tr><th>Action</th><th>Actor</th><th>Reason or outcome</th><th>Time (UTC)</th></tr></thead><tbody>';
+            foreach ($repo->auditTrail((int)$auditId) as $event) {
+                $html.='<tr><td>'.self::e((string)$event['action']).'</td>'
+                    .'<td>'.(int)$event['actor_id'].'</td>'
+                    .'<td>'.self::e((string)$event['note']).'</td>'
+                    .'<td>'.self::e((string)$event['created_at']).'</td></tr>';
+            }
+            $html.='</tbody></table><p><a href="/admin/moderation">Close history</a></p></section>';
+        }
+        $html.='<p class="muted">Review actions are appended to the private ac_moderation_actions audit table. Draft images can be staged privately but remain pending and unpublished. Identity documents and performer verification evidence are never accepted by this admin page.</p>';
         return $html;
     }
 
