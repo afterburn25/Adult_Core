@@ -222,6 +222,18 @@ def main():
             ensure('Owner brand form escapes markup and reflects revision',
                    code==200 and 'Owner &lt;Club&gt; &amp; More' in updated_brand
                    and 'name="revision" value="2"' in updated_brand)
+            code, health=req('/admin/health')
+            ensure('Owner can inspect local health without receiving private data or launch approval',
+                   code==200 and 'Local checks:' in health
+                   and 'Public webroot isolation' in health
+                   and 'Monitored additive migrations' in health
+                   and 'Production release is still blocked' in health
+                   and 'password_hash' not in health)
+            code, _, health_headers, _=req_binary('/admin/health')
+            ensure('Private local diagnostics cannot be browser cached',
+                   code==200 and 'no-store' in health_headers)
+            code, _=req('/admin/health',{'csrf':brand_csrf.group(1)})
+            ensure('Read-only local health refuses POST',code==405)
             code, migrated_setup=req('/admin/setup')
             ensure('Site setup reports individual page migrations as installed',
                    code==200
@@ -408,7 +420,7 @@ def main():
             })
             ensure('Moderator can stage a private-only content draft',code == 303)
             for forbidden in ('/admin/staff','/admin/tiers','/admin/upgrade','/admin/license',
-                              '/admin/pages','/admin/site','/admin/packages','/admin/page/preview?id=1'):
+                              '/admin/pages','/admin/site','/admin/health','/admin/packages','/admin/page/preview?id=1'):
                 code, _=mod_req(forbidden)
                 ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
             code, mod_mfa=mod_req('/admin/security')

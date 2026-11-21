@@ -1,3 +1,7 @@
+## Site Health (local diagnostics only)
+
+Under **Admin → Site health**, a site owner can inspect local, read-only installation and environment checks. This does not reveal credentials, contact the vendor or certify adult-content release readiness; real hosting, merchant billing, age/performer consent and independent security approval are still required.
+
 ## Pending image moderation beyond 80 records (development)
 
 Authenticated moderators can now page through pending, private draft images without losing older items from the review list. Preview access is still separately checked and no upload, review or publication safety gate has been opened.

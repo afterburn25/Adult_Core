@@ -54,6 +54,11 @@ uiCheck(str_contains($privatePreview,'Draft &lt;private&gt;')
     && !str_contains($privatePreview,'<script>unsafe()</script>'),
     'Private preview renders escaped page copy with production layout');
 
+uiCheck(!\AdultCore\Support\SiteHealth::allLocalChecksPass([])
+    && \AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>true],['pass'=>true]])
+    && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>'true']])
+    && !\AdultCore\Support\SiteHealth::allLocalChecksPass([['pass'=>true],['pass'=>false]]),
+    'Local health aggregation must fail closed on empty, malformed or failed checks');
 $admin = Layout::admin('Dashboard', Dashboard::render('Site <x>', 'lite', 8,
     ['id'=>1,'email'=>'admin@example.test','role'=>'admin']), '/admin', str_repeat('a', 64));
 uiCheck(str_contains($admin, 'class="admin-sidebar"'), 'Sidebar layout');
@@ -67,6 +72,7 @@ uiCheck(str_contains($admin, 'admin@example.test'), 'Real admin label');
 uiCheck(str_contains($admin, '>8</h3>'), 'Real account total rendered');
 uiCheck(str_contains($admin, 'payments, independent adult verification'), 'Not production-ready note visible');
 uiCheck(str_contains($admin, 'href="/admin/moderation"'), 'Moderation navigation');
+uiCheck(str_contains($admin, 'href="/admin/health"'), 'Owner sidebar links to local diagnostics');
 $moderator=Layout::admin('Moderation','<p>Safe</p>','/admin/moderation',str_repeat('a',64),'lite','moderator');
 uiCheck(str_contains($moderator,'href="/admin/moderation"')
     && str_contains($moderator,'href="/admin/security"')
@@ -78,6 +84,7 @@ uiCheck(!str_contains($moderator,'href="/admin/creators"')
     && !str_contains($moderator,'href="/admin/license"')
     && !str_contains($moderator,'href="/admin/packages"')
     && !str_contains($moderator,'href="/admin/setup"')
+    && !str_contains($moderator,'href="/admin/health"')
     && !str_contains($moderator,'href="/admin/upgrade"'),
     'Moderator sidebar hides privileged business, license and site settings');
 uiCheck(!str_contains($moderator,'PRO FEATURES')

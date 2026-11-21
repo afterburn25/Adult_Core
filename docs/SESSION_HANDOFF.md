@@ -1,3 +1,9 @@
+## Owner-only local Site Health diagnostics — 2026-11-21
+
+The authenticated GET-only `/admin/health` screen lists local signed-install readiness, PHP/extension prerequisites, private writable directory properties, safe public webroot isolation, monitored additive schema markers and local Lite/Pro edition marker. Only local aggregate pass/fail and fixed requirement labels are displayed; no credentials, private filenames, customer records, vendor traffic or protected images. `site.settings.manage` protects it, moderators see 403, and all replies carry no-store/noindex. A Pass is **not** production certification, licensed payment/age/consent authorization or a reason to enable adult media. Unit, real HTTP/role and signed unified source ZIP inclusion checks cover it. Real cPanel/VPS, external providers, Pro video, backup drills and independent release acceptance remain pending.
+
+---
+
 ## Non-cacheable member session and private tier pages — 2026-11-21
 
 The member-account controller now sets `Cache-Control: private, no-store, max-age=0` and `X-Robots-Tag: noindex, nofollow` across membership sign-in, registration, email confirmation, recovery/reset and private account views, including errors. This prevents opaque reset/confirmation tokens or account information from being stored by intermediary caches or search indexes. The owner-only tier-label dashboard now sets the same headers, consistent with Pages, Site identity and moderation. Authenticated real HTTP regressions assert the member login and tier catalog are non-cacheable. Public-site publishing, entitlement, age/consent and licensing remain unchanged.

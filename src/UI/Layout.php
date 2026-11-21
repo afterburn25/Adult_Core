@@ -157,6 +157,7 @@ final class Layout
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
             ['url' => '/admin/site', 'label' => 'Site identity', 'icon' => 'settings'],
+            ['url' => '/admin/health', 'label' => 'Site health', 'icon' => 'shield'],
             ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
             ['url' => '/admin/license', 'label' => 'License', 'icon' => 'shield'],
             ['url' => '/admin/security', 'label' => 'Account security', 'icon' => 'shield'],

@@ -135,6 +135,10 @@ final class AdminController
             (new TierController($this->root))->handle($method, $admin);
             return;
         }
+        if ($path === '/admin/health') {
+            (new HealthController($this->root))->handle($method, $admin);
+            return;
+        }
         if ($path === '/admin/creator-review') {
             (new CreatorReviewController($this->root))->handle($method,$admin);
             return;
