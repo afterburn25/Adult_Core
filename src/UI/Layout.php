@@ -144,6 +144,7 @@ final class Layout
         $links = [
             ['url' => '/admin', 'label' => 'Overview', 'icon' => 'overview'],
             ['url' => '/admin/pages', 'label' => 'Pages', 'icon' => 'pages'],
+            ['url' => '/admin/site', 'label' => 'Site identity', 'icon' => 'settings'],
             ['url' => '/admin/design', 'label' => 'Design studio', 'icon' => 'puzzle'],
             ['url' => '/admin/license', 'label' => 'License', 'icon' => 'shield'],
             ['url' => '/admin/security', 'label' => 'Account security', 'icon' => 'shield'],

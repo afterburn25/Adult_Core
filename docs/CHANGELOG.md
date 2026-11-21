@@ -1,3 +1,9 @@
+## Owner Site identity UI, local m20 setup and real browser coverage — 2026-11-21
+
+`/admin/site` now exposes an authenticated owner/admin-only branding editor with CSRF, strict single-line UTF-8 input and a revision token; no re-prompt for the administrator password is needed. Successful changes update the canonical installer's site name in local `ac_settings`, so existing safely escaped public header/title/footer renderers pick up the new value. The Setup screen tracks m20. The moderator role cannot access `/admin/site`, and both URL routing and UI permissions are enforced. Disposable real HTTP regressions verify valid saves, malicious control-byte denial, stale-tab rejection and XSS-safe public branding. This affects neither licensed Lite/Pro installation nor age/consent or payment workflows. Production release blockers remain open.
+
+---
+
 ## Legacy admin page-save form preserves navigation settings — 2026-11-21
 
 An administrator's older browser tab opened before m17 may submit title/body/status without the newer menu fields. The page editor now passes null optional values to the revision-safe repository, preserving existing `show_in_menu` and `nav_position` rather than silently relisting a published unlisted page. Explicit malformed menu settings still fail validation; modern forms continue sending their checked/unchecked values. The real HTTP regression saves an unlisted page with a legacy-style form and verifies its invisible nav link and stored sort order survive. Publishing, protected media, member billing and the Lite/Pro installer are unchanged.

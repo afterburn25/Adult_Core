@@ -185,13 +185,48 @@ def main():
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            code, branding=req('/admin/site')
+            brand_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',branding)
+            brand_revision=re.search(r'name="revision" value="(\d+)"',branding)
+            ensure('Local owner can edit public branding without a new password',
+                   code==200 and 'Site identity' in branding
+                   and brand_csrf is not None and brand_revision is not None
+                   and 'name="site_name"' in branding
+                   and 'name="manager_password"' not in branding)
+            code, _=req('/admin/site',{
+                'csrf':'bad','revision':brand_revision.group(1),
+                'site_name':'Unauthorized brand'
+            })
+            ensure('Site branding change requires owner session CSRF',code==403)
+            code, invalid_brand=req('/admin/site',{
+                'csrf':brand_csrf.group(1),'revision':brand_revision.group(1),
+                'site_name':'Bad\x00Name'
+            })
+            ensure('NUL controls in site name are rejected',code==200
+                   and 'valid single-line text' in invalid_brand)
+            code, _=req('/admin/site',{
+                'csrf':brand_csrf.group(1),'revision':brand_revision.group(1),
+                'site_name':'Owner <Club> & More'
+            })
+            ensure('Owner changes local site brand without password re-entry',code==303)
+            code, stale_brand=req('/admin/site',{
+                'csrf':brand_csrf.group(1),'revision':brand_revision.group(1),
+                'site_name':'Stale overwritten brand'
+            })
+            ensure('Stale owner tab cannot overwrite a newly changed site name',
+                   code==200 and 'Site name changed; reload before saving.' in stale_brand)
+            code, updated_brand=req('/admin/site')
+            ensure('Owner brand form escapes markup and reflects revision',
+                   code==200 and 'Owner &lt;Club&gt; &amp; More' in updated_brand
+                   and 'name="revision" value="2"' in updated_brand)
             code, migrated_setup=req('/admin/setup')
             ensure('Site setup reports individual page migrations as installed',
                    code==200
                    and 'All listed local schema migrations have been recorded.' in migrated_setup
                    and '<td>Page revision protection</td><td>Installed</td>' in migrated_setup
                    and '<td>Page navigation settings</td><td>Installed</td>' in migrated_setup
-                   and '<td>Private page revision history</td><td>Installed</td>' in migrated_setup)
+                   and '<td>Private page revision history</td><td>Installed</td>' in migrated_setup
+                   and '<td>Local site identity</td><td>Installed</td>' in migrated_setup)
             # Two independent staff sessions ensure a suspended-and-restored
             # moderator's OLD cookie stays revoked even without an intervening
             # HTTP request while the database account was suspended.
@@ -370,7 +405,7 @@ def main():
             })
             ensure('Moderator can stage a private-only content draft',code == 303)
             for forbidden in ('/admin/staff','/admin/tiers','/admin/upgrade','/admin/license',
-                              '/admin/pages','/admin/packages','/admin/page/preview?id=1'):
+                              '/admin/pages','/admin/site','/admin/packages','/admin/page/preview?id=1'):
                 code, _=mod_req(forbidden)
                 ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
             code, mod_mfa=mod_req('/admin/security')
@@ -461,6 +496,9 @@ def main():
             ensure('Page editor persists and redirects', code == 303)
             code, public = req('/p/safe-page')
             ensure('Published page escaped in frontend', code == 200 and '&lt;script&gt;' in public and '<script>unsafe()</script>' not in public)
+            ensure('Owner-updated site brand is escaped in public page title and header',
+                   'Owner &lt;Club&gt; &amp; More' in public
+                   and 'Owner <Club> & More' not in public)
             # A published page may be intentionally unlisted, but that does
             # not grant secrecy: its direct URL still works, with escaped text.
             code, _=req('/admin/page',{

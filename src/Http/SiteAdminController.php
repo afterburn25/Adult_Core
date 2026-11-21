@@ -17,6 +17,8 @@ use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Website\PageHistorySchema;
 use AdultCore\Website\SiteSchema;
+use AdultCore\Website\SiteIdentity;
+use AdultCore\Website\SiteIdentitySchema;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\PasswordRecoverySchema;
@@ -91,6 +93,15 @@ final class SiteAdminController
                 $this->preview($pdo);
                 return;
             }
+            if ($path === '/admin/site') {
+                if (!SiteIdentitySchema::installed($pdo)) {
+                    $this->render(503,'Local site identity setup required',
+                        '<p>Back up the database, then apply site identity in <a href="/admin/setup">Site setup</a>.</p>');
+                    return;
+                }
+                $this->identity($pdo,$method);
+                return;
+            }
             if ($path === '/admin/pages') { $this->pages($pdo); return; }
             if ($path === '/admin/page') { $this->edit($pdo, $method); return; }
             if ($path === '/admin/members') { $this->members($pdo); return; }
@@ -98,6 +109,53 @@ final class SiteAdminController
         } catch (Throwable $e) {
             $this->render(503, 'Action unavailable', '<p>' . self::e($e instanceof RuntimeException ? $e->getMessage() : 'The database action failed.') . '</p>');
         }
+    }
+
+    /** Owner-only local branding; existing CSRF session replaces repeat passwords. */
+    private function identity(PDO $pdo,string $method): void
+    {
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Robots-Tag: noindex, nofollow');
+        $repo=new SiteIdentity($pdo);
+        $error='';
+        if ($method==='POST') {
+            $rawRevision=$_POST['revision']??null;
+            $revision=is_string($rawRevision)
+                ? filter_var($rawRevision,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]])
+                : false;
+            try {
+                if (!is_int($revision)) throw new RuntimeException('Invalid local site identity revision.');
+                $repo->rename($_POST['site_name']??null,$revision);
+                header('Location: /admin/site?result=saved',true,303);
+                return;
+            } catch (RuntimeException $e) {
+                $error=in_array($e->getMessage(),[
+                    'Site name changed; reload before saving.',
+                    'Invalid local site identity revision.',
+                    'Site name must be valid single-line text, up to 120 bytes.',
+                    'Site name must be between 2 and 120 bytes.',
+                ],true)?$e->getMessage():'Could not change site name. Check the local installation.';
+            }
+        }
+        $current=$repo->current();
+        $html='<p class="intro">Change the branding of this independently hosted website. '
+            .'Its license domain, Lite/Pro edition and member data are unchanged.</p>';
+        if ($error!=='') $html.='<p class="alert-error" role="alert">'.self::e($error).'</p>';
+        if (($_GET['result']??'')==='saved' && $method==='GET') {
+            $html.='<p role="status">Website name saved. No new login was required.</p>';
+        }
+        $html.='<section class="panel"><h2>Website name</h2>'
+            .'<form method="post" action="/admin/site" class="install-form">'
+            .'<input type="hidden" name="csrf" value="'.self::e(AdminSession::csrf()).'">'
+            .'<input type="hidden" name="revision" value="'.$current['revision'].'">'
+            .'<label for="local-site-name">Public site name (2–120 UTF-8 bytes)</label>'
+            .'<input id="local-site-name" name="site_name" maxlength="120" required value="'
+            .self::e($current['site_name']).'">'
+            .'<p class="muted">This appears in the website title, public header and footer. '
+            .'Reload before saving if another administrator changes the name.</p>'
+            .'<button class="install-button" type="submit">Save website name</button>'
+            .'</form></section>';
+        $this->render(200,'Site identity',$html);
     }
 
     private function schemaReady(PDO $pdo): bool
@@ -115,6 +173,7 @@ final class SiteAdminController
             PageRevisionSchema::migrate($pdo);
             PageNavigationSchema::migrate($pdo);
             PageHistorySchema::migrate($pdo);
+            SiteIdentitySchema::migrate($pdo);
             AdminMfaSchema::migrate($pdo);
             DesignSchema::migrate($pdo);
             CutoutPlacement::migrate($pdo);
@@ -140,6 +199,7 @@ final class SiteAdminController
             'Page revision protection'=>PageRevisionSchema::VERSION,
             'Page navigation settings'=>PageNavigationSchema::VERSION,
             'Private page revision history'=>PageHistorySchema::VERSION,
+            'Local site identity'=>SiteIdentitySchema::VERSION,
             'Administrator authenticator MFA'=>AdminMfaSchema::VERSION,
             'Design Studio'=>DesignSchema::VERSION,
             'Cutout position controls'=>CutoutPlacement::VERSION,

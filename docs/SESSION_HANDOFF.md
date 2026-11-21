@@ -1,3 +1,9 @@
+## Owner Site identity UI, local m20 setup and real browser coverage — 2026-11-21
+
+`/admin/site` now exposes an authenticated owner/admin-only branding editor with CSRF, strict single-line UTF-8 input and a revision token; no re-prompt for the administrator password is needed. Successful changes update the canonical installer's site name in local `ac_settings`, so existing safely escaped public header/title/footer renderers pick up the new value. The Setup screen tracks m20. The moderator role cannot access `/admin/site`, and both URL routing and UI permissions are enforced. Disposable real HTTP regressions verify valid saves, malicious control-byte denial, stale-tab rejection and XSS-safe public branding. This affects neither licensed Lite/Pro installation nor age/consent or payment workflows. Production release blockers remain open.
+
+---
+
 ## m20 site-local identity backend — 2026-11-21
 
 Added repeatable `SiteIdentitySchema` for the canonical `ac_settings.site_name` plus a separate local monotonic revision. `SiteIdentity` validates owner-supplied 2–120-byte single-line UTF-8 text before saving, uses a database lock and expected revision, and leaves the vendor domain/license, edition, member state and protected media untouched. Legacy installer branding is preserved and displayed escaped even if it predates new input rules. Repeating setup never resets an owner-changed name. Added unit, disposable SQL and one-package ZIP checks. The authenticated owner UI and real HTTP/backup regressions are the next development step; no live cPanel or VPS acceptance is implied.

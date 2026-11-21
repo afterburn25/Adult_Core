@@ -1,3 +1,7 @@
+## Edit the self-hosted site name (m20 development)
+
+**Admin → Site identity** allows owners to change the public site name using the existing secure admin session and CSRF protection, without reinstalling or entering their password for routine changes. Concurrent stale edits are rejected. Run **Admin → Setup** after a verified backup to apply the additive m20 revision marker. License product, domain, protected adult content, payments and verification are not changed.
+
 ## Private page history (m19 development)
 
 Admins can view the last 20 saved revisions of each local website page and restore an earlier title/body as a **new unpublished draft**. Original history is retained, and restoring never publishes or rewrites the URL/menu settings. Apply the additive migration from **Admin → Setup** after a verified database backup. Existing sites can only backfill their current revision; unavailable historical edits cannot be recreated. No protected adult media, billing or age/consent approval is implied.
