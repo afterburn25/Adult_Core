@@ -283,7 +283,29 @@ try {
     if ($auth->authorizedById((int)$valid['id'])===null) {
         throw new RuntimeException('Reactivated test administrator could not reauthenticate.');
     }
+    $pdo->prepare("INSERT INTO ac_users (email,password_hash,role,status,created_at)
+        VALUES ('moderator@example.test',?,'moderator','active',UTC_TIMESTAMP())")
+        ->execute([password_hash('strong-example-moderator-password',PASSWORD_DEFAULT)]);
+    $moderatorId=(int)$pdo->lastInsertId();
+    if ($auth->verifyCredentials('moderator@example.test','strong-example-moderator-password')['id']!==$moderatorId
+        || $auth->authorizedById($moderatorId)['role']!=='moderator') {
+        throw new RuntimeException('Restricted moderator credentials were denied.');
+    }
+    $moderatorRepo=new ModerationRepository($pdo);
+    $moderatorDraft=$moderatorRepo->createDraft('Moderator review-only draft',$moderatorId);
+    $q=$pdo->prepare('SELECT status,visibility,review_status FROM ac_content WHERE id=?');
+    $q->execute([$moderatorDraft]);$modDraftState=$q->fetch(PDO::FETCH_ASSOC);
+    if ($modDraftState['status']!=='draft' || $modDraftState['visibility']!=='private'
+        || $modDraftState['review_status']!=='pending') {
+        throw new RuntimeException('Moderator creation published private content.');
+    }
     $tiers=new TierCatalog($pdo);
+    try {
+        $tiers->create('Moderator cannot change paid labels',$moderatorId);
+        throw new RuntimeException('Moderator changed tier labels.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator changed tier labels.') throw $e;
+    }
     $newTierId=$tiers->create('Founders & <Test>',(int)$valid['id']);
     $tiers->rename($newTierId,(int)$valid['id'],'Founders & <Test>','Founders preview');
     $tierRows=$tiers->all();

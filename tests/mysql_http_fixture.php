@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -35,6 +35,17 @@ if ($action === 'suspend-owner' || $action === 'reactivate-owner') {
     $q->execute([$state]);
     if ($q->rowCount()!==1) throw new RuntimeException('Disposable administrator fixture not found.');
     echo 'Disposable administrator status updated.';
+    exit;
+}
+if ($action === 'seed-moderator') {
+    // Test-only role account, AFTER the additive member/status migration.
+    $q=$pdo->prepare("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users' AND COLUMN_NAME='status'");
+    $q->execute();
+    if ((int)$q->fetchColumn()!==1) throw new RuntimeException('Moderator test requires account migration.');
+    $q=$pdo->prepare("INSERT INTO ac_users (email,password_hash,role,status,created_at)
+        VALUES ('moderator@example.test',?,'moderator','active',UTC_TIMESTAMP())");
+    $q->execute([password_hash('strong-example-moderator-password',PASSWORD_DEFAULT)]);
+    echo 'Disposable moderator provisioned.';
     exit;
 }
 if ($action === 'issue-email') {

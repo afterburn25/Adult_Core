@@ -292,7 +292,11 @@ rmdir($testRoot);
 // Milestone 3: administrator authorization, login protection and session expiry.
 assertCheck('Admin may view dashboard', RolePolicy::allows('admin', 'admin.dashboard.view'));
 assertCheck('Owner may manage modules', RolePolicy::allows('owner', 'modules.manage'));
-assertCheck('Moderator cannot access admin dashboard', !RolePolicy::allows('moderator', 'admin.access'));
+assertCheck('Moderator can authenticate into restricted workspace', RolePolicy::allows('moderator', 'admin.access'));
+assertCheck('Moderator cannot view site dashboard', !RolePolicy::allows('moderator', 'admin.dashboard.view'));
+assertCheck('Moderator can moderate but not change site settings',
+    RolePolicy::allows('moderator','content.moderate')
+    && !RolePolicy::allows('moderator','site.settings.manage'));
 assertCheck('Member cannot access dashboard', !RolePolicy::allows('member', 'admin.dashboard.view'));
 assertCheck('Unknown role denied', !RolePolicy::allows('unknown', 'admin.access'));
 assertCheck('Unknown permission denied', !RolePolicy::allows('admin', 'unexpected.permission'));

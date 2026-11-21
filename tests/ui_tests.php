@@ -58,6 +58,20 @@ uiCheck(str_contains($admin, 'admin@example.test'), 'Real admin label');
 uiCheck(str_contains($admin, '>8</h3>'), 'Real account total rendered');
 uiCheck(str_contains($admin, 'payments, independent adult verification'), 'Not production-ready note visible');
 uiCheck(str_contains($admin, 'href="/admin/moderation"'), 'Moderation navigation');
+$moderator=Layout::admin('Moderation','<p>Safe</p>','/admin/moderation',str_repeat('a',64),'lite','moderator');
+uiCheck(str_contains($moderator,'href="/admin/moderation"')
+    && str_contains($moderator,'href="/admin/security"')
+    && str_contains($moderator,'action="/admin/logout"'),
+    'Restricted moderator workspace retains permitted review, MFA and logout');
+uiCheck(!str_contains($moderator,'href="/admin/tiers"')
+    && !str_contains($moderator,'href="/admin/license"')
+    && !str_contains($moderator,'href="/admin/packages"')
+    && !str_contains($moderator,'href="/admin/setup"')
+    && !str_contains($moderator,'href="/admin/upgrade"'),
+    'Moderator sidebar hides privileged business, license and site settings');
+uiCheck(!str_contains($moderator,'PRO FEATURES')
+    && !str_contains($moderator,'Buy Pro license'),
+    'Moderator does not receive privileged edition controls');
 
 $empty = Layout::admin('Packages', '<p>Content</p>', '/admin/packages', null);
 uiCheck(!str_contains($empty, 'action="/admin/logout"'), 'No logout action without valid CSRF');

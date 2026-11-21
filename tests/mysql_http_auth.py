@@ -159,6 +159,49 @@ def main():
             ensure('Setup has CSRF token', setup_token is not None)
             code, _ = req('/admin/setup', {'csrf': setup_token.group(1)})
             ensure('Schema setup redirects after migrations', code == 303)
+            subprocess.check_output(php_fixture + ['seed-moderator'],cwd=root)
+            # Distinct cookie jar models a second human moderator. Neither
+            # browser shares an administrator session or CSRF token.
+            mod_opener=urllib.request.build_opener(NoRedirect,
+                urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+            def mod_req(path, data=None):
+                payload=urllib.parse.urlencode(data).encode() if data is not None else None
+                try:
+                    response=mod_opener.open(f'http://127.0.0.1:{port}{path}',data=payload,timeout=4)
+                except urllib.error.HTTPError as err:
+                    response=err
+                with response:
+                    return response.status,response.read().decode('utf-8',errors='replace')
+            code, mod_login=mod_req('/admin/login')
+            mod_token=re.search(r'name="csrf" value="([a-f0-9]{64})"',mod_login)
+            ensure('Moderator sees separate CSRF-protected login',code == 200 and mod_token is not None)
+            code, _=mod_req('/admin/login', {
+                'csrf':mod_token.group(1),'email':'moderator@example.test',
+                'password':'strong-example-moderator-password'
+            })
+            ensure('Moderator role signs into restricted moderation route',code == 303)
+            code, mod_home=mod_req('/admin')
+            ensure('Moderator dashboard redirects to restricted review',code == 302)
+            code, mod_queue=mod_req('/admin/moderation')
+            ensure('Moderator can view protected review queue but not admin navigation',
+                   code == 200 and 'Content moderation' in mod_queue
+                   and 'name="action" value="new_draft"' in mod_queue
+                   and 'href="/admin/security"' in mod_queue
+                   and 'href="/admin/tiers"' not in mod_queue
+                   and 'href="/admin/upgrade"' not in mod_queue)
+            mod_csrf=re.search(r'name="csrf" value="([a-f0-9]{64})"',mod_queue)
+            ensure('Moderator review actions use CSRF',mod_csrf is not None)
+            code, _=mod_req('/admin/moderation',{
+                'csrf':mod_csrf.group(1),'action':'new_draft',
+                'title':'Moderator restricted test draft'
+            })
+            ensure('Moderator can stage a private-only content draft',code == 303)
+            for forbidden in ('/admin/tiers','/admin/upgrade','/admin/license',
+                              '/admin/pages','/admin/packages','/admin/page/preview?id=1'):
+                code, _=mod_req(forbidden)
+                ensure('Moderator cannot enter privileged admin area '+forbidden,code == 403)
+            code, mod_mfa=mod_req('/admin/security')
+            ensure('Moderator may manage their own MFA',code == 200 and 'Two-factor authentication' in mod_mfa)
             subprocess.check_output(php_fixture + ['suspend-owner'],cwd=root)
             code, _ = req('/admin')
             ensure('Suspended administrator loses existing dashboard session',code == 302)
