@@ -27,6 +27,7 @@ use AdultCore\Creator\CreatorFeedbackHistory;
 use AdultCore\Creator\LocalCreators;
 use AdultCore\Creator\CreatorDraftReview;
 use AdultCore\Design\DesignSchema;
+use AdultCore\Design\HighlightSchema;
 
 if(getenv('AC_TEST_DB_CONFIRM')!=='YES_THIS_IS_A_DISPOSABLE_DATABASE')throw new RuntimeException('Do not run against a real installation.');
 $host=getenv('AC_TEST_DB_HOST')?:'127.0.0.1';$port=(int)(getenv('AC_TEST_DB_PORT')?:3306);
@@ -77,6 +78,7 @@ try{
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
     PageRevisionSchema::migrate($pdo);
     PageNavigationSchema::migrate($pdo);
+    HighlightSchema::migrate($pdo);
     MemberEmailSchema::migrate($pdo);
     CreatorSchema::migrate($pdo);
     // Deliberately leave m14 unapplied until after one m13-era draft is saved.
@@ -98,6 +100,15 @@ try{
         && (int)$beforePageRecovery[1]['show_in_menu']===0,
         'Revisioned homepage and intentionally unlisted page prepared for encrypted recovery');
     $pdo->exec("UPDATE ac_design_settings SET theme_key='velvet-plum' WHERE id=1");
+    $pdo->prepare('UPDATE ac_design_settings SET
+        highlight_1_title=?,highlight_1_body=? WHERE id=1')
+        ->execute(['Recovered <welcome>','Owner-only backup verifies local information card text.']);
+    $beforeHighlightRecovery=$pdo->query('SELECT highlight_1_title,highlight_1_body,
+        highlight_2_title,highlight_2_body,highlight_3_title,highlight_3_body
+        FROM ac_design_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+    verifyRecovery(is_array($beforeHighlightRecovery)
+        && $beforeHighlightRecovery['highlight_1_title']==='Recovered <welcome>',
+        'Customized safe homepage cards included before encrypted backup');
     $pdo->prepare('INSERT INTO ac_users(email,password_hash,role,created_at,status) VALUES(?,?,?,UTC_TIMESTAMP(),?)')
         ->execute(['member@example.test',password_hash('member pass',PASSWORD_DEFAULT),'member','pending']);
     $memberId=(int)$pdo->lastInsertId();
@@ -201,6 +212,12 @@ try{
         FROM ac_pages ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
     verifyRecovery($afterPageRecovery===$beforePageRecovery,
         'Encrypted restore preserves every published page revision and local navigation setting');
+    $afterHighlightRecovery=$pdo->query('SELECT highlight_1_title,highlight_1_body,
+        highlight_2_title,highlight_2_body,highlight_3_title,highlight_3_body
+        FROM ac_design_settings WHERE id=1')->fetch(PDO::FETCH_ASSOC);
+    verifyRecovery($afterHighlightRecovery===$beforeHighlightRecovery
+        && HighlightSchema::installed($pdo),
+        'Encrypted restore preserves customizable homepage card text and migration marker');
     $restoredPages=new PageRepository($pdo);
     verifyRecovery($restoredPages->published('backup-unlisted')!==null
         && !in_array('backup-unlisted',array_column($restoredPages->publishedMenu(),'slug'),true)

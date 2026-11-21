@@ -1,3 +1,9 @@
+## m18 homepage-card encrypted restore parity — 2026-11-21
+
+The disposable MySQL/MariaDB encrypted backup and fresh-database restore regression now records all six per-site homepage card fields, including safe escaped-text examples and the m18 schema marker. It asserts byte-for-byte value parity after restoring the existing .acfull archive, alongside creator feedback, private assets, license configuration, site pages and menu state. This is only test-environment recovery; real cPanel/VPS restoration and independent launch certification are still required.
+
+---
+
 ## Owner-editable homepage information tiles (m18) — 2026-11-21
 
 The existing three public homepage information tiles now use a site-local additive m18 Design Studio migration instead of uneditable promotional copy. Each card has a required bounded UTF-8 heading and body, validated and HTML-escaped by the public renderer. The authenticated Design Studio exposes six fields alongside the existing theme controls, with CSRF and homepage revision checks; a stale homepage save still rolls back all visual settings. Legacy programmatic saves that omit card fields preserve existing values. The original three texts migrate as defaults and one unified Lite/Pro source ZIP requires the schema.
