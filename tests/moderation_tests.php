@@ -17,6 +17,16 @@ expect(ModerationSchema::VERSION==='m8_moderation_review_v1','Versioned migratio
 expect(ModerationRepository::validateTitle('  Gallery  ')==='Gallery','Title trimmed');
 expect(ModerationRepository::validateNote('  Reason for quarantine.  ')==='Reason for quarantine.','Review note trimmed');
 expect(ModerationRepository::validateReportReason('  I need this reviewed.  ')==='I need this reviewed.','Report reason trimmed');
+// Moderation evidence is a read-only cue, not publishing authority.
+$summary = new ReflectionMethod(\AdultCore\Http\ModerationController::class, 'evidenceSummary');
+expect($summary->invoke(null,['expected_performers'=>0,'recorded_performers'=>0,'evidenced_performers'=>0]) === 'Roster not declared',
+    'Unknown roster remains explicitly incomplete');
+expect(str_contains($summary->invoke(null,['expected_performers'=>2,'recorded_performers'=>1,'evidenced_performers'=>1]),
+    'Roster incomplete'), 'Incomplete declared roster flagged');
+expect(str_contains($summary->invoke(null,['expected_performers'=>2,'recorded_performers'=>2,'evidenced_performers'=>1]),
+    'Pending evidence'), 'Missing verified consent remains pending');
+expect(str_contains($summary->invoke(null,['expected_performers'=>2,'recorded_performers'=>2,'evidenced_performers'=>2]),
+    'independent approval still required'), 'Complete local evidence cannot self-certify publication');
 foreach (['','  ',str_repeat('a',191),"unsafe\0title"] as $title) {
     try { ModerationRepository::validateTitle($title);throw new RuntimeException('accepted'); }
     catch (RuntimeException $e) { expect($e->getMessage()!=='accepted','Bad title blocked'); }
