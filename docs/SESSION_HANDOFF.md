@@ -1,3 +1,9 @@
+## Local creator name editing — 2026-11-21
+
+Site owner/admin may now rename a local creator's display name (including suspended profiles) using a CSRF-protected, revision-checked `/admin/creators` action and `LocalCreators::rename()`. The operation locks local manager/profile records, audits only numeric IDs/action, and never alters member credentials, draft data, status or legal access. SQL/HTTP tests verify outdated revisions and moderator denial as well as escaped updated labels in the member creator workspace. This is locally controlled self-hosted functionality, not an application or SaaS identity.
+
+---
+
 ## Local owner-only read-only creator planning review — 2026-11-21
 
 Added `LocalCreators::privatePlansForOwner()` and authenticated `GET /admin/creators/drafts/ID`, with local `members.manage` role checks, bounded draft list, HTML-escaped titles/summaries, noindex/no-store, and no edit/publish methods. The manager's local creator list now links to private plans, including retained drafts after a creator is suspended. A moderator cannot view these plans, and other creators' member sessions cannot access them. Disposable MySQL and real authenticated HTTP tests check owner, moderator, stale/unknown IDs, method denial and suspended access. Still no SaaS, adult-media publishing, independent age/consent or commercial launch approval.

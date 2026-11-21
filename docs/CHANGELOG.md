@@ -1,3 +1,8 @@
+## Local creator display label edits — 2026-11-21
+
+- Allow local owner/admin to update a creator's display name with CSRF and version-based concurrency checks, without repeated password prompts during normal authenticated admin operation.
+- Audit the rename without copying personal labels into the action log; creator private planning drafts and role/entitlement/identity states remain unchanged.
+
 ## Local owner-managed creator planning — 2026-11-21 (development only)
 
 - Add self-hosted `/admin/creators` to grant/suspend/restore private creator planning for a local confirmed member, with CSRF, current manager permissions and revision-bound status changes; no centralized creator application.

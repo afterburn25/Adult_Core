@@ -569,6 +569,25 @@ try {
         array_column($creators->audit((int)$valid['id']),'action')[0]!=='restored') {
         throw new RuntimeException('Local creator restoration, draft isolation or audit failed.');
     }
+    try {
+        $creators->rename((int)$valid['id'],$creatorId,2,'An outdated creator name');
+        throw new RuntimeException('Stale creator display name overwrite accepted.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Stale creator display name overwrite accepted.') throw $e;
+    }
+    try {
+        $creators->rename($moderatorId,$creatorId,3,'Unauthorized rename');
+        throw new RuntimeException('Moderator changed a creator display name.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator changed a creator display name.') throw $e;
+    }
+    $creators->rename((int)$valid['id'],$creatorId,3,'Renamed <Creator>');
+    $renamedCreator=$creators->activeForMember((int)$member['id']);
+    if ($renamedCreator['display_name']!=='Renamed <Creator>' ||
+        count($creators->ownDrafts((int)$member['id']))!==1 ||
+        $creators->audit((int)$valid['id'])[0]['action']!=='renamed') {
+        throw new RuntimeException('Creator rename changed privileges/drafts or lacked local audit.');
+    }
     if ((int)$pdo->query('SELECT COUNT(*) FROM ac_age_verifications')->fetchColumn()!==0) {
         throw new RuntimeException('Local creator grant pretended to verify age.');
     }

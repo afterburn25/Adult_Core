@@ -1034,6 +1034,21 @@ def main():
             ensure('Restoring creator does not lose private drafts or publish them',
                    code == 200 and 'New private title' in restored_creator
                    and 'Status: private' in restored_creator)
+            code, _=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'rename',
+                'creator_id':creator_id,'revision':'2',
+                'display_name':'Stale creator name'})
+            ensure('Local creator display name stale update safely rejected',code == 422)
+            code, _=req('/admin/creators',{
+                'csrf':creator_token.group(1),'action':'rename',
+                'creator_id':creator_id,'revision':'3',
+                'display_name':'Owner renamed <Creator>'})
+            ensure('Owner changes local creator label without another password',code == 303)
+            code, renamed_creator=req('/members/creator')
+            ensure('Local member workspace displays escaped owner-updated creator label',
+                   code == 200 and 'Owner renamed &lt;Creator&gt;' in renamed_creator
+                   and 'New private title' in renamed_creator
+                   and 'Status: private' in renamed_creator)
             code, _=req('/p/private-clip')
             ensure('Private creator draft has no public page route',code == 404)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.

@@ -25,3 +25,7 @@ This is an early local planning workspace, **not** a creator-verification or pub
 ## Many local creators
 
 The owner listing is paginated in descending local creator ID order, 50 per page, with an **Older local creators** link when more records exist. Cursor pagination never adds cross-site access or bypasses manager permissions, and prevents older profiles from becoming unmanageable under the per-installation catalog limit.
+
+## Updating a creator's display name
+
+The owner/admin can rename a local creator display label from the same `/admin/creators` listing. The change requires the current local manager role, CSRF token and matching profile revision; concurrent stale edits fail closed. It does not change the member's sign-in email, password, role, age/consent state or any saved private planning draft. There is no password prompt for each routine name change while the administrator's normal secure session remains active.
