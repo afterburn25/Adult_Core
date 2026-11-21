@@ -203,6 +203,10 @@ try {
         is_string($packageHtml) && str_contains($packageHtml, 'Repair paid module license')
         && str_contains($packageHtml, 'name="module_license_key"')
         && !str_contains($packageHtml, 'AAAA-BBBB-CCCC-DDDD'));
+    verifyPackageTest('Package manager update compatibility preview cannot silently install',
+        str_contains($packageHtml, 'value="preview_update"')
+        && str_contains($packageHtml, 'Check compatibility without installing')
+        && str_contains($packageHtml, 'does not apply, replace or execute'));
     verifyPackageTest('Incomplete module activation blocks snapshot backups',
         !(new \AdultCore\Installer\InstallationGate($root))->eligibleForBackup());
     // Match the admin repair action: reenable the already enabled package
