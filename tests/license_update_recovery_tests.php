@@ -114,6 +114,26 @@ try {
     catch (RuntimeException) { $blocked = true; }
     $check('Second replacement blocked before issuer request', $blocked && $calls === 0);
 
+    foreach (['.license-update.lock', '.license-refresh.lock'] as $lockName) {
+        $lockPath = $root.'/storage/'.$lockName;
+        $safeLock = $lockPath.'.original';
+        if (!rename($lockPath, $safeLock)) {
+            throw new RuntimeException('Could not prepare rollback lock symlink fixture.');
+        }
+        try {
+            if (!@symlink($safeLock, $lockPath)) {
+                throw new RuntimeException('Could not create rollback lock symlink.');
+            }
+            try { (new LicenseUpdateRecovery($root))->rollback(); $blocked = false; }
+            catch (RuntimeException) { $blocked = true; }
+            $check('CLI rollback refuses symlinked shared lock '.$lockName,
+                $blocked && file_exists($marker));
+        } finally {
+            if (is_link($lockPath)) unlink($lockPath);
+            rename($safeLock, $lockPath);
+        }
+    }
+
     // The signed snapshot contains the previous private license key. Refuse
     // recovery while any group or public filesystem permission is present.
     chmod($marker, 0644);
