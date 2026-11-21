@@ -330,6 +330,12 @@ try {
         || $modDraftState['review_status']!=='pending') {
         throw new RuntimeException('Moderator creation published private content.');
     }
+    $reviewSummary=$moderatorRepo->privateDraftDetail($moderatorDraft);
+    if (!is_array($reviewSummary) || $reviewSummary['content']['title']!=='Moderator review-only draft'
+        || $reviewSummary['images']!==[] || $reviewSummary['performers']!==[]
+        || $moderatorRepo->privateDraftDetail(99999999)!==null) {
+        throw new RuntimeException('Read-only private draft review exposed unrelated content.');
+    }
     VerificationSchema::migrate($pdo);
     VerificationSchema::migrate($pdo);
     $accounts = new MemberAccounts($pdo);

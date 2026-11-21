@@ -575,6 +575,21 @@ def main():
                 php_fixture+['draft-media-id',draft_id],cwd=root,text=True).strip()
             ensure('Pending image has a private database ID',
                    re.fullmatch(r'[1-9][0-9]*',pending_media_id) is not None)
+            code, private_draft = req('/admin/moderation/draft/'+draft_id)
+            ensure('Moderator draft detail stays private and never leaks storage keys',
+                   code == 200 and 'Private draft review' in private_draft
+                   and 'Hidden safety demo' in private_draft
+                   and f'href="/admin/moderation/image/{pending_media_id}"' in private_draft
+                   and 'private_storage_key' not in private_draft
+                   and f'src="/media/{pending_media_id}"' not in private_draft)
+            code, restricted_draft = mod_req('/admin/moderation/draft/'+draft_id)
+            ensure('Moderation-only account can review private draft but not publish it',
+                   code == 200 and 'Private draft review' in restricted_draft
+                   and 'approve" type="submit"' not in restricted_draft)
+            code, _ = req('/admin/moderation/draft/'+draft_id,{'csrf':moderation_token.group(1)})
+            ensure('Private draft detail rejects mutation methods',code == 405)
+            code, _ = req('/admin/moderation/draft/999999999')
+            ensure('Unknown private draft detail returns neutral 404',code == 404)
             code, moderation = req('/admin/moderation')
             ensure('Moderator sees a guarded preview link rather than a public media URL',
                    code == 200
@@ -621,6 +636,11 @@ def main():
             code, _, _, rejected_binary=req_binary('/admin/moderation/image/'+rejected_media_id)
             ensure('Rejected image preview unavailable to moderator',
                    code == 404 and not rejected_binary.startswith(b'\x89PNG'))
+            code, review_after_reject=req('/admin/moderation/draft/'+draft_id)
+            ensure('Draft detail lists rejected image but no forbidden preview URL',
+                   code == 200 and f'Image #{rejected_media_id}' in review_after_reject
+                   and f'href="/admin/moderation/image/{rejected_media_id}"' not in review_after_reject
+                   and f'href="/admin/moderation/image/{pending_media_id}"' in review_after_reject)
             code, _, _, retained_preview=req_binary('/admin/moderation/image/'+pending_media_id)
             ensure('Unrelated pending image remains privately previewable',
                    code == 200 and retained_preview.startswith(b'\x89PNG'))
@@ -886,6 +906,9 @@ def main():
             code, _, _, logged_out_preview = req_binary('/admin/moderation/image/' + pending_media_id)
             ensure('Logged-out administrator cannot retrieve pending image bytes',
                    code == 302 and not logged_out_preview.startswith(b'\x89PNG'))
+            code, anonymous_draft = req('/admin/moderation/draft/'+draft_id)
+            ensure('Logged-out administrator cannot view private draft details',
+                   code == 302 and 'Hidden safety demo' not in anonymous_draft)
 
             # Disposable test only: seed an independently guarded approved
             # gallery, confirm real binary delivery, then revoke consent.
