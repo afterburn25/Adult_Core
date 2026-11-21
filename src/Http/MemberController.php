@@ -211,6 +211,17 @@ final class MemberController
             }
             try {
                 $action=$_POST['action']??null;
+                if ($action==='archive_draft' || $action==='restore_draft') {
+                    $id=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    $version=filter_var($_POST['revision']??null,FILTER_VALIDATE_INT,
+                        ['options'=>['min_range'=>1]]);
+                    if (!$id || !$version) throw new RuntimeException('Invalid private draft revision.');
+                    $creators->changeDraftArchive((int)$member['id'],(int)$id,(int)$version,
+                        $action==='archive_draft'?'archive':'restore');
+                    $this->redirect('/members/creator?result=archived');
+                    return;
+                }
                 if ($action==='withdraw_review') {
                     $id=filter_var($_POST['draft_id']??null,FILTER_VALIDATE_INT,
                         ['options'=>['min_range'=>1]]);
@@ -261,6 +272,8 @@ final class MemberController
                     'Draft changed; reload your workspace.','Private draft limit reached.',
                     'Invalid creator review request.','Only editable private plans can be submitted.',
                     'Only undecided submitted plans can be withdrawn.',
+                    'Invalid private draft archive action.',
+                    'Only unsent private plans can be archived or restored.',
                 ];
                 $message=in_array($e->getMessage(),$allowed,true)
                     ? $e->getMessage():'Could not save your private draft.';
@@ -282,6 +295,10 @@ final class MemberController
         }
         if (($_GET['result']??'')==='withdrawn') {
             $html.='<p role="status">Your text plan was withdrawn before review. It is editable and still private.</p>';
+        }
+        if (($_GET['result']??'')==='archived') {
+            $html.='<p role="status">Your private draft archive state was saved. '
+                .'Plans and numeric audit history are retained.</p>';
         }
         $html.='<section class="panel"><h2>'.self::e((string)$profile['display_name'])
             .' — private draft planning</h2>'
@@ -324,7 +341,13 @@ final class MemberController
                         .'<input type="hidden" name="action" value="submit_review">'
                         .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
                         .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
-                        .'<button class="button-secondary">Submit text plan for private review</button></form>';
+                        .'<button class="button-secondary">Submit text plan for private review</button></form>'
+                        .'<form method="post" action="/members/creator" class="install-form">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                        .'<input type="hidden" name="action" value="archive_draft">'
+                        .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                        .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                        .'<button class="button-secondary">Archive unsent private plan</button></form>';
                 } else {
                     $html.='<p>Save the revised plan before resubmitting it.</p>';
                 }
@@ -340,6 +363,15 @@ final class MemberController
                         .'<button class="button-secondary">Withdraw submitted text plan</button></form>';
                 } elseif ($status==='rejected') {
                     $html.='<p>This text plan was rejected. The saved evidence remains private.</p>';
+                } elseif ($status==='archived') {
+                    $html.='<p>This unsent plan is archived, not deleted. '
+                        .'It remains private and counts toward your draft limit.</p>'
+                        .'<form method="post" action="/members/creator" class="install-form">'
+                        .'<input type="hidden" name="csrf" value="'.self::e(MemberSession::csrf()).'">'
+                        .'<input type="hidden" name="action" value="restore_draft">'
+                        .'<input type="hidden" name="draft_id" value="'.(int)$draft['id'].'">'
+                        .'<input type="hidden" name="revision" value="'.(int)$draft['revision'].'">'
+                        .'<button class="button-secondary">Restore archived text plan</button></form>';
                 }
             }
             $html.='</article>';
