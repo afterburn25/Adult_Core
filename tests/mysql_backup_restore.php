@@ -164,8 +164,11 @@ try{
     verifyRecovery(count($restoredQueue)===1
         && (int)$restoredQueue[0]['id']===$submittedDraftId,
         'Private creator moderator queue is restored without public publication');
-    verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()===0,
-        'Restored local creator planning records did not create public content');
+    $publicContentTable=(int)$pdo->query("SELECT COUNT(*) FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_content'")->fetchColumn();
+    verifyRecovery($publicContentTable===0
+        || (int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()===0,
+        'Restored local creator plans did not create public content on a fresh Lite installation');
     verifyRecovery($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()==='lite','Edition retained');
     verifyRecovery($pdo->query("SELECT password_hash FROM ac_users WHERE email='owner@example.test'")->fetchColumn()===$originalMfaHash,'Password hash retained');
     verifyRecovery(file_get_contents($dst.'/storage/design-assets/creator.png')===$asset,'Design images recover byte-identically');
