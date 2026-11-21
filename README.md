@@ -1,3 +1,7 @@
+## Pending performer-record review (development)
+
+Authenticated moderators can navigate older performer-roster status summaries 50 at a time, without receiving any local identity/consent approval capability. Real independent verification and release safeguards remain mandatory.
+
 ## Moderation reports across large queues (development)
 
 The protected moderation dashboard now keeps open reports first while offering Older reports navigation when the list exceeds 50 entries. Browsing report history never approves, publishes or restores adult content; real age/consent and payment integrations remain blocked.

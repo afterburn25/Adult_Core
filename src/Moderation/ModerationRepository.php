@@ -323,6 +323,28 @@ final class ModerationRepository
         ];
     }
 
+    /**
+     * Read-only 50-row private performer status summaries; no identity
+     * documents, provider keys, self-certification or moderation approval.
+     * @return array{items:list<array<string,mixed>>,next:?int}
+     */
+    public function performerQueuePage(?int $before=null): array
+    {
+        if ($before!==null && $before<1) {
+            throw new RuntimeException('Invalid performer summary cursor.');
+        }
+        $q=$this->pdo->prepare('SELECT p.id,p.content_id,p.review_status,p.verified_at,p.consent_at,c.title
+            FROM ac_performer_records p JOIN ac_content c ON c.id=p.content_id'
+            .($before===null?'':' WHERE p.id<?')
+            .' ORDER BY p.id DESC LIMIT 51');
+        $q->execute($before===null?[]:[$before]);
+        $rows=$q->fetchAll(PDO::FETCH_ASSOC);
+        $more=count($rows)>50;
+        if ($more) array_pop($rows);
+        return ['items'=>$rows,
+            'next'=>$more && $rows!==[]?(int)$rows[count($rows)-1]['id']:null];
+    }
+
     /** @return list<array<string,mixed>> */
     public function performerQueue(): array
     {

@@ -229,7 +229,8 @@ final class ModerationController
                 'Only private, unreviewed drafts can receive a tier.',
                 'Draft tier changed; reload the moderation queue.',
                 'Draft tier assignment is unchanged.','Choose an existing membership tier.',
-                'Invalid moderation queue cursor.','Invalid private report queue cursor.'];
+                'Invalid moderation queue cursor.','Invalid private report queue cursor.',
+                'Invalid performer summary cursor.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -382,11 +383,27 @@ final class ModerationController
             .'<select id="roster-draft" name="content_id" required>'.$rosterOptions.'</select>'
             .'<label>Number of performers<input name="performer_count" type="number" min="1" max="20" required></label>'
             .'<button class="button-secondary">Create pending records</button></form></section>';
-        $html.='<section class="panel"><h2>Performer verification records</h2><table class="page-table"><thead><tr><th>Record ID</th><th>Content ID</th><th>Identity</th><th>Consent</th><th>Review</th></tr></thead><tbody>';
-        foreach ($repo->performerQueue() as $record) {
+        $rawPerformerCursor=$_GET['performer_before']??null;
+        $performerBefore=$rawPerformerCursor===null?null:(is_string($rawPerformerCursor)
+            ? filter_var($rawPerformerCursor,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]) : false);
+        if ($performerBefore===false) throw new RuntimeException('Invalid performer summary cursor.');
+        $performers=$repo->performerQueuePage($performerBefore);
+        $html.='<section class="panel"><h2>Performer verification records</h2>'
+            .'<p class="muted">Read-only provider assertion status. No local approval, document upload or consent override.</p>'
+            .'<table class="page-table"><thead><tr><th>Record ID</th><th>Content ID</th><th>Identity</th><th>Consent</th><th>Review</th></tr></thead><tbody>';
+        foreach ($performers['items'] as $record) {
             $html.='<tr><td>'.(int)$record['id'].'</td><td>'.(int)$record['content_id'].'</td><td>'.($record['verified_at']===null?'Pending':'Assertion received').'</td><td>'.($record['consent_at']===null?'Pending':'Assertion received').'</td><td>'.self::e((string)$record['review_status']).'</td></tr>';
         }
-        $html.='</tbody></table></section>';
+        $html.='</tbody></table>';
+        if ($performers['next']!==null) {
+            $html.='<p><a href="/admin/moderation?performer_before='
+                .(int)$performers['next'].'">Older performer records</a></p>';
+        }
+        if ($performerBefore!==null) {
+            $html.='<p><a href="/admin/moderation">Back to newest performer records</a></p>';
+        }
+        if ($performers['items']===[]) $html.='<p>No performer summary records on this page.</p>';
+        $html.='</section>';
         $rawReportCursor=$_GET['report_after']??null;
         if ($rawReportCursor!==null && !is_string($rawReportCursor)) {
             throw new RuntimeException('Invalid private report queue cursor.');

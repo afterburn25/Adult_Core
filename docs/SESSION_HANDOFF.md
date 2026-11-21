@@ -1,3 +1,9 @@
+## Pending performer status pagination without self-verification — 2026-11-21
+
+Added `performerQueuePage()` with bounded 50-record numeric-keyset pages to the authenticated moderator dashboard. The old 100-row summary limit no longer silently hides older local performer-roster entries; links expose only numeric record IDs, content IDs and **read-only provider assertion status**. Staff cannot upload identity evidence, mark age/consent verified, self-certify a performer or publish any adult media. A disposal-confirmed HTTP fixture allocates one unverified pending roster entry to each of 51 existing synthetic private drafts, and tests older-page navigation and malformed-cursor denial. MySQL and MariaDB direct tests cover empty page behavior and invalid IDs. Real provider onboarding, record retention compliance and independent legal acceptance are still missing.
+
+---
+
 ## Open-first private report queue keyset navigation — 2026-11-21
 
 The local moderation dashboard's report section previously stopped at 100 entries even when many open reports remained. Added a 50-row `reportQueuePage()` ordered by open-first priority bucket then descending numeric report ID, with a strictly validated two-part cursor and Older/Back navigation. It preserves the existing `reportQueue()` API and never grants content access, authorizes performer evidence, alters billing or changes report status by following a link. Existing authenticated `resolveReport` remains the only report disposition action. Disposable SQL and HTTP regressions seed 51 synthetic open reports plus a resolved one, verify priority ordering, access to older reports, and fail-closed malformed cursor handling. Because report status changes can move an item between sort buckets, the UI must be reloaded after decisions; no snapshot guarantee is claimed. Hosted launch compliance and processor/provider acceptance remain unverified.

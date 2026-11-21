@@ -15,7 +15,7 @@ if (getenv('AC_TEST_DB_CONFIRM') !== 'YES_THIS_IS_A_DISPOSABLE_DATABASE') {
     exit(2);
 }
 $action = $argv[1] ?? '';
-if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports'], true)) {
+if (!in_array($action, ['setup', 'cleanup', 'issue-email', 'issue-recovery', 'stage-gallery', 'revoke-gallery', 'draft-media-id', 'suspend-owner', 'reactivate-owner', 'seed-moderator', 'seed-pages', 'seed-members', 'seed-content-queue', 'seed-reports', 'seed-performers'], true)) {
     throw new RuntimeException('Expected setup or cleanup action.');
 }
 $host = getenv('AC_TEST_DB_HOST') ?: '127.0.0.1';
@@ -121,6 +121,24 @@ if ($action === 'seed-reports') {
         VALUES (?,?,?,'resolved',UTC_TIMESTAMP())");
     $q->execute([$content,$reporter,'Disposable resolved report']);
     echo 'Disposable pending private report queue prepared.';
+    exit;
+}
+if ($action === 'seed-performers') {
+    // Fixture has at most one entirely unverified pending roster entry for
+    // each of 51 synthetic PRIVATE drafts; it never asserts age or consent.
+    $drafts=$pdo->query("SELECT id FROM ac_content
+        WHERE title LIKE 'Bulk moderation %' AND status='draft'
+            AND visibility='private' ORDER BY id ASC LIMIT 51")->fetchAll(PDO::FETCH_COLUMN);
+    if (count($drafts)!==51) throw new RuntimeException('Disposable private performer drafts missing.');
+    $update=$pdo->prepare('UPDATE ac_content SET expected_performers=1 WHERE id=?');
+    $insert=$pdo->prepare("INSERT INTO ac_performer_records
+        (content_id,private_record_key,review_status)
+        VALUES (?,?,'pending')");
+    foreach ($drafts as $id) {
+        $update->execute([(int)$id]);
+        $insert->execute([(int)$id,'disposable-unverified-'.(int)$id]);
+    }
+    echo 'Unverified private performer summaries prepared.';
     exit;
 }
 if ($action === 'issue-email') {

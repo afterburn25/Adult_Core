@@ -1779,6 +1779,20 @@ def main():
             code, report_invalid=req('/admin/moderation?report_after=1%3A0')
             ensure('Malformed report queue cursor denied without changing report state',
                    code==422 and 'Invalid private report queue cursor' in report_invalid)
+            subprocess.check_output(php_fixture+['seed-performers'],cwd=root)
+            code, performer_first=req('/admin/moderation')
+            performer_next=re.search(r'href="/admin/moderation\?performer_before=(\d+)"',performer_first)
+            ensure('Local moderator can paginate pending performer summaries',
+                   code==200 and performer_next is not None
+                   and 'Older performer records' in performer_first)
+            code, performer_second=req('/admin/moderation?performer_before='+performer_next.group(1))
+            ensure('Oldest performer summary remains reachable without any approval',
+                   code==200 and 'Back to newest performer records' in performer_second
+                   and 'Assertion received' not in performer_second
+                   and 'Pending' in performer_second)
+            code, performer_invalid=req('/admin/moderation?performer_before=not-a-number')
+            ensure('Invalid performer cursor fails closed',code==422
+                   and 'Invalid performer summary cursor' in performer_invalid)
 
             code, body = req('/admin/logout')
             ensure('GET cannot sign out', code == 405)
