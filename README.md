@@ -1,3 +1,7 @@
+## Unsaved page editing preview (development)
+
+**Admin → Pages → Edit** now shows an immediate, browser-only plain-text preview of the headline and body while typing. It never saves, uploads, grants access or publishes a page; click **Save page** and use the protected saved preview when ready. HTML is treated as plain text.
+
 ## Edit the self-hosted site name (m20 development)
 
 **Admin → Site identity** allows owners to change the public site name using the existing secure admin session and CSRF protection, without reinstalling or entering their password for routine changes. Concurrent stale edits are rejected. Run **Admin → Setup** after a verified backup to apply the additive m20 revision marker. License product, domain, protected adult content, payments and verification are not changed.

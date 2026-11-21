@@ -512,6 +512,12 @@ final class SiteAdminController
             . '<button class="install-button" type="submit">Save page</button></form></section>'
             . '<aside class="panel editor-help"><span class="section-overline">EDITOR NOTES</span><h2>Build something beautiful.</h2>'
             . '<p>Keep your content clear and welcoming. Pages are stored as plain text and escaped before display.</p>'
+            . '<section class="page-live-preview" aria-label="Unsaved page text preview">'
+            . '<h3>Unsaved text preview</h3>'
+            . '<p class="muted">Preview only, in this browser. Editing does not save or publish the page.</p>'
+            . '<h4 id="page-live-title">' . self::e((string)$entry['title']) . '</h4>'
+            . '<p class="page-live-body" id="page-live-body">' . self::e((string)$entry['body']) . '</p>'
+            . '</section>'
             . '<div class="editor-help-rule"></div><strong>Publishing checklist</strong>'
             . '<ul><li>Choose a memorable title</li><li>Keep the URL slug simple</li><li>Save a draft before publishing</li><li>Preview your public site</li></ul>'
             . '<a href="/" class="button-secondary" target="_blank" rel="noopener noreferrer">Open live website ↗</a>'
@@ -554,6 +560,7 @@ final class SiteAdminController
             }
             $html.='</tbody></table><p class="muted">Showing up to 20 most recent revisions.</p></section>';
         }
+        $html.='<script defer src="/assets/page-editor.js"></script>';
         $this->render(200, $id ? 'Edit page' : 'Create page', $html);
     }
 

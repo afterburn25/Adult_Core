@@ -1,3 +1,9 @@
+## Unsaved, client-only plain-text page editor preview — 2026-11-21
+
+The authenticated Pages editor now displays a small same-screen *unsaved* title/body preview, including when creating a page. An audited static `/assets/page-editor.js` script projects both inputs with `textContent` only, preserving line breaks with a CSS rule; no innerHTML, AJAX, local storage, auto-saving, publication, media endpoint or added third-party dependency is involved. The initial saved text is HTML-escaped server-side, and the preview explicitly states it is not the published website. Real HTTP and UI/source tests cover safe form inclusion, escaped stored drafts, inert JS and source ZIP inclusion. Server-side owner/MFA/CSRF/revision/publication controls remain unchanged.
+
+---
+
 ## Design Studio requires page history before editing — 2026-11-21
 
 The homepage visual Design Studio now reports a clear 503 setup-required state until the m19 private page-history migration is installed. The repository already required m19 and rolled back failed editor saves; this adds a pre-editor guard so owners do not unknowingly work in a form that cannot be saved. Existing license, permissions, private image and homepage publish gates are unchanged. The design unit suite asserts the guard is present.

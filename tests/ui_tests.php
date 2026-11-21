@@ -96,7 +96,17 @@ $member = Layout::member('Join', '<p>Existing member form</p>');
 uiCheck(str_contains($member, 'Existing member form'), 'Member form inserted');
 uiCheck(str_contains($member, 'class="auth-panel"'), 'Unified member form styling');
 
+$pageEditorJs=(string)file_get_contents(dirname(__DIR__).'/public/assets/page-editor.js');
+uiCheck(str_contains($pageEditorJs,'titlePreview.textContent = titleField.value;')
+    && str_contains($pageEditorJs,'bodyPreview.textContent = bodyField.value;')
+    && !str_contains($pageEditorJs,'innerHTML')
+    && !str_contains($pageEditorJs,'fetch(')
+    && !str_contains($pageEditorJs,'localStorage'),
+    'Unsaved page preview is script-free text projection with no automatic network or storage writes');
 $css = file_get_contents(dirname(__DIR__) . '/public/assets/style.css');
+uiCheck(str_contains((string)$css,'.page-live-preview')
+    && str_contains((string)$css,'white-space:pre-wrap'),
+    'Page editor preview preserves whitespace without unescaped HTML');
 uiCheck(is_string($css) && str_contains($css, 'prefers-reduced-motion'), 'Reduced-motion preferences respected');
 uiCheck(is_string($css) && str_contains($css, '@media(max-width:480px)'), 'Small-screen responsive grid');
 uiCheck(is_string($css) && !str_contains($css, '@import'), 'No external stylesheet import');

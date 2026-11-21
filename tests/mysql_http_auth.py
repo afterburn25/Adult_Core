@@ -492,6 +492,12 @@ def main():
             code, editor = req('/admin/page')
             edit_csrf = re.search(r'name="csrf" value="([a-f0-9]{64})"', editor)
             ensure('Page editor requires auth and token', code == 200 and edit_csrf is not None)
+            ensure('Unsaved page preview is owner-only and visibly not published',
+                   'id="page-live-title"' in editor
+                   and 'id="page-live-body"' in editor
+                   and 'Unsaved text preview' in editor
+                   and 'Editing does not save or publish the page' in editor
+                   and '<script defer src="/assets/page-editor.js"></script>' in editor)
             code, _ = req('/admin/page', {
                 'csrf': edit_csrf.group(1), 'slug': 'safe-page',
                 'title': 'Safe page', 'body': 'Hello <script>unsafe()</script>', 'status': 'published'
@@ -584,6 +590,10 @@ def main():
             first_revision=re.search(r'name="revision" value="(\d+)"',draft_form)
             ensure('Existing page editor supplies an opaque monotonic revision',
                    code==200 and first_revision is not None)
+            ensure('Unsaved draft preview renders saved private plain text escaped',
+                   '<h4 id="page-live-title">Unpublished &lt;b&gt;preview&lt;/b&gt;</h4>' in draft_form
+                   and 'Private &lt;script&gt;not_public()&lt;/script&gt;' in draft_form
+                   and '<script>not_public()</script>' not in draft_form)
             draft_revision=first_revision.group(1)
             code, _=req('/admin/page?id='+saved_draft_id,{
                 'csrf':edit_csrf.group(1),'revision':draft_revision,'slug':'secret-preview',

@@ -31,6 +31,7 @@ try {
         'public/index.php','src/Membership/MemberLibrary.php',
         'src/Membership/TierCatalog.php','src/Http/TierController.php',
         'src/Auth/StaffRepository.php','src/Auth/StaffSchema.php','src/Http/StaffController.php',
+        'public/assets/page-editor.js',
         'src/Website/PageRepository.php','src/Website/PageRevisionSchema.php',
         'src/Website/PageNavigationSchema.php','src/Website/PageHistorySchema.php',
         'src/Website/SiteIdentity.php','src/Website/SiteIdentitySchema.php',
