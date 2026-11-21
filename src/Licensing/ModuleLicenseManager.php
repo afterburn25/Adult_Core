@@ -72,10 +72,17 @@ final class ModuleLicenseManager
         $key=CajunWebClient::key($key);
         $domain=$this->domain();
         $this->assertSafeStorage();
+        $dir=$this->directory();
+        // Refuse known-unsafe local targets BEFORE sending the module key to
+        // the issuer. Recheck under lock below before changing either file.
+        foreach ([$dir.'/.lock', $dir.'/'.$id.'.php', $dir.'/'.$id.'.json'] as $path) {
+            if (is_link($path) || (file_exists($path) && !is_file($path))) {
+                throw new RuntimeException('Module license private storage is unsafe.');
+            }
+        }
         if ($this->authority()->validate($key,$domain,$sku) !== 'valid') {
             throw new RuntimeException('Cajun Web Pro did not authorize this module license.');
         }
-        $dir=$this->directory();
         if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir)) throw new RuntimeException('Private module license storage unavailable.');
         $secret=$this->secret();
         if (is_link($dir.'/.lock') || (file_exists($dir.'/.lock') && !is_file($dir.'/.lock'))) {
