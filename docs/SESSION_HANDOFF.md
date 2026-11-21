@@ -1,3 +1,9 @@
+## Encrypted local branding disaster recovery test — 2026-11-21
+
+The disposable full MySQL/MariaDB encrypted `.acfull` backup and empty-database restoration fixture now migrates m20, changes the canonical site name with a revision check, and verifies the exact brand string and revision survive the restore without an issuer request or an account/password change. This covers only the local website name, not the licensed domain. All previously added creator, draft, page history, decorative media and encrypted archive assertions remain. Actual cPanel/VPS restore drills and independent launch acceptance are still required.
+
+---
+
 ## Owner Site identity UI, local m20 setup and real browser coverage — 2026-11-21
 
 `/admin/site` now exposes an authenticated owner/admin-only branding editor with CSRF, strict single-line UTF-8 input and a revision token; no re-prompt for the administrator password is needed. Successful changes update the canonical installer's site name in local `ac_settings`, so existing safely escaped public header/title/footer renderers pick up the new value. The Setup screen tracks m20. The moderator role cannot access `/admin/site`, and both URL routing and UI permissions are enforced. Disposable real HTTP regressions verify valid saves, malicious control-byte denial, stale-tab rejection and XSS-safe public branding. This affects neither licensed Lite/Pro installation nor age/consent or payment workflows. Production release blockers remain open.

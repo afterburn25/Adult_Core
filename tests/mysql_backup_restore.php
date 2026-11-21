@@ -17,6 +17,8 @@ use AdultCore\Website\SiteSchema;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
 use AdultCore\Website\PageHistorySchema;
+use AdultCore\Website\SiteIdentitySchema;
+use AdultCore\Website\SiteIdentity;
 use AdultCore\Website\PageRepository;
 use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
@@ -77,6 +79,15 @@ try{
     (new InstallService($src,$client))->install($inputs);
     unlink($src.'/install/index.php');rmdir($src.'/install');
     SiteSchema::migrate($pdo);MemberSchema::migrate($pdo);DesignSchema::migrate($pdo);
+    SiteIdentitySchema::migrate($pdo);
+    SiteIdentitySchema::migrate($pdo);
+    $localBrand=new SiteIdentity($pdo);
+    verifyRecovery($localBrand->current()===['site_name'=>'Recover Me','revision'=>1],
+        'Installer local brand stays intact during repeatable site identity migration');
+    $localBrand->rename('Recovered <Local Brand> & More',1);
+    $beforeIdentityRecovery=$localBrand->current();
+    verifyRecovery($beforeIdentityRecovery===['site_name'=>'Recovered <Local Brand> & More','revision'=>2],
+        'Site-local public brand and optimistic revision are part of private site backup');
     PageRevisionSchema::migrate($pdo);
     PageNavigationSchema::migrate($pdo);
     PageHistorySchema::migrate($pdo);
@@ -215,6 +226,9 @@ try{
     verifyRecovery($restored===$stats,'Backup and restore counters agree');
     verifyRecovery((int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===2,'Original owner and member accounts retained');
     verifyRecovery($pdo->query("SELECT title FROM ac_pages WHERE slug='home'")->fetchColumn()==='Recovered creator page','Creator page retained');
+    verifyRecovery((new SiteIdentity($pdo))->current()===$beforeIdentityRecovery
+        && SiteIdentitySchema::installed($pdo),
+        'Encrypted restore retained exact local site name and revision without contacting licensing issuer');
     $afterPageRecovery=$pdo->query("SELECT id,slug,title,body,status,revision,show_in_menu,nav_position
         FROM ac_pages ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
     verifyRecovery($afterPageRecovery===$beforePageRecovery,

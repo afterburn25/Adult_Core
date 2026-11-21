@@ -1,3 +1,9 @@
+## Encrypted local branding disaster recovery test — 2026-11-21
+
+The disposable full MySQL/MariaDB encrypted `.acfull` backup and empty-database restoration fixture now migrates m20, changes the canonical site name with a revision check, and verifies the exact brand string and revision survive the restore without an issuer request or an account/password change. This covers only the local website name, not the licensed domain. All previously added creator, draft, page history, decorative media and encrypted archive assertions remain. Actual cPanel/VPS restore drills and independent launch acceptance are still required.
+
+---
+
 ## Protected read-only page history preview — 2026-11-21
 
 Owner/admin may now preview a specific saved page revision using a read-only `/admin/page/history?id=…&revision=…` URL. The version is selected by exact page ID and revision under the existing license, session, MFA and owner role checks. Preview renders escaped plain text only, with no private media, forced publication or live theme image; replies are `Cache-Control: private, no-store` and `X-Robots-Tag: noindex, nofollow`. Invalid/missing versions return 404, POST is 405 with valid session CSRF, and logged-out requests redirect before any private text loads. The editor links to previews beside draft-only restore forms; source snapshots remain immutable. SQL and real authenticated HTTP regressions cover these restrictions. This is not a creator publication, merchant billing or legal verification integration.
