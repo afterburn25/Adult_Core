@@ -17,6 +17,8 @@ use AdultCore\Member\MemberSession;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Membership\MemberLibrary;
+use AdultCore\Membership\MembershipSchema;
+use AdultCore\Membership\MemberSubscriptionSummary;
 use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
@@ -125,10 +127,16 @@ final class MemberController
                 $member = $this->member($accounts);
                 if ($member === null) { $this->redirect('/members/login'); return; }
                 $confirmed = (new EmailConfirmations($pdo))->verified((int)$member['id']);
+                $subscriptionSchema=$pdo->prepare('SELECT COUNT(*) FROM ac_schema_migrations WHERE version=?');
+                $subscriptionSchema->execute([MembershipSchema::VERSION]);
+                $subscriptionView=(int)$subscriptionSchema->fetchColumn()===1
+                    ? MemberSubscriptionSummary::render((new MemberSubscriptionSummary($pdo))->forMember((int)$member['id']))
+                    : '<p>Membership records have not been configured by the website administrator.</p>';
                 $this->view(200,'Member account','<p>Signed in as <strong>' . self::e($member['email']) . '</strong>.</p>'
                     . '<p>Account status: <strong>' . self::e($member['status']) . '</strong>.</p>'
                     . '<p>Email address: <strong>' . ($confirmed ? 'confirmed' : 'unconfirmed') . '</strong>. <a href="/members/email">Email settings</a></p>'
                     . '<p>Private content and paid access remain unavailable until independent age verification, content approval, and payment integrations have been completed.</p>'
+                    . $subscriptionView
                     . '<p><a href="/members/library">View your private library</a></p>'
                     . '<p><a href="/members/report">Report a content safety concern</a></p>'
                     . '<form method="post" action="/members/logout"><input type="hidden" name="csrf" value="' . MemberSession::csrf() . '"><button class="button-secondary">Sign out</button></form>');
