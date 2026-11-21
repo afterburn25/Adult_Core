@@ -1,3 +1,9 @@
+## Withdrawing a pending text plan — 2026-11-21
+
+Creators can now **Withdraw submitted text plan** while the local moderator has not made a decision. Withdrawal reopens their own plan as a private editable draft and records a numeric-only `withdrawn` event. The action checks member authentication, CSRF, the active local creator permission, draft ownership, submitted status, and expected revision in a transaction. It cannot undo requested changes or a rejection, withdraw another creator's work, bypass age/consent checks, or publish media.
+
+---
+
 # Local creator workspaces — self-hosted only
 
 Adult_Core is **one downloadable, owner-installed application**. Each customer manages their own installation. There is **no central creator network, SaaS signup, vendor-side application or Cajun Web Pro approval of creators**.

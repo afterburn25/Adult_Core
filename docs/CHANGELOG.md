@@ -1,3 +1,8 @@
+## Creator pending-submission withdrawal — 2026-11-21
+
+- Allow the locally authorized creator to withdraw a submitted, undecided text-only plan, returning it to private editing with a revision increment and numeric-only audit.
+- Preserve rejection/request-changes finality and moderator state-race protection. Add disposable SQL and HTTP checks for cross-account withdrawal denial, replay, CSRF and no public content changes.
+
 ## Private creator text-plan review and revision feedback (2026-11-21)
 
 - Add locally permissioned member submit-for-review action for private creator planning text, with status and draft-version checks.

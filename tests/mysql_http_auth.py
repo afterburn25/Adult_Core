@@ -1157,6 +1157,53 @@ def main():
             code, none_pending=mod_req('/admin/creator-review')
             ensure('Reviewed plan no longer appears in submitted queue',
                    code == 200 and 'No submitted private plans' in none_pending)
+            # A creator may withdraw a new submitted plan before any
+            # moderator decision. Other actor and stale changes stay denied.
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'save_draft',
+                'draft_id':'','revision':'',
+                'title':'Withdrawable private plan',
+                'summary':'This privately saved plan may be withdrawn before a review decision.'})
+            ensure('Member can create another private plan for withdrawal',code == 303)
+            code, second_creator_page=req('/members/creator')
+            withdraw_match=re.search(r'name="draft_id" value="(\d+)"',second_creator_page)
+            ensure('New private plan has a per-account draft ID',
+                   code == 200 and withdraw_match is not None)
+            withdraw_draft_id=withdraw_match.group(1)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'submit_review',
+                'draft_id':withdraw_draft_id,'revision':'1'})
+            ensure('New creator plan enters pending private review',code == 303)
+            code, withdraw_queue=mod_req('/admin/creator-review')
+            ensure('Withdrawal fixture appears only in local moderator queue',
+                   code == 200 and 'Withdrawable private plan' in withdraw_queue)
+            code, pending_withdraw=req('/members/creator')
+            ensure('Submitted creator sees withdrawal action while review is pending',
+                   code == 200 and 'name="action" value="withdraw_review"' in pending_withdraw)
+            code, _=req('/members/creator',{
+                'csrf':'bad','action':'withdraw_review',
+                'draft_id':withdraw_draft_id,'revision':'2'})
+            ensure('Withdrawal requires member CSRF',code == 403)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'withdraw_review',
+                'draft_id':withdraw_draft_id,'revision':'2'})
+            ensure('Creator can withdraw undecided private submission',code == 303)
+            code, after_withdraw=req('/members/creator')
+            ensure('Withdrawn plan is editable, remains private and retains draft text',
+                   code == 200 and 'Withdrawable private plan' in after_withdraw
+                   and 'Status: private' in after_withdraw
+                   and 'Save private changes' in after_withdraw
+                   and 'Withdraw submitted text plan' not in after_withdraw)
+            code, _=req('/members/creator',{
+                'csrf':creator_csrf.group(1),'action':'withdraw_review',
+                'draft_id':withdraw_draft_id,'revision':'3'})
+            ensure('Repeated withdrawal is denied',code == 422)
+            code, withdrawn_review=mod_req('/admin/creator-review',{
+                'csrf':review_token.group(1),'draft_id':withdraw_draft_id,
+                'revision':'2','decision':'changes',
+                'feedback':'Review must not resume a withdrawn private plan.'})
+            ensure('Moderator cannot review a withdrawn private submission',
+                   code == 422 and 'Only submitted private plans can be reviewed.' in withdrawn_review)
             code, _=req('/p/private-clip')
             ensure('Private creator draft has no public page route',code == 404)
             # Anonymous recovery must not disclose accounts and must not consume tokens on GET.

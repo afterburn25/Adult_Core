@@ -46,6 +46,10 @@ $assert(str_contains($controller,"'content.moderate'")
     && !str_contains($controller,'value="approved"'),
     'Moderator UI requires active role, CSRF and no public approval button');
 $member=(string)file_get_contents(dirname(__DIR__).'/src/Http/MemberController.php');
+$assert(str_contains($source,"'withdrawn'")
+    && str_contains($source,"status='private'")
+    && str_contains($member,"$"."action==='withdraw_review'"),
+    'Only the creator can withdraw an undecided submission without deleting audit events');
 $assert(str_contains($member,"$"."action==='submit_review'")
     && str_contains($member,'MemberSession::csrfValid')
     && str_contains($member,'CreatorReviewSchema::VERSION'),

@@ -700,6 +700,45 @@ try {
         || !str_contains((string)$ownerAfterReview['drafts'][0]['review_note'],'Rejected')) {
         throw new RuntimeException('Local owner cannot inspect retained rejected text plans.');
     }
+    // A creator can withdraw only an undecided submission, preserving a
+    // numeric audit event and restoring text editing without publication.
+    $withdrawId=$creators->saveDraft((int)$member['id'],null,null,
+        'Withdraw test plan','This private text plan should remain editable after withdrawal.');
+    $textReview->submit((int)$member['id'],$withdrawId,1);
+    if (count($textReview->queue($moderatorId))!==1) {
+        throw new RuntimeException('Submitted withdrawal fixture was not privately queued.');
+    }
+    try {
+        $textReview->withdraw((int)$secondMember['id'],$withdrawId,2);
+        throw new RuntimeException('Another creator withdrew an unrelated text plan.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Another creator withdrew an unrelated text plan.') throw $e;
+    }
+    $textReview->withdraw((int)$member['id'],$withdrawId,2);
+    $withdrawn=$creators->ownDrafts((int)$member['id'])[0];
+    $eventQuery=$pdo->prepare('SELECT action FROM ac_creator_draft_events WHERE draft_id=? ORDER BY id');
+    $eventQuery->execute([$withdrawId]);
+    if ($withdrawn['status']!=='private' || (int)$withdrawn['revision']!==3
+        || $eventQuery->fetchAll(PDO::FETCH_COLUMN)!==['submitted','withdrawn']
+        || $textReview->queue($moderatorId)!==[]) {
+        throw new RuntimeException('Withdrawing pending text failed to restore privacy or preserve audit.');
+    }
+    try {
+        $textReview->withdraw((int)$member['id'],$withdrawId,3);
+        throw new RuntimeException('Repeated withdrawal succeeded.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Repeated withdrawal succeeded.') throw $e;
+    }
+    try {
+        $textReview->decide($moderatorId,$withdrawId,2,
+            'changes','Moderator cannot review a withdrawn private plan.');
+        throw new RuntimeException('Moderator reviewed a withdrawn plan.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Moderator reviewed a withdrawn plan.') throw $e;
+    }
+    if ((int)$pdo->query('SELECT COUNT(*) FROM ac_content')->fetchColumn()!==$beforeContent) {
+        throw new RuntimeException('Withdrawn text submission mutated public content.');
+    }
     $recovery = new PasswordRecovery($pdo);
     if ($recovery->issueForEmail('unknown@example.test') !== null) throw new RuntimeException('Unknown user recovery token generated.');
     if ($recovery->issueForEmail('owner@example.test') !== null) throw new RuntimeException('Admin recovery exposed through member route.');

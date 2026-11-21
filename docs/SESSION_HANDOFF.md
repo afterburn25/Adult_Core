@@ -1,3 +1,10 @@
+## Local creator text-plan withdrawal — 2026-11-21
+
+- Added `CreatorDraftReview::withdraw(memberId,draftId,expectedRevision)` for currently `submitted` plans only. It locks the active site-local creator identity and owned draft, verifies matching optimistic revision, returns status to `private`, increments revision, clears obsolete feedback, and logs a numeric `withdrawn` event without deleting review history. Rejected or already-reviewed plans cannot be withdrawn and no owner/moderator can withdraw on behalf of another member through the member route.
+- `/members/creator` now offers **Withdraw submitted text plan** and a status message, with existing CSRF and current-account gates. Added disposable MySQL/MariaDB and authenticated HTTP denial/replay/no-publish tests. No SaaS, age/consent certification, publishing or billing workflow was added.
+
+---
+
 ## Private local creator text review — 2026-11-21
 
 - Added `src/Creator/CreatorReviewSchema.php` with m14 additive `ac_creator_drafts.review_note` and `ac_creator_draft_events` (numeric actor/draft/action/timestamp only); it runs after the local creator migration in `/admin/setup`. Existing created drafts stay `status='private'`, public ac_content and media tables are unchanged.
