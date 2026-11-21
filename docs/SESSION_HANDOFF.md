@@ -1,3 +1,9 @@
+## m22 private member profile setup — 2026-11-21
+
+Admin → Setup now applies the additive m22 private member display-name schema after m21 member safety, repeats it safely, and lists its exact migration state; owner Site Health reports it independently and fails its local check if missing. Only a signed-in local member may manage the resulting private text after the separate UI route is added. No member identity/consent, payment, public creator or media approval is introduced.
+
+---
+
 ## Local private member display names: m22 backend — 2026-11-21
 
 Added repeatable additive `MemberProfileSchema` m22, a site-local `ac_member_profiles` table with a private per-member UTF-8 display name, monotonic revision and last-updated time. `MemberProfiles` reads only current pending/active `role=member` records, allows creation with expected revision 0 and editing with an exact revision match, and locks the member row before the profile in a transaction. Names must be 2–100 UTF-8 bytes on one line; controls, stale edits, unchanged edits, suspended/staff targets and cross-member data are refused. No public nickname directory, creator approval, age/consent, merchant billing or private media entitlement is created. Added unit, repeatable MySQL/MariaDB, disposable cleanup ordering and unified Lite/Pro source ZIP required-file checks. The signed-in member's own `/members/profile` UI, migration setup wiring, HTTP tests and backup parity are follow-up increments. Keep failed/unapplied m22 routes closed until migration.

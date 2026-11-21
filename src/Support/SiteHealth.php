@@ -20,6 +20,7 @@ use AdultCore\Member\MemberSchema;
 use AdultCore\Member\MemberEmailSchema;
 use AdultCore\Member\EmailDelivery;
 use AdultCore\Member\MemberSafetySchema;
+use AdultCore\Member\MemberProfileSchema;
 use AdultCore\Membership\MembershipSchema;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Creator\CreatorSchema;
@@ -81,7 +82,7 @@ final class SiteHealth
             PageNavigationSchema::VERSION,PageHistorySchema::VERSION,
             SiteIdentitySchema::VERSION,MemberSchema::VERSION,
             MemberEmailSchema::VERSION,PasswordRecoverySchema::VERSION,
-            MemberSafetySchema::VERSION,
+            MemberSafetySchema::VERSION,MemberProfileSchema::VERSION,
             MembershipSchema::VERSION,ModerationSchema::VERSION,
             CreatorSchema::VERSION,CreatorReviewSchema::VERSION,
             CreatorFeedbackSchema::VERSION,DesignSchema::VERSION,
