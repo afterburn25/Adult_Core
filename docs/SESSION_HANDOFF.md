@@ -1,3 +1,9 @@
+## Responsive keyboard-friendly owner dashboard work tiles — 2026-11-21
+
+The four local read-only work counters now use a responsive grid with 4 desktop, 2 tablet and 1 small-screen columns. Each count is a standard link to a protected local admin list with visible keyboard focus, wrapping for long status labels and no JavaScript, external assets or commercial provider calls. This is solely presentation; no private record or entitlements are embedded in CSS. UI tests assert responsive and focus rules.
+
+---
+
 ## Correct all-device HTTP redirect assertion — 2026-11-21
 
 The first independent two-browser session-revocation test passed direct SQL/unit checks but used HTTP 302 in its old-cookie denial assertion. `MemberController::redirect()` intentionally uses HTTP **303 See Other** throughout login/logout/security flows, including on denied stale-session requests. The test now requires the actual 303 response from **both** browser sessions after the atomic generation increment. Production authentication logic is unchanged. Re-run the full MySQL/MariaDB suites before accepting the browser regression.

@@ -150,6 +150,11 @@ uiCheck(str_contains((string)$css,'.page-live-preview')
     'Page editor preview preserves whitespace without unescaped HTML');
 uiCheck(is_string($css) && str_contains($css, 'prefers-reduced-motion'), 'Reduced-motion preferences respected');
 uiCheck(is_string($css) && str_contains($css, '@media(max-width:480px)'), 'Small-screen responsive grid');
+uiCheck(str_contains((string)$css,'.owner-work-grid')
+    && str_contains((string)$css,'.owner-work-item:focus-visible')
+    && str_contains((string)$css,'@media(max-width:900px)')
+    && str_contains((string)$css,'@media(max-width:480px)'),
+    'Owner work overview is accessible and responsive on shared-host mobile screens');
 uiCheck(is_string($css) && !str_contains($css, '@import'), 'No external stylesheet import');
 
 $liteNav=\AdultCore\UI\Layout::admin('Dashboard','<p>Welcome</p>','/admin',null,'lite');
