@@ -43,13 +43,30 @@ final class VerificationRegistry
                 $performer=$lock->fetch(PDO::FETCH_ASSOC);
                 if (!is_array($performer)) throw new RuntimeException('Unknown performer record.');
             }
-            $dupe=$this->pdo->prepare('SELECT 1 FROM ac_verification_receipts WHERE provider=? AND event_id=? LIMIT 1');
+            $dupe=$this->pdo->prepare('SELECT claim_type,subject_id,decision,reference_sha256,occurred_at FROM ac_verification_receipts WHERE provider=? AND event_id=? LIMIT 1');
             $dupe->execute([$provider,$claim['event_id']]);
-            if ($dupe->fetchColumn()) { $this->pdo->commit(); return false; }
-            $latest=$this->pdo->prepare('SELECT occurred_at FROM ac_verification_receipts WHERE provider=? AND claim_type=? AND subject_id=? ORDER BY occurred_at DESC,id DESC LIMIT 1');
-            $latest->execute([$provider,$claim['claim_type'],$claim['subject_id']]);
-            $previous=$latest->fetchColumn();
+            $existing=$dupe->fetch(PDO::FETCH_ASSOC);
             $eventTime=gmdate('Y-m-d H:i:s',$claim['occurred_at']);
+            if (is_array($existing)) {
+                // An event ID is idempotent only if its independently signed
+                // subject, decision, reference and time are identical.
+                if (($existing['claim_type']??null)!==$claim['claim_type']
+                    || (int)($existing['subject_id']??0)!==$claim['subject_id']
+                    || ($existing['decision']??null)!==$claim['decision']
+                    || !is_string($existing['reference_sha256']??null)
+                    || !hash_equals($existing['reference_sha256'],hash('sha256',$claim['reference']))
+                    || ($existing['occurred_at']??null)!==$eventTime) {
+                    throw new RuntimeException('Conflicting verification provider event ID.');
+                }
+                $this->pdo->commit();
+                return false;
+            }
+            // The most recent decision governs the subject across ALL
+            // configured providers. Rotating an adapter cannot replay an
+            // older "verified" decision over a newer revocation.
+            $latest=$this->pdo->prepare('SELECT occurred_at FROM ac_verification_receipts WHERE claim_type=? AND subject_id=? ORDER BY occurred_at DESC,id DESC LIMIT 1');
+            $latest->execute([$claim['claim_type'],$claim['subject_id']]);
+            $previous=$latest->fetchColumn();
             // Reject old/out-of-order decisions, including those arriving with a fresh HTTP signature.
             if (is_string($previous) && $previous >= $eventTime) {
                 throw new RuntimeException('Stale provider decision.');
