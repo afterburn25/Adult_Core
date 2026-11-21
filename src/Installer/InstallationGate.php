@@ -22,6 +22,7 @@ final class InstallationGate
     public const INSTALLER_MISSING = 'installer_missing';
     public const INVALID_STATE = 'invalid_state';
     public const EDITION_UPGRADE_PENDING = 'edition_upgrade_pending';
+    public const LICENSE_UPDATE_PENDING = 'license_update_pending';
     public const BACKUP_RESTORE_PENDING = 'backup_restore_pending';
     public const BACKUP_MAINTENANCE = 'backup_maintenance';
 
@@ -42,6 +43,12 @@ final class InstallationGate
             || is_link($this->projectRoot . '/storage/.edition-upgrade-pending')) {
             return self::EDITION_UPGRADE_PENDING;
         }
+        // Interrupted license replacement may have left the private config and
+        // signed cache from different generations. All HTTP access is blocked.
+        if (file_exists($this->projectRoot . '/storage/.license-update-pending')
+            || is_link($this->projectRoot . '/storage/.license-update-pending')) {
+            return self::LICENSE_UPDATE_PENDING;
+        }
         if (file_exists($this->projectRoot . '/storage/.backup-maintenance')
             || is_link($this->projectRoot . '/storage/.backup-maintenance')) {
             return self::BACKUP_MAINTENANCE;
@@ -52,7 +59,7 @@ final class InstallationGate
     /** CLI-only backups may run while HTTP is locked for maintenance. */
     public function eligibleForBackup(): bool
     {
-        if (in_array($this->status(), [self::BACKUP_RESTORE_PENDING, self::EDITION_UPGRADE_PENDING], true)) {
+        if (in_array($this->status(), [self::BACKUP_RESTORE_PENDING, self::EDITION_UPGRADE_PENDING, self::LICENSE_UPDATE_PENDING], true)) {
             return false;
         }
         return $this->installedStatus() === self::READY;
