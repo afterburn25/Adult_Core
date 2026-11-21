@@ -47,6 +47,16 @@ foreach ($responseCases as $case) {
     ]);
     $check($case['name'], $responseClient->validate($key, $domain, CajunWebClient::SKU_LITE_ONCE) === $case['expected']);
 }
+$contradictory = new CajunWebClient(static function (string $body): array {
+    $sku = json_decode($body, true, 8, JSON_THROW_ON_ERROR)['product_id'] ?? '';
+    return ['status' => 200, 'body' => json_encode([
+        'authorized' => $sku === CajunWebClient::SKU_LITE_ONCE,
+        'error' => $sku === CajunWebClient::SKU_LITE_ONCE ? 'License expired' : null,
+    ], JSON_THROW_ON_ERROR)];
+});
+try { $contradictory->resolve($key, $domain); $contradictoryBlocked = false; }
+catch (RuntimeException $error) { $contradictoryBlocked = str_contains($error->getMessage(), 'temporarily unavailable'); }
+$check('Contradictory issuer success cannot start installation', $contradictoryBlocked);
 $denier=new CajunWebClient(static fn(string $body):array=>['status'=>200,'body'=>'{"authorized":false}']);
 $check('Unregistered key has no product',$denier->resolve($key,$domain)===null);
 foreach([400,429,500,302] as $status){
