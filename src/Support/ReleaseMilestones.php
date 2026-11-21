@@ -47,7 +47,7 @@ final class ReleaseMilestones
             [
                 'id'=>5, 'name'=>'Private creator content and moderation',
                 'status'=>'incomplete',
-                'implemented'=>'Private media authorization, draft/quarantine/report/review foundations and entitlement-filtered member library.',
+                'implemented'=>'Private media authorization, pending-only administrator draft image uploads, draft/quarantine/report/review foundations and entitled member gallery details.',
                 'remaining'=>'Controlled creator upload/approval, verified-performer media lifecycle, video/gallery management and tested takedowns.',
                 'needs_external'=>true,
             ],
