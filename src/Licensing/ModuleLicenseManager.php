@@ -23,6 +23,25 @@ final class ModuleLicenseManager
         return $id;
     }
     private function directory(): string { return $this->root . '/storage/packages/module-licenses'; }
+
+    /** Never follow operator-supplied symlinks into external secret storage. */
+    private function assertSafeStorage(): void
+    {
+        foreach ([$this->root . '/storage', $this->root . '/storage/packages', $this->directory()] as $directory) {
+            if (is_link($directory) || (file_exists($directory) && !is_dir($directory))) {
+                throw new RuntimeException('Private module license storage is unsafe.');
+            }
+        }
+    }
+
+    private static function assertReplaceable(string $path): void
+    {
+        $dir = dirname($path);
+        if (!is_dir($dir) || is_link($dir) || !is_writable($dir)
+            || is_link($path) || (file_exists($path) && !is_file($path))) {
+            throw new RuntimeException('Module license path unsafe.');
+        }
+    }
     private function secret(): string
     {
         $path = $this->root.'/config/app-key.php';
@@ -43,16 +62,23 @@ final class ModuleLicenseManager
         if (!self::sku($sku)) throw new RuntimeException('Module has no recognized licensed product.');
         $key=CajunWebClient::key($key);
         $domain=$this->domain();
+        $this->assertSafeStorage();
         if ($this->authority()->validate($key,$domain,$sku) !== 'valid') {
             throw new RuntimeException('Cajun Web Pro did not authorize this module license.');
         }
         $dir=$this->directory();
         if (!is_dir($dir) && !mkdir($dir,0700,true) && !is_dir($dir)) throw new RuntimeException('Private module license storage unavailable.');
         $secret=$this->secret();
+        if (is_link($dir.'/.lock') || (file_exists($dir.'/.lock') && !is_file($dir.'/.lock'))) {
+            throw new RuntimeException('Module license lock is unsafe.');
+        }
         $lock=@fopen($dir.'/.lock','c+');
         if (!is_resource($lock)) throw new RuntimeException('Module license lock unavailable.');
         try {
             if (!flock($lock,LOCK_EX)) throw new RuntimeException('Module license lock unavailable.');
+            // Both destinations must be safe before writing either one.
+            self::assertReplaceable($dir.'/'.$id.'.php');
+            self::assertReplaceable($dir.'/'.$id.'.json');
             self::writePrivate($dir.'/'.$id.'.php', "<?php\nreturn ".var_export(['key'=>$key,'sku'=>$sku,'domain'=>$domain],true).";\n");
             self::writePrivate($dir.'/'.$id.'.json',LicenseState::encode($key,$domain,$secret,'valid',time(),time(),$sku));
         } finally { flock($lock,LOCK_UN);fclose($lock); }
@@ -63,7 +89,11 @@ final class ModuleLicenseManager
         if (!self::sku($sku)) return 'denied';
         try {
             $id=self::id($id);
+            $this->assertSafeStorage();
             $dir=$this->directory();
+            if (is_link($dir.'/.lock') || (file_exists($dir.'/.lock') && !is_file($dir.'/.lock'))) {
+                return 'unavailable';
+            }
             $path=$dir.'/'.$id.'.php';
             if (!is_file($path) || is_link($path)) return 'denied';
             $record=require $path;
@@ -102,8 +132,8 @@ final class ModuleLicenseManager
     }
     private static function writePrivate(string $path,string $body):void
     {
+        self::assertReplaceable($path);
         $dir=dirname($path);
-        if (is_link($path) || !is_dir($dir) || (file_exists($path)&&!is_file($path)))throw new RuntimeException('Module license path unsafe.');
         $temp=tempnam($dir,'.module-license-');
         if($temp===false)throw new RuntimeException('Module license storage unavailable.');
         try {
