@@ -1,3 +1,14 @@
+## Installation recovery and runtime Host-validation checkpoint — 2026-11-20
+
+- The installation gate now treats a missing signed completion marker alongside any generated private app-key, database config, license config or license cache as **invalid partial installation**, not a fresh setup. A symlink or directory occupying the marker path is invalid; an app-key or database configuration symlink is also rejected. Normal license-repair entry points remain available when a valid installation marker exists and the license itself is missing.
+- Unit tests in `tests/run.php` now cover orphaned private configuration, license cache, symlinked app secrets and unexpected directories at the marker path. `tests/http_smoke.py` verifies that removing the completion marker from an otherwise installed fixture locks all routes with the invalid-state message rather than offering the installer.
+- GitHub Actions [run 44872012796](https://github.com/afterburn25/Adult_Core/actions/runs/44872012796) **passed** on code/test commit [`2e677bed`](https://github.com/afterburn25/Adult_Core/commit/2e677bed651559fcf1512c6f9777d43d30d6aaf4). Earlier intermediate commits failed because pre-existing HTTP assertions expected the obsolete “Installer missing” state; those assertions were corrected.
+- The installed-site license manager now rejects nonnumeric, missing, zero, overflow and malformed HTTP Host ports instead of ignoring them when the hostname otherwise matches. It retains valid host+port and www/apex behavior. Unit tests cover successful normalized hosts and negative malformed hosts.
+- GitHub Actions [run 44872112110](https://github.com/afterburn25/Adult_Core/actions/runs/44872112110) **passed** on runtime-host validation test commit [`e9387e6f`](https://github.com/afterburn25/Adult_Core/commit/e9387e6f332e5d08826c4919df0a2e2aa8c03d86).
+- **Release still blocked** by real CWP catalog/merchant sandbox/issued staging keys, live cPanel and VPS installs, and independent security/compliance acceptance. No real customer system or payment authorization was accessed.
+
+---
+
 ## Service-level installer input and HTTPS safeguards — 2026-11-20
 
 - Fresh installation now calls `InstallInput::validateForService()` inside `InstallService::install()` after taking the installation lock and checking existing state, **before** any vendor request, capability probe or MySQL creation. This validates normalized password, identity, database host/port/name/user fields even if a caller bypasses the browser form. Browser password-confirmation remains a UI concern; the service receives a single password and an integer port.
