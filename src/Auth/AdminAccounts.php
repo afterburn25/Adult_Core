@@ -66,6 +66,24 @@ final class AdminAccounts
         return $epoch===false ? -1 : (int)$epoch;
     }
 
+    /**
+     * An account with a manager-issued temporary credential may access only
+     * its own security/password-rotation route, not content moderation.
+     * Pre-upgrade installations without the additive column stay compatible.
+     */
+    public function mustChangeStaffPassword(int $id): bool
+    {
+        if ($id<1) return true;
+        $schema=$this->pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users'
+                AND COLUMN_NAME='staff_password_change_required'");
+        if ((int)$schema->fetchColumn()===0) return false;
+        $q=$this->pdo->prepare('SELECT staff_password_change_required FROM ac_users WHERE id=? LIMIT 1');
+        $q->execute([$id]);
+        $value=$q->fetchColumn();
+        return $value===false || (int)$value===1;
+    }
+
     /** @return array{id: int, email: string, role: string}|null */
     public function authorizedById(int $id): ?array
     {

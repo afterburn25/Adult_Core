@@ -75,6 +75,19 @@ final class AdminController
             $this->redirect('/admin/login', 302);
             return;
         }
+        if ($admin['role']==='moderator' && $path!=='/admin/security') {
+            try {
+                if ((new AdminAccounts(Connection::open($this->root)))
+                    ->mustChangeStaffPassword($admin['id'])) {
+                    $this->redirect('/admin/security?password_required=1',302);
+                    return;
+                }
+            } catch (Throwable) {
+                $this->error(503,'Account security unavailable',
+                    'Unable to verify the moderator credential state.');
+                return;
+            }
+        }
         if ($path === '/admin/security') {
             (new MfaController($this->root))->security($method, $admin);
             return;
@@ -328,7 +341,11 @@ final class AdminController
         $admin = $this->currentAdmin();
         if ($admin !== null) {
             $this->redirect((new LicenseManager($this->root))->status() === 'valid'
-                ? ($admin['role']==='moderator' ? '/admin/moderation' : '/admin') : '/admin/license');
+                ? ($admin['role']==='moderator'
+                    ? ((new AdminAccounts(Connection::open($this->root)))
+                        ->mustChangeStaffPassword($admin['id'])
+                        ? '/admin/security?password_required=1' : '/admin/moderation')
+                    : '/admin') : '/admin/license');
             return;
         }
         if (AdminSession::pendingMfaId() !== null) {
@@ -368,7 +385,10 @@ final class AdminController
                             AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($account['id']));
                         }
                         $this->redirect((new LicenseManager($this->root))->status() === 'valid'
-                            ? ($account['role']==='moderator' ? '/admin/moderation' : '/admin') : '/admin/license');
+                            ? ($account['role']==='moderator'
+                                ? ((new AdminAccounts($pdo))->mustChangeStaffPassword($account['id'])
+                                    ? '/admin/security?password_required=1' : '/admin/moderation')
+                                : '/admin') : '/admin/license');
                         return;
                     }
                 } catch (\RuntimeException $e) {

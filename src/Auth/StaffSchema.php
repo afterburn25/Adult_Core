@@ -9,7 +9,7 @@ use PDO;
 /** Additive staff action history, never stores passwords, tokens or staff notes. */
 final class StaffSchema
 {
-    public const VERSION = 'm11_staff_audit_v1';
+    public const VERSION = 'm11_staff_audit_v2';
 
     public static function migrate(PDO $pdo): void
     {
@@ -26,6 +26,15 @@ final class StaffSchema
             // Monotonic per-account revocation barrier. Old session cookies
             // remain invalid even after a suspended moderator is restored.
             $pdo->exec("ALTER TABLE ac_users ADD COLUMN staff_session_epoch BIGINT UNSIGNED NOT NULL DEFAULT 0");
+        }
+        $required=$pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ac_users'
+                AND COLUMN_NAME='staff_password_change_required'");
+        if ((int)$required->fetchColumn()===0) {
+            // Existing moderators remain compatible; ONLY accounts provisioned
+            // or restored by this workflow are marked must-change.
+            $pdo->exec("ALTER TABLE ac_users ADD COLUMN staff_password_change_required
+                TINYINT NOT NULL DEFAULT 0");
         }
         $pdo->exec("CREATE TABLE IF NOT EXISTS ac_staff_actions (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

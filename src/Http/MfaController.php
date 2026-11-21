@@ -55,7 +55,10 @@ final class MfaController
                                 AdminSession::bindStaffEpoch((new AdminAccounts($pdo))->staffSessionEpoch($id));
                             }
                             $route=(new LicenseManager($this->root))->status()==='valid'
-                                ? ($admin['role']==='moderator'?'/admin/moderation':'/admin')
+                                ? ($admin['role']==='moderator'
+                                    ? ($accounts->mustChangeStaffPassword($id)
+                                        ? '/admin/security?password_required=1' : '/admin/moderation')
+                                    : '/admin')
                                 : '/admin/license';
                             header('Location: '.$route,true,303);return;
                         }
@@ -184,6 +187,11 @@ final class MfaController
             }
             $html.='</section>';
             if ($admin['role']==='moderator') {
+                if ((new AdminAccounts($pdo))->mustChangeStaffPassword($admin['id'])) {
+                    $html.='<p role="alert"><strong>Password update required.</strong> '
+                        .'Replace your manager-issued password to access moderation tools. '
+                        .'This security page remains available until you change it.</p>';
+                }
                 $html.='<section class="panel"><h2>Change your moderator password</h2>'
                     .'<p>Changing your password ends every existing moderator session. '
                     .'Sign in again with the replacement password. Keep this password private.</p>'

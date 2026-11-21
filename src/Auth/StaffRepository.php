@@ -36,18 +36,19 @@ final class StaffRepository
         return $password;
     }
 
-    /** @return list<array{id:int,email:string,status:string,mfa_enabled:int}> */
+    /** @return list<array{id:int,email:string,status:string,mfa_enabled:int,password_change_required:int}> */
     public function moderators(int $actorId): array
     {
         $this->requireManager($actorId);
-        $q=$this->pdo->query("SELECT u.id,u.email,u.status,
+        $q=$this->pdo->query("SELECT u.id,u.email,u.status,u.staff_password_change_required AS password_change_required,
             CASE WHEN m.user_id IS NULL THEN 0 ELSE 1 END AS mfa_enabled
             FROM ac_users u LEFT JOIN ac_admin_mfa m ON m.user_id=u.id
             WHERE u.role='moderator' ORDER BY u.id DESC LIMIT 50");
         $items=[];
         foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $item) {
             $items[]=['id'=>(int)$item['id'],'email'=>(string)$item['email'],
-                'status'=>(string)$item['status'],'mfa_enabled'=>(int)$item['mfa_enabled']];
+                'status'=>(string)$item['status'],'mfa_enabled'=>(int)$item['mfa_enabled'],
+                'password_change_required'=>(int)$item['password_change_required']];
         }
         return $items;
     }
@@ -78,7 +79,8 @@ final class StaffRepository
             // No user-supplied role/status is accepted. Creation may only
             // provision a restricted moderator, never owner or admin.
             $q=$this->pdo->prepare("INSERT INTO ac_users
-                (email,password_hash,role,status,created_at) VALUES (?,?,'moderator','active',UTC_TIMESTAMP())");
+                (email,password_hash,role,status,staff_password_change_required,created_at)
+                VALUES (?,?,'moderator','active',1,UTC_TIMESTAMP())");
             $q->execute([$email,$passwordHash]);
             $id=(int)$this->pdo->lastInsertId();
             $this->log($actorId,$id,'created');
@@ -133,6 +135,7 @@ final class StaffRepository
                 throw new RuntimeException('Replacement password must differ from the previous moderator password.');
             }
             $this->pdo->prepare("UPDATE ac_users SET password_hash=?,status='active',
+                staff_password_change_required=1,
                 staff_session_epoch=staff_session_epoch+1 WHERE id=?")
                 ->execute([$hash,$moderatorId]);
             $this->log($actorId,$moderatorId,'restored');
@@ -170,7 +173,8 @@ final class StaffRepository
             $hash=password_hash($newPassword,PASSWORD_DEFAULT);
             if (!is_string($hash)) throw new RuntimeException('Staff credential creation unavailable.');
             $this->pdo->prepare('UPDATE ac_users
-                SET password_hash=?,staff_session_epoch=staff_session_epoch+1 WHERE id=?')
+                SET password_hash=?,staff_password_change_required=0,
+                    staff_session_epoch=staff_session_epoch+1 WHERE id=?')
                 ->execute([$hash,$moderatorId]);
             $this->log($moderatorId,$moderatorId,'password_changed');
             $this->pdo->commit();
