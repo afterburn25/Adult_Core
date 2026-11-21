@@ -313,6 +313,12 @@ def main():
             draft_match = re.search(r'<tr><td>(\d+)</td><td>Hidden safety demo</td><td>draft / pending', moderation)
             ensure('Moderation draft is private pending', code == 200 and draft_match is not None)
             draft_id = draft_match.group(1)
+            ensure('Draft image uploader offers a named draft selector',
+                   f'<option value="{draft_id}">#{draft_id} — Hidden safety demo</option>' in moderation
+                   and 'id="draft-image-content"' in moderation)
+            ensure('Performer roster selector lists drafts with no roster',
+                   f'id="roster-draft"' in moderation
+                   and 'Choose a draft without a roster' in moderation)
             # Draft edits require administrator CSRF and the exact previously
             # displayed title. A concurrent moderator edit must not overwrite.
             code, _ = req('/admin/moderation', {
@@ -421,11 +427,21 @@ def main():
                 'media_id':rejected_media_id,'note':'short'
             })
             ensure('Individual media rejection requires meaningful reason',code == 422)
+            reason='Pending image rejected <script>alert(1)</script>.'
             code, _ = req('/admin/moderation', {
                 'csrf':moderation_token.group(1),'action':'reject_draft_image',
-                'media_id':rejected_media_id,'note':'Pending image rejected for safety review.'
+                'media_id':rejected_media_id,'note':reason
             })
             ensure('Moderation can reject only one pending draft image',code == 303)
+            code, history = req('/admin/moderation?audit_content='+draft_id)
+            ensure('Moderators can review private audited title and image changes',
+                   code == 200 and 'draft_renamed' in history and 'image_rejected' in history
+                   and 'Private moderation history for content #'+draft_id in history
+                   and '&lt;script&gt;alert(1)&lt;/script&gt;' in history
+                   and reason not in history)
+            code, invalid_history = req('/admin/moderation?audit_content=not-a-number')
+            ensure('Malformed private audit filter does not disclose another record',
+                   code == 200 and 'Private moderation history for content #' not in invalid_history)
             code, _, _, rejected_binary=req_binary('/admin/moderation/image/'+rejected_media_id)
             ensure('Rejected image preview unavailable to moderator',
                    code == 404 and not rejected_binary.startswith(b'\x89PNG'))
@@ -460,6 +476,10 @@ def main():
             ensure('Declaring performer roster redirects', code == 303)
             code, moderation = req('/admin/moderation')
             ensure('Performer records stay pending', code == 200 and 'Performer verification records' in moderation and 'Assertion received' not in moderation)
+            ensure('Roster selector no longer offers a draft that already has a roster',
+                   f'<option value="{draft_id}">#{draft_id} — Hidden safety demo</option>' in moderation
+                   and moderation.split('id="roster-draft"',1)[1].split('</select>',1)[0].find(
+                       f'<option value="{draft_id}">') < 0)
             code, _ = req('/admin/moderation', {
                 'csrf': csrf_roster.group(1), 'action': 'declare_performers',
                 'content_id': draft_id, 'performer_count': '1'
