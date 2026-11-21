@@ -199,7 +199,7 @@ final class SiteAdminController
         header('Cache-Control: private, no-store, max-age=0');
         header('X-Robots-Tag: noindex, nofollow');
         echo Layout::site((string)$page['title'],(string)$page['body'],
-            $pageRepo->publishedMenu(),$siteName,$page['slug']==='home',$design,true);
+            $pageRepo->publishedMenu(),$siteName,$page['slug']==='home',$design,true,(string)$page['slug']);
     }
 
     private function pages(PDO $pdo): void
@@ -323,6 +323,7 @@ final class SiteAdminController
                     $error=in_array($e->getMessage(),[
                         'Page changed; reload before saving.',
                         'Page revision required; reload before saving.',
+                        'The homepage URL slug is reserved.',
                     ],true)?$e->getMessage()
                         :'Could not save page. Check fields and ensure the slug is unique.';
                 } catch (Throwable) {
@@ -345,7 +346,10 @@ final class SiteAdminController
         $html .= '<div class="editor-layout"><section class="panel editor-primary"><form method="post" action="/admin/page' . ($id > 0 ? '?id='.$id : '') . '" class="install-form">'
             . '<input type="hidden" name="csrf" value="' . self::e(AdminSession::csrf()) . '">'
             . ($id>0 ? '<input type="hidden" name="revision" value="'.(int)$entry['revision'].'">' : '')
-            . '<label for="page-slug">Slug (home = homepage)</label><input id="page-slug" name="slug" maxlength="80" required value="' . self::e((string) $entry['slug']) . '">'
+            . '<label for="page-slug">Slug (home is reserved for the homepage)</label><input id="page-slug" name="slug" maxlength="80" required'
+            . (($id>0 && $entry['slug']==='home')?' readonly aria-describedby="page-home-slug-note"':'')
+            . ' value="' . self::e((string) $entry['slug']) . '">'
+            . (($id>0 && $entry['slug']==='home')?'<p class="muted" id="page-home-slug-note">The homepage URL cannot be renamed. Title, text, visibility and menu settings remain editable.</p>':'')
             . '<label for="page-title">Title</label><input id="page-title" name="title" maxlength="190" required value="' . self::e((string) $entry['title']) . '">'
             . '<label for="page-body">Page copy (plain text)</label><textarea id="page-body" name="body" rows="12" maxlength="30000">' . self::e((string) $entry['body']) . '</textarea>'
             . '<label for="page-status">Visibility</label><select id="page-status" name="status">'

@@ -5,6 +5,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Website\PageRepository;
 use AdultCore\Website\PageRevisionSchema;
 use AdultCore\Website\PageNavigationSchema;
+use AdultCore\UI\Layout;
 use AdultCore\Member\MemberAccounts;
 use AdultCore\Membership\MemberLibrary;
 use AdultCore\Member\MemberSession;
@@ -28,6 +29,20 @@ foreach ([-1,1000] as $position) {
     }
 }
 PageRepository::validate('about-us','About us','A','draft');claim(true,'Valid slug');
+// Two published pages may share a title. Active navigation must follow the
+// route slug, never the title, even on a protected owner preview.
+$duplicateTitleMenu=[
+    ['slug'=>'one','title'=>'Shared name'],
+    ['slug'=>'two','title'=>'Shared name'],
+];
+$activeNav=Layout::site('Shared name','Safe body',$duplicateTitleMenu,'Local site',false,[],false,'two');
+claim(substr_count($activeNav,'aria-current="page"')===1
+    && str_contains($activeNav,'href="/p/two" aria-current="page"')
+    && !str_contains($activeNav,'href="/p/one" aria-current="page"'),
+    'Duplicate titles cannot create two active navigation links');
+$unboundNav=Layout::site('Shared name','Safe body',$duplicateTitleMenu,'Local site');
+claim(!str_contains($unboundNav,'aria-current="page"'),
+    'Title matches alone never mark a public route active');
 foreach ([['UPPER','Title','Body','draft'],['bad/slash','Title','Body','draft'],['a','Title','Body','hidden'],['a','','Body','draft'],['a',str_repeat('x',191),'Body','draft'],['a','Title',str_repeat('x',30001),'draft']] as $case) {
     try { PageRepository::validate(...$case); throw new RuntimeException('Invalid page accepted'); }
     catch (RuntimeException $e) { claim($e->getMessage() !== 'Invalid page accepted', 'Page input rejected'); }

@@ -46,7 +46,7 @@ final class Layout
     /**
      * @param list<array<string,mixed>> $menu Published, DB-backed navigation only.
      */
-    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = [], bool $adminPreview = false): string
+    public static function site(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = [], bool $adminPreview = false, ?string $currentSlug = null): string
     {
         $siteName = trim($siteName) ?: 'Adult Core';
         $nav = '<a class="' . ($homepage ? 'is-active' : '') . '" href="/"' . ($homepage ? ' aria-current="page"' : '') . '>Home</a>';
@@ -55,7 +55,8 @@ final class Layout
             if ($slug === 'home' || preg_match('/^[a-z0-9][a-z0-9-]{0,79}$/D', $slug) !== 1) {
                 continue;
             }
-            $nav .= '<a href="/p/' . self::escape($slug) . '"' . (!$homepage && ($page['title'] ?? '') === $title ? ' aria-current="page"' : '') . '>'
+            // Titles are not unique. Only the actual route slug may mark an active link.
+            $nav .= '<a href="/p/' . self::escape($slug) . '"' . (!$homepage && $currentSlug!==null && $currentSlug===$slug ? ' aria-current="page"' : '') . '>'
                 . self::escape((string) ($page['title'] ?? 'Page')) . '</a>';
         }
         $intro = $homepage ? 'A space that feels entirely yours' : 'Discover more';

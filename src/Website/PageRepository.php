@@ -130,6 +130,9 @@ final class PageRepository
         if ($sourceId<1 || $expectedRevision<1) {
             throw new RuntimeException('Page revision required; reload before copying.');
         }
+        if ($newSlug==='home') {
+            throw new RuntimeException('The homepage URL slug is reserved.');
+        }
         $this->pdo->beginTransaction();
         try {
             $q=$this->pdo->prepare('SELECT title,body,revision FROM ac_pages WHERE id=? FOR UPDATE');
@@ -159,9 +162,20 @@ final class PageRepository
     {
         self::validate($slug, $title, $body, $status);
         self::validateNavigation($showInMenu,$navPosition);
+        if ($id===0 && $slug==='home') {
+            // The one homepage is created by SiteSchema, never by a new-page form.
+            throw new RuntimeException('The homepage URL slug is reserved.');
+        }
         if ($id > 0) {
             if ($expectedRevision===null || $expectedRevision<1) {
                 throw new RuntimeException('Page revision required; reload before saving.');
+            }
+            $existing=$this->byId($id);
+            if ($existing===null) throw new RuntimeException('Page not found.');
+            if (((string)$existing['slug']==='home') !== ($slug==='home')) {
+                // Site routing, Design Studio and publication depend on this stable slug.
+                // The atomic revision comparison below also protects concurrent updates.
+                throw new RuntimeException('The homepage URL slug is reserved.');
             }
             // Compare-and-swap is atomic even across separate admin sessions
             // and within one second, unlike updated_at timestamp comparisons.

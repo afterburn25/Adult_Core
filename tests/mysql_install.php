@@ -384,6 +384,27 @@ try {
     PasswordRecoverySchema::migrate($pdo);
     PasswordRecoverySchema::migrate($pdo);
     $repo = new PageRepository($pdo);
+    $homepage=(array)$pdo->query("SELECT id,revision FROM ac_pages WHERE slug='home'")->fetch(PDO::FETCH_ASSOC);
+    $homeId=(int)($homepage['id']??0);
+    $homeRevision=(int)($homepage['revision']??0);
+    if ($homeId<1 || $homeRevision<1) throw new RuntimeException('No versioned homepage to protect.');
+    foreach ([
+        static fn()=> $repo->save($homeId,'renamed-home','Unintended','Bad','published',$homeRevision),
+        static fn()=> $repo->save(0,'home','Another homepage','Bad','published'),
+        static fn()=> $repo->duplicateAsDraft($homeId,$homeRevision,'home'),
+    ] as $operation) {
+        try {
+            $operation();
+            throw new RuntimeException('Reserved homepage slug mutation was accepted.');
+        } catch (RuntimeException $e) {
+            if ($e->getMessage()==='Reserved homepage slug mutation was accepted.') throw $e;
+        }
+    }
+    $afterHome=$repo->byId($homeId);
+    if ($afterHome===null || $afterHome['slug']!=='home'
+        || (int)$afterHome['revision']!==$homeRevision) {
+        throw new RuntimeException('Denied homepage rename modified protected route.');
+    }
     if ($repo->published('home') !== null) {
         throw new RuntimeException('Default homepage unexpectedly public before review.');
     }
@@ -392,6 +413,12 @@ try {
         throw new RuntimeException('Public-page publishing failed.');
     }
     $aboutId=(int)$pdo->query("SELECT id FROM ac_pages WHERE slug='about'")->fetchColumn();
+    try {
+        $repo->save($aboutId,'home','Another page impersonating home','Bad','draft',1);
+        throw new RuntimeException('Secondary page took the homepage slug.');
+    } catch (RuntimeException $e) {
+        if ($e->getMessage()==='Secondary page took the homepage slug.') throw $e;
+    }
     $aboutRevision=(int)($repo->byId($aboutId)['revision']??0);
     if ($aboutRevision!==1) throw new RuntimeException('New pages must start at revision one.');
     $repo->save($aboutId,'about','About the club','Updated welcome','draft',$aboutRevision);

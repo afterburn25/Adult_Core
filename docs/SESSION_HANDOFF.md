@@ -1,3 +1,9 @@
+## Protected homepage route and unique active navigation — 2026-11-21
+
+The site-local page repository now treats `home` as an immutable, reserved slug: the seeded homepage cannot be renamed, another page cannot claim `home`, and an unpublished duplicate cannot reuse it. Version-checked edits to the real homepage title, content, draft/published status and navigation remain supported. The owner editor shows its special slug read-only but the server enforces the restriction independently. Public pages and authenticated draft previews now mark active navigation by the route slug, never by a potentially duplicated title; at most one public-page link receives `aria-current="page"`. Unit, disposable MySQL/MariaDB and authenticated HTTP regressions cover denied mutations and duplicate-title links. Existing one-package Lite/Pro licenses, adult verification and payment release gates are unchanged.
+
+---
+
 ## Visual preview of owner-edited homepage information tiles — 2026-11-21
 
 The Design Studio preview now renders the same three safe information tiles as the public homepage, with live input listeners for each heading and description. JavaScript writes only textContent, never innerHTML; strict server-side UTF-8 validation and HTML escaping remain authoritative. No script/template execution or media upload is introduced. Unit checks and authenticated HTTP tests cover all six preview fields.

@@ -1,3 +1,9 @@
+## Protected homepage route and unique active navigation — 2026-11-21
+
+The site-local page repository now treats `home` as an immutable, reserved slug: the seeded homepage cannot be renamed, another page cannot claim `home`, and an unpublished duplicate cannot reuse it. Version-checked edits to the real homepage title, content, draft/published status and navigation remain supported. The owner editor shows its special slug read-only but the server enforces the restriction independently. Public pages and authenticated draft previews now mark active navigation by the route slug, never by a potentially duplicated title; at most one public-page link receives `aria-current="page"`. Unit, disposable MySQL/MariaDB and authenticated HTTP regressions cover denied mutations and duplicate-title links. Existing one-package Lite/Pro licenses, adult verification and payment release gates are unchanged.
+
+---
+
 ## m18 homepage-card encrypted restore parity — 2026-11-21
 
 The disposable MySQL/MariaDB encrypted backup and fresh-database restore regression now records all six per-site homepage card fields, including safe escaped-text examples and the m18 schema marker. It asserts byte-for-byte value parity after restoring the existing .acfull archive, alongside creator feedback, private assets, license configuration, site pages and menu state. This is only test-environment recovery; real cPanel/VPS restoration and independent launch certification are still required.

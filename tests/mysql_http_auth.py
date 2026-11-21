@@ -638,7 +638,19 @@ def main():
             home_id=home_match.group(1)
             code, home_editor=req('/admin/page?id='+home_id)
             home_revision=re.search(r'name="revision" value="(\d+)"',home_editor)
-            ensure('Homepage editor carries current revision',code==200 and home_revision is not None)
+            ensure('Homepage editor carries current revision and locks reserved URL',
+                   code==200 and home_revision is not None
+                   and 'readonly aria-describedby="page-home-slug-note"' in home_editor)
+            code, denied_home_rename=req('/admin/page?id='+home_id,{
+                'csrf':studio_csrf.group(1),'revision':home_revision.group(1),
+                'slug':'renamed-home','title':'Broken home','body':'Do not relocate homepage',
+                'status':'published'
+            })
+            ensure('Owner may not rename or accidentally publish the homepage under another URL',
+                   code==200 and 'homepage URL slug is reserved' in denied_home_rename)
+            code, still_private_home=req('/')
+            ensure('Rejected homepage rename retains private draft state',
+                   code==503 and 'Broken home' not in still_private_home)
             code, _ = req('/admin/page?id='+home_id, {
                 'csrf':studio_csrf.group(1),'id':home_id,'slug':'home',
                 'revision':home_revision.group(1),

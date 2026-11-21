@@ -57,7 +57,7 @@ final class PublicSite
                     $design['public_asset_id'] = $assetId;
                 }
             }
-            $this->show((string) $page['title'], (string) $page['body'], $menu, $siteName, $slug === 'home', $design);
+            $this->show((string) $page['title'], (string) $page['body'], $menu, $siteName, $slug === 'home', $design, $slug);
         } catch (Throwable) {
             http_response_code(503);
             $this->show('Temporarily unavailable', 'The site is currently undergoing maintenance.', []);
@@ -65,8 +65,9 @@ final class PublicSite
     }
 
     /** @param list<array<string,mixed>> $menu */
-    private function show(string $title, string $body, array $menu, string $siteName = 'Adult Core', bool $homepage = false, array $design = []): void
+    private function show(string $title, string $body, array $menu, string $siteName = 'Adult Core',
+                          bool $homepage = false, array $design = [], ?string $currentSlug = null): void
     {
-        echo Layout::site($title, $body, $menu, $siteName, $homepage, $design);
+        echo Layout::site($title, $body, $menu, $siteName, $homepage, $design, false, $currentSlug);
     }
 }
