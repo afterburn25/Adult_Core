@@ -5,6 +5,7 @@ Never accesses Cajun Web Pro or a real MySQL database.
 """
 import os
 import pathlib
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -27,7 +28,7 @@ if ($mode === 'insecure' || $mode === 'secure') {
 }
 $fields = [
     'license_key' => 'ABCD-EF12-3456-7890',
-    'license_domain' => in_array($mode, ['match', 'insecure', 'secure', 'bad_dsn'], true) ? '127.0.0.1' : 'wrong.example.test',
+    'license_domain' => in_array($mode, ['match', 'insecure', 'secure', 'bad_dsn', 'unsafe'], true) ? '127.0.0.1' : 'wrong.example.test',
     'db_host' => $mode === 'bad_dsn' ? 'localhost;dbname=other' : 'localhost',
     'db_port' => 3306,
     'db_name' => 'disposable_db',
@@ -52,7 +53,8 @@ try {
 } catch (\RuntimeException $error) {
     http_response_code(409);
     echo str_contains($error->getMessage(), 'License not authorized')
-        ? 'ISSUER_DENIED' : 'UNEXPECTED_ERROR';
+        ? 'ISSUER_DENIED' : (str_contains($error->getMessage(), 'Unsafe web document root')
+            ? 'LAYOUT_REJECTED' : 'UNEXPECTED_ERROR');
 }
 """
 
@@ -71,6 +73,8 @@ def run():
         root = pathlib.Path(directory)
         for path in ('storage', 'config', 'install', 'public'):
             (root / path).mkdir()
+        for name in ('index.php', 'router.php', '.htaccess'):
+            shutil.copyfile(SOURCE / 'public' / name, root / 'public' / name)
         router = root / 'router.php'
         router.write_text(ROUTER, encoding='utf-8')
         with socket.socket() as sock:
@@ -107,6 +111,16 @@ def run():
             status, body = fetch(f'http://127.0.0.1:{port}/?case=insecure')
             assert (status, body) == (422, 'HTTPS_REJECTED'), (status, body)
             assert not (root / 'storage' / 'issuer-called').exists(), 'Insecure request reached vendor'
+
+            # A perfectly matching HTTP document root is still unsafe when
+            # someone has placed executable source beside the front controller.
+            exposed = root / 'public' / 'exposed.phtml'
+            exposed.write_text('<?php echo "should-never-run";', encoding='utf-8')
+            status, body = fetch(f'http://127.0.0.1:{port}/?case=unsafe')
+            assert (status, body) == (409, 'LAYOUT_REJECTED'), (status, body)
+            assert not (root / 'storage' / 'issuer-called').exists(), 'Unsafe layout reached issuer'
+            assert not (root / 'storage' / 'install-state.json').exists(), 'Unsafe layout created install marker'
+            exposed.unlink()
 
             status, body = fetch(f'http://127.0.0.1:{port}/?case=secure')
             assert (status, body) == (409, 'ISSUER_DENIED'), (status, body)

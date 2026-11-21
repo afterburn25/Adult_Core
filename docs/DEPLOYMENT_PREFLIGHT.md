@@ -4,6 +4,8 @@
 
 ## One codebase, license-selected edition
 
+Before sending a license key to the vendor, the installer now checks that the actual public document root, bundled routing files and public-tree hygiene are safe. Unsafe layouts are rejected without issuer contact, installation state or MySQL schema changes. This is still a local-only check and is not proof that Apache enforces its rules.
+
 The universal installer validates a **Cajun Web Pro** key against four product-bound SKUs (`SOFTWARE-ADULT-CORE-LITE`, `SOFTWARE-ADULT-CORE-LITE-MONTH`, `SOFTWARE-ADULT-CORE-PRO`, `SOFTWARE-ADULT-CORE-PRO-MONTH`). The **verified license key**, not this script, chooses Lite/Pro and one-time/monthly term. A Pro key must meet additional authenticated local agent and persistent-process requirements; the installer must not silently fall back to Lite. A separate edition-upgrade workflow handles an existing site; switching the script's `--expected-edition` cannot upgrade it.
 
 ## Execute in an isolated staging deployment

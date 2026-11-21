@@ -1,3 +1,9 @@
+## Installer pre-issuer public layout refusal — 2026-11-21
+
+`InstallService::install()` now checks the shared `HostInspector::inspect()` `public_docroot` capability before calling `LicenseManager::verifyForInstall()`; it refuses an unsafe public tree even when the domain/docroot path matches, with no network license request or MySQL setup. Edition selection still occurs only after verified Cajun Web Pro issuance; there is no Lite downgrade fallback. The direct HTTP issuer-boundary test now copies bundled routing files and injects an unexpected public `.phtml` file, confirming fail-closed refusal before issuer contact. This is local/CI assurance, not actual Lite cPanel or Pro VPS certification; **check the new CI result**.
+
+---
+
 ## Shared installer/public-root layout guard — 2026-11-21
 
 The installer host inspector and operator preflight share `src/Capability/PublicRootSafety.php` for read-only detection of public symlinks, unexpected executable/secret files, copied private application directories, scan-depth truncation and unreadable scans. `HostInspector::inspect()` now grants the already-required `public_docroot` capability only when the declared document root is the source `public/`, the bundled index/router/Apache guards are present and safe, and the public tree scan passes. This keeps the original license-selected Lite/Pro manifest semantics. The disposable installer-MySQL fixture now copies the real public routing files. Added regression checks for a correct docroot containing an unexpected executable, a copied private directory and broken Apache guard. These local checks cannot certify actual cPanel/Apache or VPS behavior, merchant/provider approval or production readiness; **verify CI on the resulting commit**.

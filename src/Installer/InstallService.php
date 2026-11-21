@@ -65,13 +65,20 @@ final class InstallService
                     (string) ($_SERVER['HTTP_HOST'] ?? '')
                 );
             }
+            // A private tree copied into public/ must block installation BEFORE
+            // transmitting a paid key to the issuer or creating any database table.
+            // This layout invariant applies equally to Lite and Pro; it cannot
+            // select or downgrade the edition.
+            $actualDocroot = PHP_SAPI === 'cli' ? $this->root . '/public'
+                : (is_string($_SERVER['DOCUMENT_ROOT'] ?? null) ? $_SERVER['DOCUMENT_ROOT'] : null);
+            $capabilities = (new HostInspector($this->root))->inspect($actualDocroot)['capabilities'];
+            if (!in_array('public_docroot', $capabilities, true)) {
+                throw new RuntimeException('Unsafe web document root or public file layout; installation was not started.');
+            }
             // Denied or unreachable licensing means zero database creation and no completion marker.
             $licensing = new LicenseManager($this->root, $this->licenseClient);
             $license = $licensing->verifyForInstall((string) ($fields['license_key'] ?? ''), (string) ($fields['license_domain'] ?? ''));
             $edition = $license['edition']; // LICENSE chooses edition, NOT host auto-selection or a form field.
-            $actualDocroot = PHP_SAPI === 'cli' ? $this->root . '/public'
-                : (is_string($_SERVER['DOCUMENT_ROOT'] ?? null) ? $_SERVER['DOCUMENT_ROOT'] : null);
-            $capabilities = (new HostInspector($this->root))->inspect($actualDocroot)['capabilities'];
             $missing = (new EditionSelector($this->root . '/config/editions'))->missing($edition, $capabilities);
             if ($missing !== []) {
                 throw new RuntimeException('Your ' . strtoupper($edition) . ' license is valid, but this server lacks required capabilities: ' . implode(', ', $missing) . '. Installation was not started.');
