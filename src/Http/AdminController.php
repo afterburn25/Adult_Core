@@ -503,7 +503,24 @@ final class AdminController
                         . '<input type="password" id="package-license-' . self::escape($package['id']) . '" name="module_license_key" autocomplete="off" placeholder="Enter paid module key">' : '')
                 . '<button class="button-secondary" type="submit"'
                 . (!$package['enabled'] && array_filter($package['blocked'], static fn(string $reason):bool => $reason !== 'Paid module license is not authorized.') !== [] ? ' disabled' : '') . '>'
-                . ($package['enabled'] ? 'Disable' : 'Enable') . '</button></form></div>';
+                . ($package['enabled'] ? 'Disable' : 'Enable') . '</button></form>';
+            // A paid module may remain marked enabled after a crash during
+            // a two-file license activation. Its runtime is fail-closed, but
+            // operators still need a CSRF-protected way to submit a newly
+            // verified key without first changing the package enable flag.
+            if ($package['enabled'] && is_string($package['license_sku'] ?? null)
+                && in_array('Paid module license is not authorized.', $package['blocked'], true)) {
+                $out .= '<form method="post" action="/admin/packages" class="package-action">'
+                    . '<input type="hidden" name="csrf" value="' . $csrf . '">'
+                    . '<input type="hidden" name="type" value="module">'
+                    . '<input type="hidden" name="id" value="' . self::escape($package['id']) . '">'
+                    . '<input type="hidden" name="action" value="enable">'
+                    . '<label for="repair-module-' . self::escape($package['id']) . '">Revalidate paid module key</label>'
+                    . '<input type="password" id="repair-module-' . self::escape($package['id'])
+                    . '" name="module_license_key" autocomplete="off" required placeholder="Enter authorized add-on key">'
+                    . '<button class="button-secondary" type="submit">Repair paid module license</button></form>';
+            }
+            $out .= '</div>';
         }
         return $out . '</section><section class="notice"><p>Activation records are implemented; a runtime extension API and '
             . 'theme renderer are not implemented yet. No uploaded PHP or JavaScript is executed.</p></section>';
