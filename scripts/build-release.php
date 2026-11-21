@@ -59,6 +59,7 @@ try {
         'src/Membership/MemberLibrary.php', 'src/Licensing/LicenseManager.php',
         'src/Support/ReleaseReadiness.php', 'src/Support/ReleaseMilestones.php',
         'src/Billing/WebhookInbox.php', 'src/Pro/JobInbox.php',
+        'src/Media/PrivateMediaAudit.php', 'scripts/audit-private-media.php',
         'src/Verification/VerificationRegistry.php',
         'config/editions/lite.json', 'config/editions/pro.json',
         'VERSION',
