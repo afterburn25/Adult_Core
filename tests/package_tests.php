@@ -164,8 +164,11 @@ try {
     try {
         verifyPackageTest('Symlinked module lock invalidates fresh signed grant',
             !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        $moduleCallsBeforeUnsafe=$moduleIssuerCalls;
         expectRefusal('Module activation refuses symlinked private lock',
             fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module lock blocks issuer request',
+            $moduleIssuerCalls === $moduleCallsBeforeUnsafe);
     } finally {
         if (is_link($moduleLock)) unlink($moduleLock);
         rename($moduleLockBackup, $moduleLock);
@@ -179,8 +182,11 @@ try {
         throw new RuntimeException('Could not create paid-module cache fixture.');
     }
     try {
+        $moduleCallsBeforeUnsafe=$moduleIssuerCalls;
         expectRefusal('Module activation preflights symlinked receipt before rewriting config',
             fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module receipt blocks issuer request',
+            $moduleIssuerCalls === $moduleCallsBeforeUnsafe);
         verifyPackageTest('Unsafe module receipt preserves original license configuration',
             file_get_contents($moduleConfig) === $originalModuleConfig);
     } finally {
@@ -193,8 +199,11 @@ try {
         throw new RuntimeException('Could not create paid-module config fixture.');
     }
     try {
+        $moduleCallsBeforeUnsafe=$moduleIssuerCalls;
         expectRefusal('Module activation refuses symlinked private configuration',
             fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module config blocks issuer request',
+            $moduleIssuerCalls === $moduleCallsBeforeUnsafe);
         verifyPackageTest('Unsafe module config preserves previous signed receipt',
             file_get_contents($licenseCache) === $originalModuleCache);
     } finally {
@@ -209,8 +218,11 @@ try {
     try {
         verifyPackageTest('Symlinked module license directory invalidates cached grant',
             !$paidStore->isRunnable('module','paid-chat','lite',$caps));
+        $moduleCallsBeforeUnsafe=$moduleIssuerCalls;
         expectRefusal('Module activation refuses symlinked license directory',
             fn()=> $moduleLicenses->activate('paid-chat',$paidSku,'AAAA-BBBB-CCCC-DDDD'));
+        verifyPackageTest('Unsafe module directory blocks issuer request',
+            $moduleIssuerCalls === $moduleCallsBeforeUnsafe);
     } finally {
         if (is_link($moduleDir)) unlink($moduleDir);
         rename($moduleDirBackup, $moduleDir);
