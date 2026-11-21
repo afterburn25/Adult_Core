@@ -375,11 +375,37 @@ try {
         || $authorizedTitles[0]['title']!=='Fixture gallery') {
         throw new RuntimeException('Verified member was not shown exactly their authorized gallery.');
     }
+    // Private gallery details independently recheck user entitlement and
+    // include only approved, allowlisted image records (never storage keys).
+    if ($library->detail((int)$member['id'], $contentId)['title'] !== 'Fixture gallery'
+        || $library->detail((int)$member['id'], $contentId)['media'] !== []) {
+        throw new RuntimeException('Verified member gallery detail was not safely accessible.');
+    }
+    $pdo->prepare("INSERT INTO ac_media (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'image/jpeg','approved')")->execute([$contentId,str_repeat('c',40)]);
+    $approvedMedia=(int)$pdo->lastInsertId();
+    $pdo->prepare("INSERT INTO ac_media (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'image/jpeg','pending')")->execute([$contentId,str_repeat('d',40)]);
+    $pdo->prepare("INSERT INTO ac_media (content_id,private_storage_key,mime_type,review_status)
+        VALUES (?,?,'text/html','approved')")->execute([$contentId,str_repeat('e',40)]);
+    $detail=$library->detail((int)$member['id'], $contentId);
+    if (!is_array($detail) || count($detail['media'])!==1
+        || $detail['media'][0]['id']!==$approvedMedia
+        || isset($detail['media'][0]['private_storage_key'])) {
+        throw new RuntimeException('Gallery exposed pending or unsupported private media metadata.');
+    }
+    $galleryHtml=MemberLibrary::renderDetail($detail);
+    if (!str_contains($galleryHtml,'src="/media/'.$approvedMedia.'"')
+        || str_contains($galleryHtml,str_repeat('c',40))
+        || !str_contains($galleryHtml,'/members/report?id='.$contentId)) {
+        throw new RuntimeException('Gallery view did not use guarded media URLs or report link.');
+    }
     // Missing or mismatched performer coverage always fails closed.
     $pdo->prepare('UPDATE ac_content SET expected_performers=2 WHERE id=?')->execute([$contentId]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Incomplete performer coverage was allowed.');
-    if ($library->visible((int)$member['id']) !== []) {
-        throw new RuntimeException('Private library revealed gallery with missing performer records.');
+    if ($library->visible((int)$member['id']) !== []
+        || $library->detail((int)$member['id'],$contentId) !== null) {
+        throw new RuntimeException('Private library or detail revealed gallery with missing performer records.');
     }
     $pdo->prepare('UPDATE ac_content SET expected_performers=0 WHERE id=?')->execute([$contentId]);
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Unknown performer count was allowed.');
@@ -391,6 +417,9 @@ try {
     $revoke=['event_id'=>'evidence_revoke_001','claim_type'=>'performer_consent','subject_id'=>$performerId,'decision'=>'revoked','reference'=>'provider-evidence-record-1','occurred_at'=>time()];
     if (!$registry->apply('approved_test', $revoke) || $registry->apply('approved_test', $revoke)) throw new RuntimeException('Provider replay accepted.');
     if ($policy->canView($member['id'],$contentId)) throw new RuntimeException('Revoked consent remained authorized.');
+    if ($library->detail((int)$member['id'],$contentId)!==null) {
+        throw new RuntimeException('Gallery detail still available after verified performer consent revocation.');
+    }
     $q=$pdo->prepare('SELECT consent_at,review_status FROM ac_performer_records WHERE id=?');$q->execute([$performerId]);
     $record=$q->fetch(PDO::FETCH_ASSOC);
     if ($record['consent_at'] !== null || $record['review_status'] !== 'pending') throw new RuntimeException('Revocation did not invalidate approval.');
