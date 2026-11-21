@@ -97,6 +97,49 @@ final class ModerationRepository
     }
 
     /**
+     * Prepare a future paid-tier association for a private draft. Neither
+     * visibility nor review status changes; no payment or content grant occurs.
+     * A stale expected tier is rejected to avoid overwriting another edit.
+     */
+    public function assignDraftTier(int $contentId, int $actorId, ?int $expectedTierId, ?int $tierId): void
+    {
+        if ($contentId<1 || ($tierId!==null && $tierId<1)
+            || ($expectedTierId!==null && $expectedTierId<1)) {
+            throw new RuntimeException('Invalid draft tier assignment.');
+        }
+        $this->requireModerator($actorId);
+        $this->pdo->beginTransaction();
+        try {
+            $q=$this->pdo->prepare('SELECT status,visibility,review_status,tier_id FROM ac_content WHERE id=? FOR UPDATE');
+            $q->execute([$contentId]);
+            $draft=$q->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($draft) || $draft['status']!=='draft'
+                || $draft['visibility']!=='private' || $draft['review_status']!=='pending') {
+                throw new RuntimeException('Only private, unreviewed drafts can receive a tier.');
+            }
+            $prior=$draft['tier_id']===null ? null : (int)$draft['tier_id'];
+            if ($prior!==$expectedTierId) {
+                throw new RuntimeException('Draft tier changed; reload the moderation queue.');
+            }
+            if ($prior===$tierId) throw new RuntimeException('Draft tier assignment is unchanged.');
+            if ($tierId!==null) {
+                $tier=$this->pdo->prepare('SELECT is_active FROM ac_membership_tiers WHERE id=? LIMIT 1');
+                $tier->execute([$tierId]);
+                if ((int)$tier->fetchColumn()!==1) {
+                    throw new RuntimeException('Choose an existing enabled membership tier.');
+                }
+            }
+            $this->pdo->prepare('UPDATE ac_content SET tier_id=? WHERE id=?')->execute([$tierId,$contentId]);
+            $this->audit($contentId,null,$actorId,'draft_tier_changed',
+                'Future tier association edited; draft remains private and unpublished.');
+            $this->pdo->commit();
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) $this->pdo->rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * Reject one image in an unpublished draft without deleting its private
      * bytes (which may require legal retention). This cannot mark anything
      * approved, restore a quarantined draft or publish a member gallery.
@@ -256,7 +299,7 @@ final class ModerationRepository
     /** @return list<array<string,mixed>> */
     public function contentQueue(): array
     {
-        return $this->pdo->query("SELECT c.id,c.title,c.status,c.review_status,c.visibility,c.expected_performers,
+        return $this->pdo->query("SELECT c.id,c.title,c.status,c.review_status,c.visibility,c.tier_id,c.expected_performers,
             (SELECT COUNT(*) FROM ac_performer_records p WHERE p.content_id=c.id) AS recorded_performers,
             (SELECT COUNT(*) FROM ac_performer_records p WHERE p.content_id=c.id
                 AND p.review_status='approved' AND p.verified_at IS NOT NULL

@@ -10,6 +10,7 @@ use AdultCore\Database\Connection;
 use AdultCore\Moderation\ModerationRepository;
 use AdultCore\Moderation\ModerationSchema;
 use AdultCore\Media\PrivateMedia;
+use AdultCore\Membership\TierCatalog;
 use AdultCore\UI\Layout;
 use PDO;
 use RuntimeException;
@@ -97,6 +98,12 @@ final class ModerationController
                         self::safeString($_POST['expected_title']??null),
                         self::safeString($_POST['title']??null)
                     );
+                } elseif ($action==='assign_draft_tier') {
+                    $repo->assignDraftTier(
+                        self::positiveId($_POST['content_id']??null),$admin['id'],
+                        self::optionalId($_POST['expected_tier_id']??null),
+                        self::optionalId($_POST['tier_id']??null)
+                    );
                 } elseif ($action==='reject_draft_image') {
                     $repo->rejectDraftImage(
                         self::positiveId($_POST['media_id']??null),$admin['id'],
@@ -124,7 +131,7 @@ final class ModerationController
                 }
                 header('Location: /admin/moderation?result=saved',true,303); return;
             }
-            $this->render(200,'Content moderation',$this->dashboard($repo));
+            $this->render(200,'Content moderation',$this->dashboard($repo,$pdo));
         } catch (RuntimeException $e) {
             $allowed=['Unknown moderation action.','Invalid record ID.','Invalid review details.','Unsupported review action.','Content not found.','Report not open.','Unsupported report resolution.','Administrator privileges required.','Title is required.','Use a title between 1 and 190 bytes.','Enter a review explanation between 10 and 500 bytes.',
                 'Choose an uploaded JPEG, PNG or WebP image.','Invalid private draft image upload.',
@@ -133,7 +140,10 @@ final class ModerationController
                 'Private image could not be safely inspected.','Image contains metadata or an unsupported image structure.',
                 'Private storage unavailable.','Only private, unreviewed drafts can be edited.',
                 'Draft changed; reload the moderation queue before editing.','Draft title is unchanged.',
-                'Pending private draft image not found.'];
+                'Pending private draft image not found.','Invalid draft tier assignment.',
+                'Only private, unreviewed drafts can receive a tier.',
+                'Draft tier changed; reload the moderation queue.',
+                'Draft tier assignment is unchanged.','Choose an existing enabled membership tier.'];
             $message=in_array($e->getMessage(),$allowed,true)?$e->getMessage():'Could not complete the review action.';
             $this->render(422,'Moderation error','<p>'.self::e($message).'</p><p><a href="/admin/moderation">Return to moderation</a>.</p>');
         } catch (Throwable) {
@@ -149,14 +159,22 @@ final class ModerationController
         return $v;
     }
 
+    /** Empty fields deliberately mean "no required tier" for private drafts. */
+    private static function optionalId(mixed $value): ?int
+    {
+        if ($value===null || $value==='') return null;
+        return self::positiveId($value);
+    }
+
     private static function safeString(mixed $value): string
     {
         if (!is_string($value)) throw new RuntimeException('Invalid review details.');
         return $value;
     }
 
-    private function dashboard(ModerationRepository $repo): string
+    private function dashboard(ModerationRepository $repo, PDO $pdo): string
     {
+        $tiers=(new TierCatalog($pdo))->all();
         $csrf=self::e(AdminSession::csrf(), (new \AdultCore\Licensing\LicenseManager($this->root))->config()['edition'] ?? 'unknown');
         $queue=$repo->contentQueue();
         $draftOptions='<option value="">Choose an unpublished draft</option>';
@@ -186,7 +204,7 @@ final class ModerationController
             .'<select id="draft-image-content" name="content_id" required>'.$draftOptions.'</select>'
             .'<label>Private image<input type="file" name="draft_image" accept="image/jpeg,image/png,image/webp" required></label>'
             .'<button class="button-secondary" type="submit">Store image privately for review</button></form></section>';
-        $html.='<section class="panel"><h2>Content queue</h2><p class="muted">Draft names can be edited only while unpublished and pending review. Concurrent edits are refused until the queue is reloaded.</p><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th><th>Draft title</th></tr></thead><tbody>';
+        $html.='<section class="panel"><h2>Content queue</h2><p class="muted">Draft names can be edited only while unpublished and pending review. Concurrent edits are refused until the queue is reloaded.</p><table class="page-table"><thead><tr><th>ID</th><th>Title</th><th>Status</th><th>Performer evidence</th><th>Pending images</th><th>Open reports</th><th>Review action</th><th>Draft title</th><th>Future tier</th></tr></thead><tbody>';
         foreach ($queue as $item) {
             $id=(int)$item['id'];
             $html.='<tr><td>'.$id.'</td><td>'.self::e((string)$item['title']).'</td><td>'.self::e((string)$item['status']).' / '.self::e((string)$item['review_status']).'</td>'
@@ -208,7 +226,29 @@ final class ModerationController
                 $html.='<span class="muted">Not editable</span>';
             }
             $html.='<p><a href="/admin/moderation?audit_content='.$id.'">View audit history</a></p>'
-                .'</td></tr>';
+                .'</td><td>';
+            if ($item['status']==='draft' && $item['visibility']==='private'
+                && $item['review_status']==='pending') {
+                $priorTier=$item['tier_id']===null?'':(string)(int)$item['tier_id'];
+                $html.='<form method="post" action="/admin/moderation">'
+                    .'<input type="hidden" name="csrf" value="'.$csrf.'">'
+                    .'<input type="hidden" name="action" value="assign_draft_tier">'
+                    .'<input type="hidden" name="content_id" value="'.$id.'">'
+                    .'<input type="hidden" name="expected_tier_id" value="'.$priorTier.'">'
+                    .'<label>Future required tier<select name="tier_id">'
+                    .'<option value="">No tier assigned</option>';
+                foreach ($tiers as $tier) {
+                    if ($tier['is_active']!==1) continue;
+                    $tid=(int)$tier['id'];
+                    $html.='<option value="'.$tid.'"'.($priorTier===(string)$tid?' selected':'').'>'
+                        .self::e($tier['name']).'</option>';
+                }
+                $html.='</select></label><button class="button-secondary">Save future tier</button></form>'
+                    .'<small>Staging only — no access granted</small>';
+            } else {
+                $html.='<span class="muted">Unavailable</span>';
+            }
+            $html.='</td></tr>';
         }
         $html.='</tbody></table></section>';
         $html.='<section class="panel"><h2>Pending private draft images</h2>'
