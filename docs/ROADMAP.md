@@ -1,3 +1,13 @@
+## Private draft imaging and authenticated galleries — 2026-11-21
+
+The member library now links to `/members/library/CONTENT_ID`, a **GET-only** gallery detail route that independently checks current member status, verified age/email, complete performer consent, moderation, active paid tiers and safety reports. The gallery displays only approved safe image references from `ac_media`; each `/media/MEDIA_ID` request repeats authorization before returning bytes. An unauthorized or missing gallery returns a neutral 404. The responsive gallery has a report link; titles are HTML escaped and storage keys never appear in markup. Disposable MySQL tests cover roster/consent revocations and pending, cancelled, expired and renewed **test fixture** memberships. Real HTTP integration checks a temporarily authorized 1×1 PNG and immediate revocation, not a real provider or sale.
+
+Administrators with content-moderation permission can now attach **JPEG, PNG or WebP** images (maximum 8 MiB; dimensions at most 8192×8192 and 32 million pixels) to **unpublished, unreviewed private drafts only** from `/admin/moderation`. Images are moved to `storage/private-media` with opaque keys and a **pending** `ac_media` review state; the pending count is visible in the moderation queue. The action uses admin CSRF, upload validation, locked draft state, a 40-image cap, audit history and best-effort orphan cleanup if the database write fails. A real multipart HTTP test rejects bad CSRF, non-images and uploads to rejected drafts and verifies that unreviewed image bytes remain unavailable.
+
+**Unfinished:** contracted age/performer consent provider, verified payment events granting members, creator onboarding, metadata stripping, malware detection, moderation and publication decisions, direct administrator draft-image previews, controlled video processing, live streaming, real cPanel/Pro VPS deployment and independent security/compliance release signoff. These engineering features are not permission to publish adult media or accept payments.
+
+---
+
 ## Ten-workstream development increment — 2026-11-21
 
 The owner requested implementation across **all ten** workstreams. The single unified Lite/Pro product, edition-selected by the four Cajun Web Pro SKUs, remains unchanged. This increment delivers **code and development tests, not commercial launch**:
