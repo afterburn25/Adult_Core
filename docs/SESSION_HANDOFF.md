@@ -1,3 +1,12 @@
+## License replacement private-target preflight — 2026-11-21
+
+- `LicenseManager::replaceLicense()` now validates both `config/license.php` and `storage/license-cache.json` destinations **under the update lock before writing either**. Existing nonregular, symlinked or unwritable destinations abort without attempting a partial license-key replacement.
+- `tests/licensing_tests.php` injects symlinked cache and symlinked license-config paths to ensure replacement is refused and the original counterpart remains unchanged. This specifically guards common failure paths; the two filesystem writes are **not a true atomic transaction**, so an unexpected I/O failure mid-update still requires operator recovery.
+- CI [run 44874337290](https://github.com/afterburn25/Adult_Core/actions/runs/44874337290) passed with cache-target regression coverage on commit `04e50a295`. Reconfirm CI on any later commits containing the additional config-target test.
+- No live payment, hosted installation, or actual staging license is involved; owner-operated CWP product provisioning and real test environments remain required.
+
+---
+
 ## Exhaustive Cajun Web Pro SKU staging audit — 2026-11-20
 
 - The operator-only `scripts/audit-cwp-staging.php` still uses owner-approved, private staging keys and an HTTPS-allowlisted issuer; it never issues licenses or initiates billing.
