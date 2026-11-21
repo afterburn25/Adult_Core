@@ -92,6 +92,10 @@ exec apache2-foreground
             check("Browser installer reachable through Apache rewrite", status == 200
                   and b"Install Adult Core" in body
                   and b"Cajun Web Pro license key selects Lite or Pro" in body)
+            check("Installer credential and CSRF form is never cacheable",
+                  "no-store" in headers.get("cache-control","")
+                  and headers.get("x-robots-tag") == "noindex, nofollow"
+                  and headers.get("x-content-type-options") == "nosniff")
             status, headers, body = request(port, "/assets/style.css")
             check("Allowlisted static CSS served directly", status == 200
                   and headers.get("content-type", "").startswith("text/css"))

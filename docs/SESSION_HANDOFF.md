@@ -1,3 +1,9 @@
+## Installer secrets and CSRF non-cacheable at Apache entrypoint — 2026-11-21
+
+The universal one-ZIP browser installer now emits `Cache-Control: private, no-store, max-age=0`, `X-Robots-Tag: noindex, nofollow` and `X-Content-Type-Options: nosniff` on its credentials/CSRF form, alongside previously hardened administrator and member routes. This prevents the installer screen and any safe error statuses from being cached by browsers and proxies or indexed. The actual disposable Apache 2.4/PHP 8.3 preinstall smoke test checks these response headers; no license key, issuer request, DB write, edition selection or Pro/Lite release gate is altered. Real cPanel/VPS acceptance is still outstanding.
+
+---
+
 ## One-time server-authoritative member password rotation notice — 2026-11-21
 
 After successfully committing an own-password rotation and revoking the current member session, the member receives a server-session-backed, one-use success message on the next sign-in form. No user-controlled `?changed=1` query flag can claim a successful change. The message is consumed immediately, does not contain passwords or tokens, and does not change pending/age/payment/media entitlement state. Unit checks validate one-time session semantics; disposable real HTTP verifies the success message appears once and cannot be spoofed by a query parameter. All account and administrator replies remain no-store/noindex.
