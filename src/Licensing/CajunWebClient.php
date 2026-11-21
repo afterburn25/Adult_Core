@@ -84,6 +84,9 @@ final class CajunWebClient
                 $valid = ['edition' => $product['edition'], 'term' => $product['term'], 'sku' => $sku];
             } elseif ($answer === 'transient') $transient = true;
         }
+        // Product discovery is exhaustive: a successful reply for one SKU does
+        // not prove uniqueness if another SKU could not be checked. Never
+        // write installation state until all four responses are conclusive.
         if ($transient) throw new \RuntimeException('Cajun Web Pro validation is temporarily unavailable. Installation was not started.');
         return $valid;
     }
