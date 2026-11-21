@@ -9,6 +9,28 @@ use AdultCore\Licensing\CajunWebClient;
 
 final class InstallInput
 {
+    /**
+     * Reject a registered hostname that differs from the actual browser origin
+     * before contacting the issuer or creating MySQL tables. Only the normal
+     * www/apex equivalence is allowed; ports cannot select a different site.
+     */
+    public static function assertRequestHost(string $licenseDomain, string $httpHost): void
+    {
+        $registered = CajunWebClient::domain($licenseDomain);
+        if (!preg_match('/^([a-zA-Z0-9.-]+)(?::([0-9]{1,5}))?$/D', $httpHost, $matches)
+            || (isset($matches[2]) && ((int) $matches[2] < 1 || (int) $matches[2] > 65535))) {
+            throw new InvalidArgumentException('The installation hostname does not match the registered license domain.');
+        }
+        try {
+            $actual = CajunWebClient::domain($matches[1]);
+        } catch (InvalidArgumentException) {
+            throw new InvalidArgumentException('The installation hostname does not match the registered license domain.');
+        }
+        if (!hash_equals($registered, $actual)) {
+            throw new InvalidArgumentException('The installation hostname does not match the registered license domain.');
+        }
+    }
+
     /** Validate before any network/database requests; never interpolate unchecked DSN fields. */
     public static function validate(array $fields): array
     {
