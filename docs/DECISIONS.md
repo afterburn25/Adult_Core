@@ -1,3 +1,9 @@
+## ADR — Explicit local creator grants; no creator applications or central platform (2026-11-21)
+
+Each customer independently installs Adult_Core. Only that installation's active owner/admin may enable a private, text-only creator workspace for an **existing local member with confirmed email**. This is a local permission record, not a centrally hosted creator identity or a vendor application. The member's existing login remains unchanged and no admin password is required per routine change. `CreatorSchema` adds only private owner-managed profile records, private planning drafts and numeric local audit events; its repository has no upload/publish/approve/billing/verification behavior. The former unsolicited creator-application workflow remains reverted. Email confirmation is **not** age/identity/consent verification. Nothing in this local feature closes commercial adult-content compliance or real-host launch gates.
+
+---
+
 ## ADR — Creator accounts are site-owner controlled, not a software-platform application (2026-11-21)
 
 Adult_Core is **one self-hosted software product installed separately on each customer's own hosting**, never a SaaS creator network. A customer's **Cajun Web Pro software license** selects Lite or Pro at installation; it does **not** create a centrally hosted site, require creator approval by the Adult_Core vendor, or confer access to any shared creator network.

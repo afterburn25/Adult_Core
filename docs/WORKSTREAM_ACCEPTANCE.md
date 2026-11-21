@@ -1,3 +1,9 @@
+## Self-hosted creator planning permission — work-in-progress
+
+An individual site owner/admin may grant private creator planning to a confirmed **member of that specific installation**. No central creator application or vendor-managed account exists. CSRF and current local permissions protect grants/suspensions; optimistic versions prevent lost status/draft edits. The creator uses the member login and sees only their own text-only private drafts, not public galleries. Audit rows contain only numeric actor/creator IDs and action types. These controls are tested in disposable MySQL/MariaDB and authenticated HTTP suites. They do not meet public creator upload, independent legal age/consent, malware/media review, publish/restore, adult payment or live-host acceptance criteria.
+
+---
+
 ## Persistent bounded admin sessions and staff step-up usability — development only
 
 The private admin session now supports a seven-day HttpOnly/SameSite Strict cookie (Secure on HTTPS), with a server-side 24-hour inactivity limit and seven-day absolute limit; logout and revocation remain immediate. The cookie contains only the random PHP session ID. Routine changes work across page reloads and browser restarts without retyping the password. A manager password verified at login, or once after expiry, opens a 30-minute staff-change window; staff creation/suspension/restoration still require role authorization, CSRF and server-side account checking, but not repetitive password submission on every action. Higher-risk workflows retain their own independent checks. This is not an infinite admin session or production security signoff.

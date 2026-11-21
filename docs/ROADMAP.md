@@ -1,3 +1,11 @@
+## Owner-provisioned local creator workspace — development only (2026-11-21)
+
+Added `/admin/creators`, a manager-only UI to grant, suspend and restore private creator planning tools for an existing email-confirmed member on the **independent installed website**, with CSRF, active-role and optimistic revision checks. The corresponding `/members/creator` view lets an enabled member save or edit their own escaped text-only planning drafts (never images/videos) while remaining a normal member account. Local profile records and draft status cannot unlock media, grant paid access, create published galleries or assert age/performer consent. Creator draft rows are separate from `ac_content` and private-to-account, and owner actions are numeric-only audited. See `docs/LOCAL_CREATORS.md`.
+
+The next creator workstreams remain real creator onboarding/verification, secure uploading, independent age and performer consent, moderator approval/publishing, takedown and approved payments; this implementation does not address them. Existing Lite shared-host and Pro VPS capabilities remain selected by **one Cajun Web Pro software license key and one installer**, never SaaS.
+
+---
+
 ## Persistent admin cookie and no repeated per-edit password — 2026-11-21
 
 Login is now backed by a persistent opaque PHP session cookie (7-day expiry, 24-hour idle/7-day absolute server timeout, HttpOnly, SameSite Strict and Secure on HTTPS). The cookie survives browser restart but stores no credentials, and logout/revocation still cancel it. Routine admin actions rely on the existing verified session and CSRF protection.

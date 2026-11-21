@@ -1,3 +1,11 @@
+## Owner-managed creator planning — 2026-11-21
+
+- After explicit user correction that Adult_Core is **self-hosted and not SaaS**, added `CreatorSchema` local tables, `LocalCreators` owner-only grant/suspend/restore operations and owner role checks. This is **not** a creator application or vendor authorization. It allows only email-confirmed local members to receive private text-planning tools, leaves the account `role='member'`, and never touches `ac_age_verifications`, `ac_content` or payment.
+- `CreatorAdminController` provides `/admin/creators` with numeric-only audit and counts, and `MemberController` provides `/members/creator` with only personal drafts, escaped output, CSRF and optimistic version checks. Suspension denies access immediately but retains drafts. Existing session login (no per-change password) and one Lite/Pro installer remain unchanged.
+- Added direct validation, disposable SQL and authenticated browser checks, updated release ZIP required files; verify latest GitHub Actions before calling tests green. Next milestones include locally managed creator uploads only after verified legal provider/consent, malware scanning, secure review/publishing and approved payments. See `docs/LOCAL_CREATORS.md`.
+
+---
+
 ## Creator intake course correction — 2026-11-21
 
 The user reiterated **self-hosted, not SaaS**. Two experimental creator-application commits (`813f9a5` and `08c7f8c`) were reverted with `9463c5e` to restore the previously green source tree. Do not build a mandatory platform-wide creator application or vendor-managed creator approval workflow. Any future creator tools are locally controlled by the owner/admin of each individual installed site, without shared creator tenant state, and still require distinct age/performer consent and merchant implementation before production use. The single source package, key-selected Lite/Pro licensing, independent hosting, and existing moderator controls remain intact.

@@ -1,3 +1,7 @@
+## Local creator planning — per installation, not SaaS
+
+Each site's owner/admin can enable private planning for an existing confirmed member at `/admin/creators`. That member then manages text-only private drafts at `/members/creator`. This does not approve creators, publish any content or share accounts between websites. [Local creator setup and permission boundaries](docs/LOCAL_CREATORS.md).
+
 ## Persistent signed-in administrator sessions
 
 The admin browser keeps only a secure opaque session cookie, not a password. It survives browser restarts for up to seven days (24-hour idle expiry). Staff actions are unlocked for 30 minutes after sign-in or one manager-password confirmation, without repeating the password on every edit. Signing out and account revocation still terminate access. See [staff session and lifecycle guidance](docs/STAFF_MODERATION.md).

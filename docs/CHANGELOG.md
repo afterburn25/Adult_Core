@@ -1,3 +1,10 @@
+## Local owner-managed creator planning — 2026-11-21 (development only)
+
+- Add self-hosted `/admin/creators` to grant/suspend/restore private creator planning for a local confirmed member, with CSRF, current manager permissions and revision-bound status changes; no centralized creator application.
+- Add `/members/creator` for a locally enabled member to edit their **own private text-only planning drafts**. The existing member role and password remain unchanged; no public media, checkout, identity approval, age verification or publishing paths.
+- Add repeatable `CreatorSchema` local tables and numeric-only audit records; retain them in unified source ZIP and cover SQL/user separation, XSS escaping, stale edits, suspension and nonpublic state under MySQL and MariaDB.
+- Keep vendor license issuer, single Lite/Pro installer, real-host acceptance and all commercial adult-content release gates unchanged.
+
 ## Persistent admin login and reusable staff edit authorization — 2026-11-21
 
 - Change the administrator's opaque PHP session ID cookie from browser-session-only to a bounded 7-day persistent cookie; enforce 24-hour idle and 7-day absolute server-side authentication timeouts, with HttpOnly/SameSite Strict and HTTPS Secure protection.
