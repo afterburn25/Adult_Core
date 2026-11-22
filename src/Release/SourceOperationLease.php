@@ -117,13 +117,26 @@ final class SourceOperationLease
         string $installedRoot, string $privateCoordinationRoot, string $releaseToken
     ): bool {
         if (preg_match('/^[a-f0-9]{64}$/D', $releaseToken) !== 1) return false;
+        return self::matchesTokenDigest(
+            $installedRoot, $privateCoordinationRoot, hash('sha256', $releaseToken)
+        );
+    }
+
+    /**
+     * Compare a marker's already-hashed token with the intact private lease.
+     * This reveals only a boolean and never prints or returns either hash.
+     * It does NOT authorize a new operation, source update or cleanup.
+     */
+    public static function matchesTokenDigest(
+        string $installedRoot, string $privateCoordinationRoot, string $tokenDigest
+    ): bool {
+        if (preg_match('/^[a-f0-9]{64}$/D', $tokenDigest) !== 1) return false;
         $site = self::site($installedRoot);
         $parent = self::parent($privateCoordinationRoot, $site);
         $path = $parent . '/' . self::DIRECTORY;
         if (is_link($path) || !is_dir($path)) return false;
         $record = self::record($path, $site);
-        return $record !== null
-            && hash_equals($record['token_sha256'], hash('sha256', $releaseToken));
+        return $record !== null && hash_equals($record['token_sha256'], $tokenDigest);
     }
 
     public static function release(
