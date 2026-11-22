@@ -1,3 +1,9 @@
+## Independent private staged-source verification — November 21, 2026
+
+`scripts/verify-source-stage.php` can independently reauthenticate the signed release ZIP and inspect every staged source file, its private permissions and signed inventory membership. Extra/missing/modified files, symlinks, incorrect receipt metadata and incomplete stages are rejected. The verifier cannot activate a stage, perform an atomic update or close any external production release gate.
+
+---
+
 ## Private authenticated source staging — development only (2026-11-21)
 
 The offline CLI can verify a signed unified Lite/Pro ZIP and stage every source file in a new private 0700 directory with 0600 files, per-file rehashing and an explicit complete/incomplete marker. It refuses insecure parents, existing paths, symlinks and paths inside the live application. This is NOT a live updater, atomic source swap, database migration, deployment or production acceptance. See [PRIVATE_SOURCE_STAGING.md](PRIVATE_SOURCE_STAGING.md). All ten release workstreams remain open.

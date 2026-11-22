@@ -22,3 +22,16 @@ The final destination must not yet exist. The command verifies the signature and
 **This is not a production updater or atomic swap.** It never changes live files, runs migrations, changes editions, grants rights, reads private customer files, switches webroots or provides rollback. A successfully staged ZIP is not production approval. All ten release workstreams remain open.
 
 Test with `php tests/private_source_stage_tests.php` using disposable fixtures, PHP 8.3+, OpenSSL and ext-zip.
+
+## Read-only re-verification before any future update workflow
+
+```sh
+php scripts/verify-source-stage.php \
+  /home/account/private-release-staging/next-release \
+  /private/releases/adult-core.zip \
+  /private/releases/adult-core.manifest.json \
+  /private/releases/adult-core.manifest.sig \
+  /trusted/keys/approved-source-public.pem
+```
+
+This checks the complete signed file inventory, every staged file hash, receipt metadata, private permissions and absence of a pending marker. It rejects extra files, symlinks, missing source and altered executable code. A successful audit explicitly reports `ready_for_install: false`; **it does not authorize activation, a version switch, database migrations or public launch**.
