@@ -1,3 +1,10 @@
+## Offline signed unified source release verification — 2026-11-21
+
+A single Lite/Pro source ZIP can now be signed **offline** with `scripts/sign-source-release.php` and independently verified with `scripts/verify-source-release.php`, using the caller's *separately trusted, pinned* public key. `src/Release/SourceArchive.php` validates all entries by streamed SHA-256 hash, refuses unsafe/duplicate path segments, case-insensitive collisions, private config PHP, storage/secrets, symlinks, unsafe Unix file modes, and oversized ZIP contents. `SignedManifest::verify()` authenticates the detached raw JSON before comparing the complete ZIP inventory. CI tests include a real unified ZIP produced by `scripts/build-release.php` as well as tampered, forged, extra, missing and malicious ZIPs. See `docs/SIGNED_SOURCE_RELEASES.md`.
+
+This is **only offline development-stage source verification**. Never claim an automatic signed update, deployment rollback, live cPanel/VPS acceptance, externally audited signing-key custody, adult-content launch clearance or approved executable add-ons. The ten release workstreams stay open.
+
+---
 ## Creator review feedback history, keep private and site-local — 2026-11-21
 
 `CreatorFeedbackSchema` m15 adds `ac_creator_feedback_history` after m14, enforcing one row per (draft_id, submitted_revision). Only local `CreatorDraftReview::decide()` may write a moderator's text feedback in the **same transaction** as the private draft state and numeric event; never approve, grant entitlements, modify media or publish. `CreatorFeedbackHistory::forMember()` must join local creator+member+email tables and require currently enabled ownership; `forOwner()` must require active local owner/admin `members.manage`. Render at most 100 latest entries with HTML escaping and no-store/noindex, and never move private feedback into `ac_creator_draft_events` numeric audit rows, HTTP GET query strings, or user-visible error logs.
