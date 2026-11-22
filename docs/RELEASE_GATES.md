@@ -1,3 +1,9 @@
+## Encrypted recovery archive identity tied to installed release — November 21, 2026
+
+`SourceBackupEvidence::inspect()` and `scripts/check-update-backup.php` now semantically authenticate an external `.acfull` backup and require its signed installation app-key identity, Lite/Pro edition and source version to match the current installed site. Wrong-site backups are refused even when version and edition match; encrypted archive/vault must be owner-only and outside the site. The offline AES key is passed on stdin and never printed. All success reports retain `restore_drill_completed=false`, `database_writers_quiesced=false`, `source_activation_authorized=false` and `production_ready=false`; an encrypted backup check is not a production recovery drill. See [SOURCE_UPDATE_BACKUP_EVIDENCE.md](SOURCE_UPDATE_BACKUP_EVIDENCE.md). All ten workstreams remain open.
+
+---
+
 ## Local dynamic PHP request drain before source maintenance — November 21, 2026
 
 `SourceHttpRequestLock` makes each dynamic HTTP front-controller request retain a shared advisory lock for its entire PHP lifetime. `SourceUpdateMaintenance::begin()` and `end()` take a nonblocking exclusive lock, refusing maintenance while an active request holds a share; concurrent new requests see HTTP 503. Real cross-process/503 tests are included in CI. This still cannot drain Pro workers, external database writers, static web traffic or remote nodes, and a distributed filesystem may not honor local flock. Production rollback and cutover remain incomplete. See [SOURCE_HTTP_MAINTENANCE.md](SOURCE_HTTP_MAINTENANCE.md).

@@ -59,6 +59,8 @@ jobs:
         run: php tests/source_operation_lease_tests.php
       - name: Private token-bound HTTP source maintenance, live request drain locks and real 503 tests
         run: php tests/source_http_maintenance_tests.php
+      - name: Encrypted full-site backup matches signed installation identity, edition and version
+        run: php tests/source_backup_evidence_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests

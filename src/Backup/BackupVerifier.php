@@ -19,8 +19,12 @@ final class BackupVerifier
     private const MAX_CHUNK = 65536;
 
     /** @return array{source_version:string,edition:string,tables:int,rows:int,files:int,file_bytes:int,sha256:string} */
-    public function verify(string $archive, string $key): array
+    public function verify(string $archive, string $key, ?string $expectedInstalledAppKey = null): array
     {
+        if ($expectedInstalledAppKey !== null
+            && preg_match('/^[a-f0-9]{64}$/D', $expectedInstalledAppKey) !== 1) {
+            throw new RuntimeException('Installed site identity input is invalid.');
+        }
         if (is_link($archive) || !is_file($archive)) {
             throw new RuntimeException('Verification requires a regular private archive.');
         }
@@ -140,6 +144,13 @@ final class BackupVerifier
         if (preg_match('/return\s+[\'\"]([a-f0-9]{64})[\'\"]\s*;/', $source, $match) !== 1
             || !InstallationState::valid($sensitive['storage/install-state.json'], $match[1])) {
             throw new RuntimeException('Backup contains invalid signed installation state.');
+        }
+        // An archive from a different installation can have the SAME version
+        // and edition. Compare the signed installation's private random app key
+        // without returning either key or its hash in the verification output.
+        if ($expectedInstalledAppKey !== null
+            && !hash_equals($expectedInstalledAppKey, $match[1])) {
+            throw new RuntimeException('Recovery archive belongs to a different installed site.');
         }
         $installed = json_decode($sensitive['storage/install-state.json'], true, 8, JSON_THROW_ON_ERROR);
         if (($installed['edition'] ?? null) !== $meta['edition']) {
