@@ -137,6 +137,22 @@ try {
     $check($run([$root . '/scripts/verify-source-release.php',
         $zipPath, $manifestPath, $signaturePath, $publicPath]) !== 0,
         'Untrusted public key cannot verify source archive');
+    // Verify the real distribution builder produces a signable, complete
+    // one-ZIP Lite/Pro artifact, not merely our small synthetic fixture.
+    $fullZip = $dir . '/complete-source.zip';
+    $buildCmd = escapeshellarg(PHP_BINARY) . ' '
+        . escapeshellarg($root . '/scripts/build-release.php') . ' '
+        . escapeshellarg($fullZip) . ' 2>&1';
+    exec($buildCmd, $buildLines, $buildCode);
+    $check($buildCode === 0 && is_file($fullZip), 'Complete source ZIP builds successfully');
+    $fullInventory = SourceArchive::inventory($fullZip);
+    $check(count($fullInventory['files']) > 150
+        && $fullInventory['version'] === trim((string) file_get_contents($root . '/VERSION')),
+        'Real source ZIP has expected project version and complete file inventory');
+    $fullManifest = SourceArchive::manifestJson($fullZip);
+    $check(SourceArchive::verify($fullZip, $fullManifest, $sign($fullManifest), $public)
+        === $fullInventory['version'],
+        'Detached signature authenticates all files from the actual distribution builder');
     $check(SourceArchive::MAX_UNPACKED_BYTES >= SourceArchive::MAX_ENTRY_BYTES,
         'Bounded streaming ZIP inventory limits remain defined');
     echo "Passed {$checks} signed source archive verification checks.\n";
