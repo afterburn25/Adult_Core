@@ -1,3 +1,9 @@
+## Independent old-source rollback material verification — 2026-11-21
+
+`SourceRollbackReadiness::inspect()` and `scripts/check-source-rollback-material.php` reverify installed source against the publisher-signed OLD baseline, check a private staged signed OLD release for exact intact bytes, and separately reverify a private signed NEW candidate. Report `previous_source_stage_verified` but permanently `rollback_implemented=false`, `database_rollback_verified=false`, `ready_for_activation=false` and `license_authorized=false` until independent production implementation and evidence. The enhanced `tests/signed_runtime_preflight_tests.php` tests tampered/incomplete rollback source, mismatched stages and CLI with disposable fixtures. See `docs/SIGNED_ROLLBACK_MATERIAL.md`. Never claim source staging is production backup/restore; all ten release gates remain open.
+
+---
+
 ## Signed baseline-to-candidate runtime transition preflight — 2026-11-21
 
 `SourceUpdatePreflight::inspect()` and `scripts/preflight-source-transition.php` verify BOTH independently signed old and new ZIPs, independently verify the private candidate stage, compare installed `src/`, `public/`, `config/editions/`, and `VERSION` against signed OLD file hashes, and refuse modified/removed code, unsigned PHP, symlinks, collisions, same/older versions and deletions. The future runtime update path explicitly excludes removed `install/`, mutable themes/modules, customer config/storage, tests, and developer docs. **Read-only; readiness flags stay false** for source activation, rollback, licensing and migrations. See `docs/SIGNED_RUNTIME_TRANSITION.md`; regression `tests/signed_runtime_preflight_tests.php` constructs a real signed old/new one-package distribution. Ten production release gates remain open.
