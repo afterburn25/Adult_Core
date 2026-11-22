@@ -138,9 +138,29 @@ final class SignedCandidateDbContract
             $baselineZip, $baselineManifest, $baselineSignature, $trustedPublicKeyPem
         );
         $baseline = self::contract($baselineZip, $old['files']);
-        $stmt = $pdo->query('SELECT version FROM ac_schema_migrations ORDER BY version');
-        $rows = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        if (!is_array($rows) || count($rows) !== $ledger['migration_records_verified']) {
+        // Re-read the exact canonical version/timestamp pairs, not only their
+        // count. An overlapping writer could otherwise edit an applied_at
+        // timestamp or replace one ID while the read-only checks are running.
+        $records = $pdo->query(
+            'SELECT version, applied_at FROM ac_schema_migrations ORDER BY version'
+        )->fetchAll(PDO::FETCH_ASSOC);
+        if (!is_array($records) || count($records) !== $ledger['migration_records_verified']) {
+            throw new RuntimeException('Installed migration ledger changed during review.');
+        }
+        $canonical = [];
+        $rows = [];
+        foreach ($records as $record) {
+            if (!is_string($record['version'] ?? null)
+                || !is_string($record['applied_at'] ?? null)) {
+                throw new RuntimeException('Installed migration ledger changed during review.');
+            }
+            $rows[] = $record['version'];
+            $canonical[] = [$record['version'], $record['applied_at']];
+        }
+        $secondDigest = hash('sha256', json_encode(
+            $canonical, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+        ));
+        if (!hash_equals($ledger['migration_ledger_sha256'], $secondDigest)) {
             throw new RuntimeException('Installed migration ledger changed during review.');
         }
         foreach ($baseline['declared_migrations'] as $id) {
@@ -148,10 +168,20 @@ final class SignedCandidateDbContract
                 throw new RuntimeException('Installed database lacks a signed baseline migration record.');
             }
         }
+        // Candidate-only migrations must not already appear in the active
+        // database before source update planning. That signals an interrupted
+        // or manually pre-applied upgrade requiring an operator investigation.
+        foreach ($plan['new_declared_migrations'] as $id) {
+            if (in_array($id, $rows, true)) {
+                throw new RuntimeException('Installed database already has a candidate-only migration.');
+            }
+        }
         return $plan + [
             'installed_database_edition' => $ledger['installed_edition'],
             'installed_migration_ledger_sha256' => $ledger['migration_ledger_sha256'],
             'signed_baseline_migrations_present' => true,
+            'candidate_only_migrations_absent' => true,
+            'migration_ledger_stable_during_review' => true,
             'installed_database_writers_quiesced' => false,
         ];
     }
