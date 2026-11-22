@@ -9,6 +9,7 @@ use AdultCore\Installer\InstallationState;
 use AdultCore\Release\SourceOperationLease;
 use AdultCore\Release\SourceUpdateMaintenance;
 use AdultCore\Release\SourceHttpRequestLock;
+use AdultCore\Release\BackupMaintenanceAdmission;
 use AdultCore\Pro\JobInbox;
 use AdultCore\Pro\JobEnvelope;
 
@@ -68,6 +69,54 @@ try{
         'Cannot begin HTTP maintenance without an owned lease');
     $check(!file_exists($site.'/storage/.source-update-maintenance'),
         'Refused begin creates no marker');
+
+    // The real cron backup entry point now shares the lifetime lock with
+    // active PHP requests and signed Pro receipt writers. It cannot set the
+    // maintenance marker during an active reader.
+    $inflightBackupReader=SourceHttpRequestLock::enter($site);
+    $reject(static fn()=>BackupMaintenanceAdmission::begin($site),
+        'Backup maintenance refuses active dynamic HTTP or Pro receipt reader');
+    $check(!file_exists($site.'/storage/.backup-maintenance'),
+        'Rejected backup maintenance never publishes a premature marker');
+    fclose($inflightBackupReader);
+
+    $backupBegin=BackupMaintenanceAdmission::begin($site);
+    $backupMarker=$site.'/storage/.backup-maintenance';
+    $check($backupBegin['status']==='backup_http_and_receipt_admission_blocked'
+        &&$backupBegin['signed_receipt_writers_drained_at_entry']===true
+        &&$backupBegin['external_pro_workers_stopped']===false
+        &&$backupBegin['database_writers_quiesced']===false
+        &&$backupBegin['production_ready']===false
+        &&$gate->status()===InstallationGate::BACKUP_MAINTENANCE,
+        'Private backup marker blocks the site without claiming Pro/DB quiescence');
+    $check(is_file($backupMarker)
+        &&(fileperms($backupMarker)&0077)===0
+        &&$gate->eligibleForBackup(),
+        'Private backup marker permits operator backup while normal requests are blocked');
+
+    $backupTestInbox=new JobInbox($site);
+    $backupTestSecret=str_repeat('y',32);
+    $backupDenied=JobEnvelope::create('backup-colliding-pro-0001',
+        'video.thumbnail',['asset_id'=>51],$backupTestSecret);
+    $reject(static fn()=>$backupTestInbox->accept($backupDenied,$backupTestSecret),
+        'New signed Pro receipts refuse active backup marker');
+    $reject(static fn()=>BackupMaintenanceAdmission::begin($site),
+        'An existing backup marker never admits a second backup');
+    $originalBackupMarker=file_get_contents($backupMarker);
+    file_put_contents($backupMarker,"corrupt untrusted marker\n");
+    chmod($backupMarker,0600);
+    $reject(static fn()=>BackupMaintenanceAdmission::finish($site),
+        'Corrupted backup marker is retained instead of auto-removal');
+    $check($gate->status()===InstallationGate::BACKUP_MAINTENANCE,
+        'Incomplete backup marker continues to deny dynamic HTTP');
+    file_put_contents($backupMarker,$originalBackupMarker);
+    chmod($backupMarker,0600);
+    BackupMaintenanceAdmission::finish($site);
+    $check($gate->status()===InstallationGate::READY
+        &&!file_exists($backupMarker),
+        'Only a verified unchanged backup marker can reopen the site');
+    $check($backupTestInbox->accept($backupDenied,$backupTestSecret),
+        'Signed Pro receipt resumes after completed safe backup maintenance');
 
     $claim=SourceOperationLease::acquire($site,$coord);
     $token=$claim['release_token'];

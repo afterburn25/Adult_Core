@@ -57,7 +57,7 @@ jobs:
         run: php tests/signed_runtime_preflight_tests.php
       - name: Exclusive offline source coordination and recovery-safe lock tests
         run: php tests/source_operation_lease_tests.php
-      - name: Private token-bound source maintenance, HTTP drain and signed Pro receipt exclusion
+      - name: Private token-bound source and backup maintenance; HTTP/Pro receipt drain and 503
         run: php tests/source_http_maintenance_tests.php
       - name: Publisher-signed candidate SQL schema contract comparison and forgery tests
         run: php tests/signed_candidate_db_contract_tests.php

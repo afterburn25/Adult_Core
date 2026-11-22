@@ -16,6 +16,7 @@ use AdultCore\Backup\BackupVerifier;
 use AdultCore\Backup\SiteBackup;
 use AdultCore\Database\Connection;
 use AdultCore\Installer\InstallationGate;
+use AdultCore\Release\BackupMaintenanceAdmission;
 
 $root = dirname(__DIR__);
 $lock = null;
@@ -23,7 +24,6 @@ $ownsLock = false;
 $ownsMarker = false;
 $exitCode = 0;
 $lockPath = $root.'/storage/.backup-job.lock';
-$markerPath = $root.'/storage/.backup-maintenance';
 try {
     if (getenv('AC_BACKUP_WRITES_PAUSED') !== 'YES') {
         throw new RuntimeException('Operator must first stop in-flight writes, uploads and workers, then confirm AC_BACKUP_WRITES_PAUSED=YES.');
@@ -62,12 +62,11 @@ try {
     $ownsLock = true;
     @chmod($lockPath, 0600);
     if (!flock($lock, LOCK_EX | LOCK_NB)) throw new RuntimeException('Backup lock is held.');
-    $marker = @fopen($markerPath, 'x+b');
-    if (!is_resource($marker)) throw new RuntimeException('Backup maintenance marker already exists; inspect the site.');
+    // Obtain the same EXCLUSIVE local guard used by signed Pro receipts
+    // and dynamic HTTP requests BEFORE publishing backup maintenance.
+    // Refuse if either a participating request/receipt is still active.
+    BackupMaintenanceAdmission::begin($root);
     $ownsMarker = true;
-    @chmod($markerPath, 0600);
-    fwrite($marker, 'Backup maintenance started. Inspect any interrupted backup before removing this marker.' . "\n");
-    fclose($marker);
     if ($gate->status() !== InstallationGate::BACKUP_MAINTENANCE || !$gate->eligibleForBackup()) {
         throw new RuntimeException('Unable to isolate signed installation during maintenance.');
     }
@@ -88,7 +87,15 @@ try {
 } finally {
     // A caught failure safely clears *our own* maintenance lock. A hard crash leaves
     // the marker in place, deliberately blocking HTTP until an operator investigates.
-    if ($ownsMarker) @unlink($markerPath);
+    if ($ownsMarker) {
+        try {
+            BackupMaintenanceAdmission::finish($root);
+        } catch (Throwable $cleanup) {
+            fwrite(STDERR, "Backup maintenance cannot safely reopen the site: "
+                . $cleanup->getMessage() . "\n");
+            $exitCode = 1;
+        }
+    }
     if (is_resource($lock)) { flock($lock, LOCK_UN); fclose($lock); }
     if ($ownsLock) @unlink($lockPath);
 }

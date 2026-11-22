@@ -1,3 +1,9 @@
+## Cooperative backup marker entry/exit locks source HTTP and signed Pro receipt writers — 2026-11-22
+
+New `src/Release/BackupMaintenanceAdmission.php` holds exclusive nonblocking `SourceHttpRequestLock` around ready-site backup marker creation and verified removal. It refuses if active dynamic PHP request or signed Pro receipt writer holds a shared lock; creates owner-only `storage/.backup-maintenance` marker with flush/fsync; retains damaged/replaced markers for manual recovery; does not claim Pro worker/DB writer quiescence. `scripts/backup-job.php` now calls `begin()`/`finish()`, still requires operator pause confirmations. Extended `tests/source_http_maintenance_tests.php` covers in-flight denial, Pro receipt intake while marker active, damaged marker and safe finish. ZIP release required inventory now includes the guard. Docs `docs/BACKUP_OPERATIONS.md`. All ten production workstreams remain OPEN.
+
+---
+
 ## Source update preflight includes signed DB review — 2026-11-22
 
 `SourceUpdatePreflight::inspect()` now invokes `SignedCandidateDbContract::compare()` on two separately verified old/new signed source ZIPs while verifying the private candidate stage. The normal CLI `scripts/preflight-source-transition.php` emits schema declaration change, appended migration IDs, schema-sensitive paths and manual SQL review flags. Valid signatures do not bypass an absent/invalid DB contract. `tests/signed_runtime_preflight_tests.php` confirms changed app PHP forces review and a separately signed old ZIP missing the contract is refused. Documentation `docs/SIGNED_RUNTIME_TRANSITION.md`. **No live database ledger checked, SQL migration executed, worker quiesced or source activated. Ten production gates still OPEN.**
