@@ -9,6 +9,8 @@ use AdultCore\Installer\InstallationState;
 use AdultCore\Release\SourceOperationLease;
 use AdultCore\Release\SourceUpdateMaintenance;
 use AdultCore\Release\SourceHttpRequestLock;
+use AdultCore\Pro\JobInbox;
+use AdultCore\Pro\JobEnvelope;
 
 $passed=0;
 $check=static function(bool $value,string $label) use (&$passed):void{
@@ -73,6 +75,16 @@ try{
         'One-time coordinator token authenticates same installed root');
     $check(!SourceOperationLease::matches($site,$coord,str_repeat('f',64)),
         'Wrong token never authenticates maintenance ownership');
+    // An actual signed Pro receipt uses the same lifetime shared barrier
+    // as HTTP. Receipts created before maintenance remain untouched.
+    $proInbox=new JobInbox($site);
+    $proSecret=str_repeat('p',32);
+    $beforePro=JobEnvelope::create('source-pro-guard-0001','video.transcode',
+        ['asset_id'=>44],$proSecret);
+    $check($proInbox->accept($beforePro,$proSecret),
+        'Pro receipt writer can safely admit before source marker is published');
+    $proReceipt=$site.'/storage/pro-jobs/'.hash('sha256','source-pro-guard-0001').'.json';
+    $oldProHash=hash_file('sha256',$proReceipt);
     // Real requests hold a shared flock until their PHP execution ends.
     // Operator maintenance may not begin while any request is in flight.
     $requestLease=SourceHttpRequestLock::enter($site);
@@ -132,6 +144,14 @@ try{
         && $gate->status()===InstallationGate::SOURCE_UPDATE_MAINTENANCE
         && !$gate->eligibleForBackup(),
         'Private marker blocks all application routes and concurrent backup eligibility');
+    $blockedPro=JobEnvelope::create('source-pro-guard-0002','video.thumbnail',
+        ['asset_id'=>48],$proSecret);
+    $reject(static fn()=>$proInbox->accept($blockedPro,$proSecret),
+        'Real source operator maintenance prevents new signed Pro receipts');
+    $reject(static fn()=>$proInbox->accept($beforePro,$proSecret),
+        'Real source operator maintenance blocks even duplicate receipt replay');
+    $check(hash_file('sha256',$proReceipt)===$oldProHash,
+        'Source maintenance never rewrites prior signed Pro receipt');
     $receipt=file_get_contents($marker);
     $check(!str_contains($receipt,$token)
         && str_contains($receipt,hash('sha256',$token)),
@@ -258,6 +278,10 @@ try{
     } finally {
         fclose($exclusiveReady);
     }
+    $check($proInbox->accept($blockedPro,$proSecret),
+        'Signed Pro receipts resume only after source maintenance is ended');
+    $check(hash_file('sha256',$proReceipt)===$oldProHash,
+        'Previously accepted Pro receipt remains intact after maintenance');
     // Untrusted lock aliases must return 503 before any application controller.
     $savedLock=$tmp.'/saved-request-gate-lock';
     rename($lockFile,$savedLock);
