@@ -13,6 +13,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Database\Schema;
 use AdultCore\Database\Connection;
+use AdultCore\Release\InstalledMigrationLedger;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\StaffSchema;
 use AdultCore\Auth\StaffRepository;
@@ -1697,6 +1698,53 @@ try {
     rmdir($root . '/install');
     if ($gate->status() !== InstallationGate::READY) {
         throw new RuntimeException('Gate did not unlock after installer deletion.');
+    }
+    // Read-only release migration-ledger evidence is checked on the REAL
+    // disposable MySQL/MariaDB installation, before any Lite-to-Pro changes.
+    $migrationReport=InstalledMigrationLedger::inspect($root,$pdo);
+    if ($migrationReport['installed_edition_matches_database']!==true
+        || $migrationReport['installed_edition']!=='lite'
+        || $migrationReport['innodb_adult_core_tables']<5
+        || $migrationReport['candidate_schema_compatibility_verified']!==false
+        || $migrationReport['database_writers_quiesced']!==false
+        || $migrationReport['ready_for_activation']!==false) {
+        throw new RuntimeException('Read-only migration preflight claimed a mismatched or ready database.');
+    }
+    $migrationDigest=$migrationReport['migration_ledger_sha256'];
+    if (!is_string($migrationDigest)
+        || strlen($migrationDigest)!==64
+        || InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest) {
+        throw new RuntimeException('Identical database migration ledgers should hash deterministically.');
+    }
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try {
+        InstalledMigrationLedger::inspect($root,$pdo);
+        throw new RuntimeException('Mismatched DB edition was accepted by migration preflight.');
+    } catch (RuntimeException $error) {
+        if ($error->getMessage()==='Mismatched DB edition was accepted by migration preflight.') throw $error;
+    }
+    $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+    $pdo->prepare('INSERT INTO ac_schema_migrations (version,applied_at) VALUES (?,UTC_TIMESTAMP())')
+        ->execute(['malformed version with spaces']);
+    try {
+        InstalledMigrationLedger::inspect($root,$pdo);
+        throw new RuntimeException('Malformed migration version was accepted.');
+    } catch (RuntimeException $error) {
+        if ($error->getMessage()==='Malformed migration version was accepted.') throw $error;
+    }
+    $pdo->prepare('DELETE FROM ac_schema_migrations WHERE version=?')
+        ->execute(['malformed version with spaces']);
+    if (InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest) {
+        throw new RuntimeException('Disposable migration data was not restored after validation tests.');
+    }
+    $cliOutput=[];
+    $cliCommand=escapeshellarg(PHP_BINARY).' '
+        .escapeshellarg(dirname(__DIR__).'/scripts/check-installed-migrations.php').' '
+        .escapeshellarg($root).' 2>&1';
+    exec($cliCommand,$cliOutput,$cliExit);
+    if ($cliExit!==0 || !str_contains(implode("\n",$cliOutput),'"ready_for_activation": false')
+        || !str_contains(implode("\n",$cliOutput),'"installed_edition": "lite"')) {
+        throw new RuntimeException('Offline installed schema preflight CLI did not verify Lite.');
     }
     // Upgrade the original installation in place, preserving real MySQL content,
     // themes, members and moderation history, with fault-injected rollback first.

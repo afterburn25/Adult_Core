@@ -141,7 +141,7 @@ jobs:
           AC_TEST_DB_USER: adultcore
           AC_TEST_DB_PASSWORD: adultcorepass
 
-      - name: Real MySQL installation integration test (disposable CI database)
+      - name: Real MySQL installation and read-only signed migration ledger preflight
         run: php tests/mysql_install.php
         env:
           AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
@@ -205,7 +205,7 @@ jobs:
           set -euo pipefail
           php tests/mysql_private_media_audit.php
           php tests/mysql_billing_inbox.php
-      - name: MariaDB fresh Lite install, authenticated HTTP and encrypted recovery
+      - name: MariaDB Lite install, signed migration ledger audit, HTTP and encrypted recovery
         env:
           AC_TEST_DB_CONFIRM: YES_THIS_IS_A_DISPOSABLE_DATABASE
           AC_TEST_DB_HOST: 127.0.0.1
