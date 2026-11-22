@@ -1,3 +1,9 @@
+## Private authenticated source staging — development only (2026-11-21)
+
+The offline CLI can verify a signed unified Lite/Pro ZIP and stage every source file in a new private 0700 directory with 0600 files, per-file rehashing and an explicit complete/incomplete marker. It refuses insecure parents, existing paths, symlinks and paths inside the live application. This is NOT a live updater, atomic source swap, database migration, deployment or production acceptance. See [PRIVATE_SOURCE_STAGING.md](PRIVATE_SOURCE_STAGING.md). All ten release workstreams remain open.
+
+---
+
 ## Signed-source update preview remains non-destructive — 2026-11-21
 
 The authenticated source ZIP can be compared against an existing local source root with `scripts/preview-source-update.php`. The report is read-only and limited to signed paths; it does not assess deletions, version upgrade eligibility, migrations, rollback or live compatibility. See [SIGNED_SOURCE_UPDATE_PREVIEW.md](SIGNED_SOURCE_UPDATE_PREVIEW.md). Workstreams 7, 9 and 10 remain open.
