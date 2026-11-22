@@ -50,6 +50,8 @@ jobs:
         run: php tests/signed_source_update_preview_tests.php
       - name: Private signed source staging with no live-site writes
         run: php tests/private_source_stage_tests.php
+      - name: Independently verify complete private source stage and reject tampering
+        run: php tests/private_source_stage_verifier_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
