@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Pro\JobEnvelope;
 use AdultCore\Pro\JobInbox;
 use AdultCore\Pro\ProJobAdmission;
+use AdultCore\Release\SourceHttpRequestLock;
 
 $checks = 0;
 $check = static function (bool $condition, string $label) use (&$checks): void {
@@ -72,6 +73,74 @@ try {
     }
     $check(hash_file('sha256',$oldReceipt)===$beforeHash,
         'Maintenance never modifies an existing signed Pro job receipt');
+
+    // Even WITHOUT a marker, an operator may own the exclusive source
+    // barrier while preparing to publish one. Pro receipt admission must
+    // refuse before creating anything; its status must also say closed.
+    $pendingId='blocked-exclusive-pro-0001';
+    $pendingEnv=JobEnvelope::create($pendingId,'video.transcode',['asset_id'=>12],$secret);
+    $pendingPath=$storage.'/pro-jobs/'.hash('sha256',$pendingId).'.json';
+    $exclusive=SourceHttpRequestLock::exclusive($root);
+    try{
+        $reject(static fn()=>$inbox->accept($pendingEnv,$secret),
+            'Operator exclusive source guard refuses signed receipt before marker exists');
+        $check(ProJobAdmission::status($root)['job_receipt_admission_open']===false,
+            'Status must report receipt admission closed under exclusive operator guard');
+        $check(!is_file($pendingPath),'Refused receipt leaves no private signed job file');
+    }finally{fclose($exclusive);}
+    $check(ProJobAdmission::status($root)['job_receipt_admission_open']===true,
+        'Releasing unused exclusive guard restores signed receipt admission');
+    $check($inbox->accept($pendingEnv,$secret),
+        'Signed receipt succeeds when exclusive operator guard is released');
+    $check(!$inbox->accept($pendingEnv,$secret),
+        'Replay still idempotent after lock-aware admission');
+
+    // Independent PHP process owns an exclusive flock; the current process
+    // must refuse intake until that owner explicitly releases it.
+    $holderCode='require '.var_export(dirname(__DIR__).'/src/Support/Autoload.php',true).';'
+        .'$guard=\AdultCore\Release\SourceHttpRequestLock::exclusive('
+        .var_export($root,true).');'
+        .'echo "PRO_GATE_EXCLUSIVE\n";flush();fgets(STDIN);fclose($guard);';
+    $cmd=escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($holderCode);
+    $pipes=[];
+    $proc=proc_open($cmd,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+    if(!is_resource($proc))throw new RuntimeException('Cannot launch separate Pro operator barrier.');
+    stream_set_timeout($pipes[1],8);
+    $ready=fgets($pipes[1]);
+    $blockedId='cross-process-pro-job-0001';
+    $blockedEnv=JobEnvelope::create($blockedId,'video.thumbnail',['asset_id'=>17],$secret);
+    $blockedPath=$storage.'/pro-jobs/'.hash('sha256',$blockedId).'.json';
+    try{
+        $check($ready==="PRO_GATE_EXCLUSIVE\n",
+            'Independent process has exclusive source operation lock');
+        $reject(static fn()=>$inbox->accept($blockedEnv,$secret),
+            'Independent operator exclusive lock prevents new Pro job receipt');
+        $check(!is_file($blockedPath)
+            &&ProJobAdmission::status($root)['job_receipt_admission_open']===false,
+            'Cross-process lock refuses signed receipt without creating partial files');
+    }finally{
+        fwrite($pipes[0],"\n");fclose($pipes[0]);
+        stream_get_contents($pipes[1]);fclose($pipes[1]);
+        stream_get_contents($pipes[2]);fclose($pipes[2]);
+        $exit=proc_close($proc);
+    }
+    $check($exit===0,'Independent operator released lock cleanly');
+    $check($inbox->accept($blockedEnv,$secret),
+        'Signed Pro job admission resumes after cross-process operator lock closes');
+
+    // A malicious alternate lock inode/symlink must fail closed.
+    $receiptLock=$storage.'/.source-http-requests.lock';
+    $savedLock=$tmp.'/saved-source-request-lock';
+    rename($receiptLock,$savedLock);
+    if(function_exists('symlink') && symlink($savedLock,$receiptLock)){
+        $aliasEnv=JobEnvelope::create('alias-lock-pro-job','video.thumbnail',['asset_id'=>19],$secret);
+        $reject(static fn()=>$inbox->accept($aliasEnv,$secret),
+            'Signed receipt refuses symbolic-linked source lock alias');
+        $check(ProJobAdmission::status($root)['job_receipt_admission_open']===false,
+            'Symlinked source lock makes admission status fail closed');
+        unlink($receiptLock);
+    }
+    rename($savedLock,$receiptLock);
 
     $sourceMarker=$storage.'/.source-update-maintenance';
     if (function_exists('symlink') && symlink($oldReceipt,$sourceMarker)) {
