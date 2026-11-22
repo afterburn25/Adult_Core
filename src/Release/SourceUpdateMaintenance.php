@@ -122,6 +122,31 @@ final class SourceUpdateMaintenance
         ];
     }
 
+    /**
+     * Read-only proof that this exact private lease token owns the intact
+     * source maintenance marker. Call under the shared operator's exclusive
+     * SourceHttpRequestLock when composing a multi-part maintenance snapshot.
+     * This neither ends maintenance nor authorizes source activation.
+     */
+    public static function assertOwnedMarker(
+        string $installedRoot, string $privateCoordinationRoot, string $releaseToken
+    ): void {
+        $root = self::site($installedRoot);
+        if (!SourceOperationLease::matches($root, $privateCoordinationRoot, $releaseToken)) {
+            throw new RuntimeException('A matching private source-operation lease is required.');
+        }
+        $path = self::storage($root) . '/' . self::MARKER;
+        $record = self::record($path, $root);
+        if ($record === null || !hash_equals(
+            $record['lease_token_sha256'], hash('sha256', $releaseToken)
+        )) {
+            throw new RuntimeException('Source maintenance marker is not owned by this lease.');
+        }
+        if ((new InstallationGate($root))->status() !== InstallationGate::SOURCE_UPDATE_MAINTENANCE) {
+            throw new RuntimeException('Another recovery state prevents source-maintenance inspection.');
+        }
+    }
+
     public static function end(
         string $installedRoot, string $privateCoordinationRoot, string $releaseToken
     ): void {
