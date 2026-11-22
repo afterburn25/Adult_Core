@@ -51,6 +51,8 @@ try {
         'src/Membership/MemberSubscriptionSummary.php',
         'src/Moderation/ModerationRepository.php',
         'src/Support/ReleaseMilestones.php','src/Support/ReleaseReadiness.php',
+        'src/Release/SourceArchive.php','src/Release/SignedManifest.php',
+        'scripts/sign-source-release.php','scripts/verify-source-release.php',
         'src/Billing/WebhookInbox.php','src/Pro/JobInbox.php',
         'src/Media/PrivateMediaAudit.php','src/Media/ImageMetadataPolicy.php',
         'scripts/audit-private-media.php',

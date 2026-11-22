@@ -1,3 +1,9 @@
+## Offline authenticated source distributions — November 21, 2026
+
+Maintainers can now sign a complete unified Lite/Pro source ZIP with a private, offline signing key and verify every ZIP entry with a separately trusted public key. The detached manifest is signed before verification, and bounded streaming ZIP checks refuse tampered/extra/missing files, unsafe paths, secret files, symlinks and case-fold collisions. See [SIGNED_SOURCE_RELEASES.md](SIGNED_SOURCE_RELEASES.md) for commands and trust requirements. This is **not** a signed atomic in-place updater, a managed rollback system, a production key-custody attestation or an approved executable plug-in loader. Workstreams 7, 9 and 10 remain open.
+
+---
+
 ## Ten-workstream production release matrix — November 21, 2026
 
 The canonical, fail-closed CLI is `php scripts/release-matrix.php --json` (machine-readable) or `php scripts/release-matrix.php` (operator-readable). Both report **all ten** currently uncompleted production acceptance workstreams and intentionally exit nonzero until verified release authorization. The existing `php scripts/release-check.php` derives its blockers from the same ten workstreams. See [WORKSTREAM_ACCEPTANCE.md](WORKSTREAM_ACCEPTANCE.md) for the concrete missing external tests and operator-owned evidence.

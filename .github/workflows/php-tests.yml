@@ -40,6 +40,8 @@ jobs:
         run: php tests/advanced_tests.php
       - name: One-package source ZIP integrity and private-secret exclusion
         run: php tests/release_distribution_tests.php
+      - name: Independently signed source ZIP verification and malicious-archive rejection
+        run: php tests/signed_source_release_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
