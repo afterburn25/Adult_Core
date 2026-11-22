@@ -195,6 +195,19 @@ try{
     $check($workerExit===0,'Independent Pro worker guard released on process exit');
     $workerAfter=ProWorkerExecutionGuard::enter($site);
     fclose($workerAfter);
+    // A newly published backup marker must also deny any Pro worker
+    // that starts AFTER the prior execution guard was released.
+    $idleBackup=BackupMaintenanceAdmission::begin($site);
+    try {
+        $reject(static fn()=>ProWorkerExecutionGuard::enter($site),
+            'New Pro execution refuses the active backup maintenance marker');
+    } finally {
+        BackupMaintenanceAdmission::finish($site,$idleBackup['finish_token']);
+    }
+    $check($gate->status()===InstallationGate::READY,
+        'Finished backup maintenance reopens signed Pro worker admission');
+    $workerResume=ProWorkerExecutionGuard::enter($site);
+    fclose($workerResume);
     file_put_contents($site.'/storage/install-state.json',
         InstallationState::encode('lite',$key));
     $check($gate->status()===InstallationGate::READY,
