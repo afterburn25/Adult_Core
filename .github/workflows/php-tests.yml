@@ -57,6 +57,8 @@ jobs:
         run: php tests/signed_runtime_preflight_tests.php
       - name: Exclusive offline source coordination and recovery-safe lock tests
         run: php tests/source_operation_lease_tests.php
+      - name: Private token-bound source maintenance and real HTTP 503 route tests
+        run: php tests/source_http_maintenance_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests

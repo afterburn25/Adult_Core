@@ -37,3 +37,7 @@ The release command verifies the exact site root, receipt structure, SHA-256 tok
 Existing staging/preflight scripts do not automatically acquire this lease; operators must coordinate voluntarily. The tool does not change the installation, license, database, authentication cookies or customer content. A coordination lease **does not mean** that PHP requests are paused or that a database restore/migration can be performed safely. Before any production updater is accepted, integrate site maintenance across web and workers, exclusive application-level locks, versioned migration checkpoints, backup/rollback and cPanel/VPS tests.
 
 Regression: `php tests/source_operation_lease_tests.php` tests exclusive claims, token-gated release, malformed/stale state, unsafe path refusal, and independent CLI subprocesses. All ten production release gates remain open.
+
+## Application HTTP maintenance integration
+
+The private source-operation lease can now authorize a **separate** HTTP front-controller maintenance marker using `scripts/source-http-maintenance.php`. Begin/end requires the current one-time lease token on stdin; release of the lease is denied while HTTP maintenance remains active. See [SOURCE_HTTP_MAINTENANCE.md](SOURCE_HTTP_MAINTENANCE.md). The lease remains voluntary operator coordination, while the maintenance marker blocks Adult Core's dynamic HTTP front controller only. Neither one pauses worker/DB activity, executes updates, or closes a production gate.

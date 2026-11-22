@@ -112,6 +112,20 @@ final class SourceOperationLease
         ];
     }
 
+    /** Check ownership of an existing private lease without exposing its token. */
+    public static function matches(
+        string $installedRoot, string $privateCoordinationRoot, string $releaseToken
+    ): bool {
+        if (preg_match('/^[a-f0-9]{64}$/D', $releaseToken) !== 1) return false;
+        $site = self::site($installedRoot);
+        $parent = self::parent($privateCoordinationRoot, $site);
+        $path = $parent . '/' . self::DIRECTORY;
+        if (is_link($path) || !is_dir($path)) return false;
+        $record = self::record($path, $site);
+        return $record !== null
+            && hash_equals($record['token_sha256'], hash('sha256', $releaseToken));
+    }
+
     public static function release(
         string $installedRoot,
         string $privateCoordinationRoot,
@@ -129,6 +143,12 @@ final class SourceOperationLease
         $record = self::record($path, $site);
         if ($record === null || !hash_equals($record['token_sha256'], hash('sha256', $releaseToken))) {
             throw new RuntimeException('Refusing source lease release without its correct token and intact receipt.');
+        }
+        // Never discard the coordination lease while a site HTTP
+        // source-maintenance marker is still blocking application routes.
+        if (file_exists($site . '/storage/.source-update-maintenance')
+            || is_link($site . '/storage/.source-update-maintenance')) {
+            throw new RuntimeException('End source HTTP maintenance before releasing its lease.');
         }
         $entries = scandir($path);
         if ($entries === false || array_values(array_diff($entries, ['.', '..'])) !== [self::RECORD]) {
