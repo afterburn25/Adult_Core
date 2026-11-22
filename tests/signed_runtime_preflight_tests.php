@@ -148,6 +148,26 @@ try {
         && $report['manual_database_review_required']===true,
         'Signed DB declaration is unchanged but changed autoloader PHP still requires DB review');
 
+    // A separately signed older baseline that predates the DB contract
+    // must FAIL CLOSED in the integrated transition preflight, not quietly
+    // return an incomplete migration risk report.
+    $noDbBaseline=$tmp.'/old-missing-db-contract.zip';
+    if(!copy($baseline,$noDbBaseline))
+        throw new RuntimeException('Cannot create missing-contract source fixture.');
+    $noDbZip=new ZipArchive();
+    if($noDbZip->open($noDbBaseline)!==true)
+        throw new RuntimeException('Cannot open missing-contract source fixture.');
+    if(!$noDbZip->deleteName('src/Database/release-schema-contract.json'))
+        throw new RuntimeException('Cannot remove DB contract from negative fixture.');
+    $noDbZip->close();
+    $noDbJson=SourceArchive::manifestJson($noDbBaseline);
+    if(!openssl_sign($noDbJson,$noDbSigBytes,$key,OPENSSL_ALGO_SHA256))
+        throw new RuntimeException('Cannot sign source without database contract.');
+    $reject(static fn()=>SourceUpdatePreflight::inspect(
+        $installed,$stage,$noDbBaseline,$noDbJson,base64_encode($noDbSigBytes),
+        $candidate,$newJson,$newSig,$trusted
+    ),'Signed baseline with missing database contract blocks integrated source preflight');
+
     $recovery=$rollbackCheck();
     $check($recovery['previous_source_stage_verified']===true
         && $recovery['candidate_source_stage_verified']===true
