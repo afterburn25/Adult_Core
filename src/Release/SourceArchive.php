@@ -69,10 +69,14 @@ final class SourceArchive
                 // In particular, symlinks must never be signed for installation.
                 $opsys = 0;
                 $attributes = 0;
-                if ($zip->getExternalAttributesIndex($i, $opsys, $attributes) && $opsys === 3) {
+                if (!$zip->getExternalAttributesIndex($i, $opsys, $attributes)) {
+                    throw new RuntimeException('Release ZIP file attributes are unreadable.');
+                }
+                if ($opsys === 3) {
                     $type = ($attributes >> 16) & 0170000;
-                    if ($type !== 0 && $type !== 0100000) {
-                        throw new RuntimeException('Release ZIP contains a non-regular file.');
+                    $perms = ($attributes >> 16) & 07777;
+                    if (($type !== 0 && $type !== 0100000) || ($perms & 07022) !== 0) {
+                        throw new RuntimeException('Release ZIP contains unsafe Unix file permissions.');
                     }
                 }
                 $stream = $zip->getStream($name);
@@ -168,7 +172,8 @@ final class SourceArchive
             || !preg_match('#^(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+$#D', $path)
             || str_contains($path, '..')
             || preg_match('#(?:^|/)(?:storage|private|vendor|\.git)(?:/|$)#i', $path) === 1
-            || preg_match('#(?:^|/)(?:\.env(?:\..*)?|config/(?:database|app-key|license|verification)\.php)$#i', $path) === 1
+            || preg_match('#(?:^|/)\.env(?:\..*)?$#i', $path) === 1
+            || preg_match('#^config/[^/]+\.php$#i', $path) === 1
             || preg_match('/\.(?:pem|key|log|pyc|pyo)$/iD', $path) === 1) {
             return false;
         }
