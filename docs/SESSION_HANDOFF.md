@@ -1,3 +1,9 @@
+## Source update preflight includes signed DB review — 2026-11-22
+
+`SourceUpdatePreflight::inspect()` now invokes `SignedCandidateDbContract::compare()` on two separately verified old/new signed source ZIPs while verifying the private candidate stage. The normal CLI `scripts/preflight-source-transition.php` emits schema declaration change, appended migration IDs, schema-sensitive paths and manual SQL review flags. Valid signatures do not bypass an absent/invalid DB contract. `tests/signed_runtime_preflight_tests.php` confirms changed app PHP forces review and a separately signed old ZIP missing the contract is refused. Documentation `docs/SIGNED_RUNTIME_TRANSITION.md`. **No live database ledger checked, SQL migration executed, worker quiesced or source activated. Ten production gates still OPEN.**
+
+---
+
 ## Shared signed Pro receipt admission / operator maintenance barrier — 2026-11-22
 
 `JobInbox::accept()` holds the same `SourceHttpRequestLock::enter()` shared 0600 persistent flock used by ready dynamic HTTP requests for the complete signed receipt admission and replay path; `SourceUpdateMaintenance::begin/end` already require nonblocking exclusive ownership. `ProJobAdmission::status()` tests the same shared lock so operator contention reports intake closed. `tests/pro_job_maintenance_tests.php` now covers independent PHP process holding operator-exclusive lock, new/duplicate signed receipt refusal, symlink denial and retry after release; `tests/source_http_maintenance_tests.php` tests Pro receipt acceptance before/during/after a real token-owned source marker. `tests/pro_release_tests.php` cleans up the persistent private lock fixture. See `docs/PRO_JOB_MAINTENANCE.md` / `docs/SOURCE_HTTP_MAINTENANCE.md`. **Does not drain executable Pro workers, existing pending jobs, DB writers, static assets or remote nodes; production activation blocked, ten release gates OPEN.**
