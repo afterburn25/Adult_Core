@@ -14,6 +14,8 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Database\Schema;
 use AdultCore\Database\Connection;
 use AdultCore\Release\InstalledMigrationLedger;
+use AdultCore\Release\SignedCandidateDbContract;
+use AdultCore\Release\SourceArchive;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\StaffSchema;
 use AdultCore\Auth\StaffRepository;
@@ -1746,6 +1748,105 @@ try {
         || !str_contains(implode("\n",$cliOutput),'"installed_edition": "lite"')) {
         throw new RuntimeException('Offline installed schema preflight CLI did not verify Lite.');
     }
+    // Independent publisher-signed candidate DB policies are now also read
+    // against this disposable REAL installed MySQL/MariaDB migration ledger.
+    // This proves presence of declared baseline IDs, NOT future DDL safety.
+    $signedDbTmp=sys_get_temp_dir().'/ac-live-db-signed-review-'.bin2hex(random_bytes(7));
+    if(!mkdir($signedDbTmp,0700))throw new RuntimeException('Cannot create isolated signed DB fixture.');
+    try{
+        $baselineVersion=trim((string)file_get_contents(dirname(__DIR__).'/VERSION'));
+        file_put_contents($root.'/VERSION',$baselineVersion."\n");
+        $dbPolicy=static function(int $revision,array $ids):string{
+            return json_encode(['format'=>'adult-core-db-contract-v1',
+                'family'=>'adult-core-mysql','revision'=>$revision,
+                'declared_migrations'=>$ids],
+                JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR)."\n";
+        };
+        $sources=[
+            'VERSION'=>$baselineVersion."\n",
+            'public/index.php'=>'<?php // synthetic',
+            'public/.htaccess'=>'Options -Indexes',
+            'install/index.php'=>'<?php // synthetic installer',
+            'config/editions/lite.json'=>'{"edition":"lite"}',
+            'config/editions/pro.json'=>'{"edition":"pro"}',
+            'src/Support/Autoload.php'=>'<?php // synthetic autoload',
+            SignedCandidateDbContract::CONTRACT_PATH=>$dbPolicy(1,[]),
+        ];
+        $newSource=$sources;
+        $newSource['VERSION']="0.8.13-dev\n";
+        $oldZip=$signedDbTmp.'/previous.zip';
+        $newZip=$signedDbTmp.'/candidate.zip';
+        $pack=static function(string $archive,array $entries):void{
+            $zip=new ZipArchive();
+            if($zip->open($archive,ZipArchive::CREATE|ZipArchive::OVERWRITE)!==true)
+                throw new RuntimeException('Cannot create disposable signed schema source ZIP.');
+            foreach($entries as $name=>$bytes){
+                if(!$zip->addFromString($name,$bytes))throw new RuntimeException('Cannot write schema ZIP entry.');
+                $zip->setExternalAttributesName($name,ZipArchive::OPSYS_UNIX,0100644<<16);
+            }
+            $zip->close();
+        };
+        $pack($oldZip,$sources);
+        $pack($newZip,$newSource);
+        $signer=openssl_pkey_new(['private_key_type'=>OPENSSL_KEYTYPE_RSA,'private_key_bits'=>2048]);
+        if($signer===false)throw new RuntimeException('Cannot generate offline CI signing key.');
+        $publicKey=openssl_pkey_get_details($signer)['key'];
+        $signSource=static function(string $bytes)use($signer):string{
+            if(!openssl_sign($bytes,$sig,$signer,OPENSSL_ALGO_SHA256))
+                throw new RuntimeException('Could not sign disposable DB release.');
+            return base64_encode($sig);
+        };
+        $oldManifest=SourceArchive::manifestJson($oldZip);
+        $newManifest=SourceArchive::manifestJson($newZip);
+        $liveReview=SignedCandidateDbContract::inspectInstalled(
+            $root,$pdo,$oldZip,$oldManifest,$signSource($oldManifest),
+            $newZip,$newManifest,$signSource($newManifest),$publicKey
+        );
+        if($liveReview['installed_database_edition']!=='lite'
+            ||$liveReview['signed_baseline_migrations_present']!==true
+            ||$liveReview['candidate_schema_compatibility_verified']!==false
+            ||$liveReview['source_activation_authorized']!==false){
+            throw new RuntimeException('Signed DB preflight incorrectly approved an installation.');
+        }
+        // Independently signed previous source now declares an earlier
+        // migration which is NOT in the real installed SQL ledger.
+        $sources[SignedCandidateDbContract::CONTRACT_PATH]=$dbPolicy(2,['missing_base_id']);
+        $newSource[SignedCandidateDbContract::CONTRACT_PATH]=$dbPolicy(3,['missing_base_id','planned_next_id']);
+        $pack($oldZip,$sources);
+        $pack($newZip,$newSource);
+        $oldManifest=SourceArchive::manifestJson($oldZip);
+        $newManifest=SourceArchive::manifestJson($newZip);
+        $signedOld=$signSource($oldManifest);
+        $signedNew=$signSource($newManifest);
+        try{
+            SignedCandidateDbContract::inspectInstalled(
+                $root,$pdo,$oldZip,$oldManifest,$signedOld,
+                $newZip,$newManifest,$signedNew,$publicKey);
+            throw new RuntimeException('Missing signed baseline migration was accepted.');
+        }catch(RuntimeException $e){
+            if($e->getMessage()==='Missing signed baseline migration was accepted.')throw $e;
+        }
+        $pdo->prepare('INSERT INTO ac_schema_migrations (version,applied_at) VALUES (?,UTC_TIMESTAMP())')
+            ->execute(['missing_base_id']);
+        $review=SignedCandidateDbContract::inspectInstalled(
+            $root,$pdo,$oldZip,$oldManifest,$signedOld,
+            $newZip,$newManifest,$signedNew,$publicKey
+        );
+        if($review['new_declared_migrations']!==['planned_next_id']
+            ||$review['manual_database_compatibility_review_required']!==true
+            ||$review['migrations_executed']!==false){
+            throw new RuntimeException('Signed DB preflight failed to identify unapplied candidate migration.');
+        }
+        $pdo->prepare('DELETE FROM ac_schema_migrations WHERE version=?')
+            ->execute(['missing_base_id']);
+        if(InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest){
+            throw new RuntimeException('Disposable signed DB policy audit did not restore original ledger.');
+        }
+    }finally{
+        foreach(glob($signedDbTmp.'/*')?:[] as $fixtureFile)unlink($fixtureFile);
+        rmdir($signedDbTmp);
+    }
+
     // Upgrade the original installation in place, preserving real MySQL content,
     // themes, members and moderation history, with fault-injected rollback first.
     $proKey='PRO-MONTH-2026-TEST';
