@@ -75,7 +75,7 @@ final class ReleaseMilestones
             [
                 'id'=>9, 'name'=>'Maintenance, backups and deployment',
                 'status'=>'external_acceptance_pending',
-                'implemented'=>'Encrypted backups and restore fixtures, pending-operation locks, read-only private-media integrity audit, CLI preflight, offline detached-signed source ZIP verification, read-only source update preview and CI recovery tests.',
+                'implemented'=>'Encrypted backups and restore fixtures, pending-operation locks, read-only private-media integrity audit, CLI preflight, offline detached-signed source ZIP verification, read-only source update preview, private inert signed source staging and CI recovery tests.',
                 'remaining'=>'Real host disaster recovery drills, managed updates, off-site retention, operational monitoring and rollback certification.',
                 'needs_external'=>true,
             ],

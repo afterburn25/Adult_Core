@@ -1,3 +1,9 @@
+## Offline private signed source staging — 2026-11-21
+
+`SourceStage::prepare()` and `scripts/stage-source-release.php` require a trusted signed one-package Lite/Pro ZIP and existing site source root. The output is an inert, previously absent private directory beneath a 0700 parent outside the installed site. Rehash all copied files, protect subfolders/files, leave `.ac-stage-pending` on failure and create `.ac-stage-complete.json` only after all bytes match. Do not touch installed site files, DB, license, secrets or private content. Tests in `tests/private_source_stage_tests.php`, operator details in `docs/PRIVATE_SOURCE_STAGING.md`. No live updates or production approval; ten release gates still open.
+
+---
+
 ## Read-only authenticated source update comparison — 2026-11-21
 
 `SourceArchive::verifiedInventory()` authenticates a detached signature and the complete ZIP file inventory once. The new `SourceDelta::preview()` and offline `scripts/preview-source-update.php` examine ONLY signed source-relative paths in an explicitly selected existing application root and refuse unsafe file/directory symlinks. They expose missing/different source files and unchanged counts, never content or customer secrets. There is NO write operation, deletion assessment, database migration, license approval, production update, data transfer, or live-host certification. See `docs/SIGNED_SOURCE_UPDATE_PREVIEW.md`. Keep all ten production launch workstreams blocked.
