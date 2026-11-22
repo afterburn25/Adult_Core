@@ -2,9 +2,10 @@ name: PHP checks
 on:
   push:
   pull_request:
-# A new commit supersedes older branch/PR checks; keep main's checks separate.
+# Supersede stale runs within each trigger, but never let push and PR
+# checks cancel or starve one another (they have different review purposes).
 concurrency:
-  group: php-checks-${{ github.event.pull_request.head.ref || github.ref_name }}
+  group: php-checks-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref_name }}
   cancel-in-progress: true
 jobs:
   test:
@@ -52,7 +53,7 @@ jobs:
         run: php tests/private_source_stage_tests.php
       - name: Independently verify complete private source stage and reject tampering
         run: php tests/private_source_stage_verifier_tests.php
-      - name: Offline signed runtime transition, no installer or customer-data overwrite
+      - name: Offline signed runtime transition and separate rollback source material
         run: php tests/signed_runtime_preflight_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php

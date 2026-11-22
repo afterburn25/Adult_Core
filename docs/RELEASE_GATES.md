@@ -1,3 +1,9 @@
+## Separately signed previous source recovery material — November 21, 2026
+
+The offline `scripts/check-source-rollback-material.php` command validates three distinct states: a clean installed runtime matching the trusted signed old ZIP, an independently intact private old-source stage, and a separate signed private candidate stage. It refuses tampered or incomplete prior source, stage collisions, untrusted signatures and version inconsistencies. **It never performs rollback**, undoes a migration, touches customer data, approves a license or activates PHP source. See [SIGNED_ROLLBACK_MATERIAL.md](SIGNED_ROLLBACK_MATERIAL.md). All ten production acceptance workstreams remain open.
+
+---
+
 ## Offline signed runtime transition preflight — November 21, 2026
 
 Source transition review now authenticates **both** the installed old ZIP and candidate ZIP, re-verifies the candidate's private staging tree, and compares the complete installed runtime against a signed baseline before planning any source change. It excludes `install/`, add-on modules, mutable themes, customer config, private storage, and developer-only source from runtime changes. Local code modifications, unrecognized PHP, unsafe symlinks and downgrades fail closed. **No source switch, database mutation, live update, rollback, licensing approval, or launch certification is implemented.** See [SIGNED_RUNTIME_TRANSITION.md](SIGNED_RUNTIME_TRANSITION.md); all ten release workstreams remain open.

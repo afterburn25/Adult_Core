@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Release\SourceArchive;
 use AdultCore\Release\SourceStage;
 use AdultCore\Release\SourceUpdatePreflight;
+use AdultCore\Release\SourceRollbackReadiness;
 
 if (!class_exists(ZipArchive::class)) {
     throw new RuntimeException('Signed transition preflight tests require PHP ext-zip.');
@@ -108,6 +109,12 @@ try {
         $installed,$stage,$baseline,$oldJson,$oldSig,
         $candidate,$newJson,$newSig,$trusted
     );
+    $previousStage=$tmp.'/private-previous-source';
+    SourceStage::prepare($installed,$baseline,$oldJson,$oldSig,$trusted,$previousStage);
+    $rollbackCheck=static fn()=>SourceRollbackReadiness::inspect(
+        $installed,$previousStage,$stage,$baseline,$oldJson,$oldSig,
+        $candidate,$newJson,$newSig,$trusted
+    );
     $report=$inspect();
     $check($report['source_integrity_verified']===true
         && $report['candidate_stage_verified']===true
@@ -131,6 +138,36 @@ try {
     $check($report['licensing_checked']===false
         && $report['migration_compatibility_checked']===false,
         'Missing external license and migration acceptance remain explicit');
+
+    $recovery=$rollbackCheck();
+    $check($recovery['previous_source_stage_verified']===true
+        && $recovery['candidate_source_stage_verified']===true
+        && $recovery['previous_source_files_preserved']===count($previous['files'])
+        && $recovery['previous_version']==='0.8.11-old-dev',
+        'Previous signed source is independently present and reverified');
+    $check($recovery['read_only']===true
+        && $recovery['rollback_implemented']===false
+        && $recovery['ready_for_activation']===false
+        && $recovery['database_rollback_verified']===false
+        && $recovery['license_authorized']===false,
+        'Verified rollback source alone never authorizes activation or database rollback');
+    $oldStagedFile=$previousStage.'/src/Support/Autoload.php';
+    $oldStagedBytes=file_get_contents($oldStagedFile);
+    file_put_contents($oldStagedFile,"<?php echo 'tampered rollback source';");
+    $reject($rollbackCheck,'Tampered previously staged source cannot be trusted as rollback');
+    file_put_contents($oldStagedFile,$oldStagedBytes);
+    $check($rollbackCheck()['previous_source_stage_verified']===true,
+        'Restored signed previous-stage bytes pass re-verification');
+    $pendingMarker=$previousStage.'/.ac-stage-pending';
+    file_put_contents($pendingMarker,"incomplete\n");chmod($pendingMarker,0600);
+    $reject($rollbackCheck,'Incomplete previous source stage must fail rollback material check');
+    unlink($pendingMarker);
+    $reject(static fn()=>SourceRollbackReadiness::inspect(
+        $installed,$stage,$stage,$baseline,$oldJson,$oldSig,
+        $candidate,$newJson,$newSig,$trusted
+    ), 'Candidate may not substitute for separately signed previous source');
+    $check($rollbackCheck()['previous_source_stage_verified']===true,
+        'Distinct previous and new staged releases remain independently verified');
 
     $reject(static fn()=>SourceUpdatePreflight::inspect(
         $installed,$stage,$baseline,$oldJson,base64_encode(random_bytes(256)),
@@ -200,7 +237,21 @@ try {
         && str_contains(implode("\n",$lines),'"installer_excluded": true'),
         'Offline CLI emits explicit no-activation signed transition JSON');
 
-    echo "Passed {$checks} signed runtime source preflight checks.\n";
+    $rollbackCli=escapeshellarg(PHP_BINARY).' '
+        .escapeshellarg($root.'/scripts/check-source-rollback-material.php').' '
+        .implode(' ',array_map('escapeshellarg',[
+            $installed,$previousStage,$stage,$baseline,$oldManifestPath,$oldSigPath,
+            $candidate,$newManifestPath,$newSigPath,$pubPath
+        ])).' 2>&1';
+    $rollbackLines=[];exec($rollbackCli,$rollbackLines,$rollbackExit);
+    $check($rollbackExit===0
+        && str_contains(implode("\n",$rollbackLines),'"previous_source_stage_verified": true')
+        && str_contains(implode("\n",$rollbackLines),'"database_rollback_verified": false'),
+        'CLI refuses to confuse signed source preservation with database recovery');
+    $check(file_get_contents($installed.'/config/license.php')===$customerBefore,
+        'Both source rollback verification and CLI preserve private license config');
+
+    echo "Passed {$checks} signed runtime source and rollback material checks.\n";
 } finally {
     $remove($tmp);
 }
