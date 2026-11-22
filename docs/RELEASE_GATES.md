@@ -1,3 +1,9 @@
+## Read-only integrity and outstanding-work audit for signed Pro receipts — November 21, 2026
+
+`ProJobReceiptAudit` and `scripts/audit-pro-job-inbox.php` scan bounded private Pro receipt files and verify both the sealed receipt MAC and the originally signed job envelope. They refuse changed status, malformed JSON, extra/symlink/insecure files and unknown job identities, reporting pending/processing/done/failed counts without exposing payloads or secrets. **A clear local inbox never certifies external workers drained, database writers stopped or safe activation.** See [PRO_JOB_RECEIPT_AUDIT.md](PRO_JOB_RECEIPT_AUDIT.md); Pro and release workstreams stay open.
+
+---
+
 ## Pro signed-job receipt intake respects source/recovery maintenance — November 21, 2026
 
 `ProJobAdmission` makes the existing Pro signed `JobInbox` refuse new and replayed receipts during source HTTP maintenance, backup maintenance, backup restore, edition upgrade or license update pending markers, including symlinks. `tests/pro_job_maintenance_tests.php` covers denial and safe resumption. Existing workers, queues, FFmpeg, DB writes and streaming are **not drained or stopped**; production Pro release remains blocked. See [PRO_JOB_MAINTENANCE.md](PRO_JOB_MAINTENANCE.md).

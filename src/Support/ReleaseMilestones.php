@@ -54,7 +54,7 @@ final class ReleaseMilestones
             [
                 'id'=>6, 'name'=>'Production Pro video and streaming',
                 'status'=>'incomplete',
-                'implemented'=>'Signed job envelope, narrow payload allowlist, replay-conflict protected private job receipt, maintenance/recovery-aware receipt admission.',
+                'implemented'=>'Signed job envelope, narrow payload allowlist, replay-conflict protected private job receipt, maintenance/recovery-aware receipt admission, bounded read-only signed receipt integrity and outstanding-work audit.',
                 'remaining'=>'Hardened FFmpeg service, durable worker queue, authorized segments, streaming, monitoring and real VPS load testing.',
                 'needs_external'=>true,
             ],

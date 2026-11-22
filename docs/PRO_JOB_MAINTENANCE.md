@@ -21,3 +21,7 @@ The read-only local `ProJobAdmission::status($siteRoot)` returns `job_receipt_ad
 See [SOURCE_HTTP_MAINTENANCE.md](SOURCE_HTTP_MAINTENANCE.md) for operator HTTP maintenance. Signed Pro job envelope receipt contracts are covered by `tests/pro_release_tests.php`; new offline maintenance cases run through `php tests/pro_job_maintenance_tests.php` and GitHub Actions.
 
 The one self-hosted Lite/Pro application remains key-selected by Cajun Web Pro licensing. Production video, streaming, workers, real VPS acceptance and legal/consent/payment workstreams remain blocked.
+
+## Audit existing signed receipts without mutating them
+
+`ProJobReceiptAudit` and `scripts/audit-pro-job-inbox.php` can check every local private Pro receipt's HMAC, original signed envelope and status, then report pending/processing counts. The key comes only from stdin, and counts never prove external workers drained. See [PRO_JOB_RECEIPT_AUDIT.md](PRO_JOB_RECEIPT_AUDIT.md).

@@ -1,3 +1,9 @@
+## Offline signed Pro job receipt audit (2026-11-21)
+
+`ProJobReceiptAudit::inspect()` and CLI `scripts/audit-pro-job-inbox.php` verify local `storage/pro-jobs` HMAC-sealed records, original job envelope signatures, exact SHA256 filenames, supported schema/states, private modes, no links or rogue/oversized entries, capped at 2000 receipts × 20 KiB. CLI receives signing secret through STDIN only. Report pending/processing/done/failed counts and `no_locally_open_receipts`; always return `external_workers_quiesced=false`, `database_writes_quiesced=false`, `ready_for_activation=false`, even for empty/complete inboxes. See `tests/pro_job_receipt_audit_tests.php`, docs `docs/PRO_JOB_RECEIPT_AUDIT.md`. Maintenance admission and Pro worker gates are still incomplete; ten production gates remain OPEN.
+
+---
+
 ## Pro signed job receipt maintenance admission (2026-11-21)
 
 `src/Pro/ProJobAdmission.php` now fail-closes `src/Pro/JobInbox.php::accept()` on the presence of `.source-update-maintenance`, `.backup-maintenance`, `.backup-restore-pending`, `.edition-upgrade-pending` or `.license-update-pending` under private storage, including symlink/directory markers. Admission is checked after signature verification and immediately before creating a receipt, and replays are refused during maintenance. The redacted status always reports `existing_jobs_drained=false`, `pro_worker_quiesced=false`, `production_ready=false` even if intake is open. `tests/pro_job_maintenance_tests.php` runs in CI, see `docs/PRO_JOB_MAINTENANCE.md`. **Do NOT claim this pauses existing Pro workers or DB writes.** Ten production gates OPEN.
