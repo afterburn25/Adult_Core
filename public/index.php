@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Http\AdminController;
+use AdultCore\Release\SourceHttpRequestLock;
 
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
@@ -17,6 +18,24 @@ header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-sr
 
 $root = dirname(__DIR__);
 $gate = new InstallationGate($root);
+// The installer and invalid/recovery states retain their existing access
+// behavior. Only a READY installed site may enter source maintenance, so
+// acquire the lifetime reader lock only for READY dynamic requests.
+$initialState = $gate->status();
+if ($initialState === InstallationGate::READY) {
+    try {
+        $activeHttpRequestLock = SourceHttpRequestLock::enter($root);
+    } catch (\RuntimeException) {
+        http_response_code(503);
+        header('Retry-After: 30');
+        $heading = 'Source maintenance in progress';
+        $message = 'The website is temporarily unavailable while its server operator prepares maintenance. Please try again shortly.';
+        require $root . '/src/Installer/LockedScreen.php';
+        exit;
+    }
+}
+// Reevaluate after acquiring the shared lock: maintenance might have begun
+// between the initial READY check and request-lock acquisition.
 $state = $gate->status();
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $path = is_string($path) ? rtrim($path, '/') : '/';

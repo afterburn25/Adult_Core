@@ -1,3 +1,9 @@
+## Local dynamic HTTP request lifetime draining before source maintenance — 2026-11-21
+
+`SourceHttpRequestLock::enter()` acquires a verified private shared flock before *every* dynamic `public/index.php` route, retained through PHP request lifetime; exclusive source `SourceUpdateMaintenance::{begin,end}` refuses with a nonblocking operator guard if any request is active, and begins marker creation only while exclusive ownership is held. A new dynamic request during exclusive contention returns HTTP 503 before admin/site routing. Persistent zero-byte `storage/.source-http-requests.lock` is owner-only and omitted from portable backups. `tests/source_http_maintenance_tests.php` now tests two shared requests, an independent PHP process, actual front-controller 503 under contention, refusal to publish premature marker, symlink denial and no live content writes. See `docs/SOURCE_HTTP_MAINTENANCE.md`. THIS IS LOCAL HOST ADVISORY FLOCK ONLY, NOT multi-host/distributed worker/DB or static asset protection; no source activation. Ten production gates remain OPEN.
+
+---
+
 ## Offline signed Pro job receipt audit (2026-11-21)
 
 `ProJobReceiptAudit::inspect()` and CLI `scripts/audit-pro-job-inbox.php` verify local `storage/pro-jobs` HMAC-sealed records, original job envelope signatures, exact SHA256 filenames, supported schema/states, private modes, no links or rogue/oversized entries, capped at 2000 receipts × 20 KiB. CLI receives signing secret through STDIN only. Report pending/processing/done/failed counts and `no_locally_open_receipts`; always return `external_workers_quiesced=false`, `database_writes_quiesced=false`, `ready_for_activation=false`, even for empty/complete inboxes. See `tests/pro_job_receipt_audit_tests.php`, docs `docs/PRO_JOB_RECEIPT_AUDIT.md`. Maintenance admission and Pro worker gates are still incomplete; ten production gates remain OPEN.

@@ -1,3 +1,9 @@
+## Local dynamic PHP request drain before source maintenance — November 21, 2026
+
+`SourceHttpRequestLock` makes each dynamic HTTP front-controller request retain a shared advisory lock for its entire PHP lifetime. `SourceUpdateMaintenance::begin()` and `end()` take a nonblocking exclusive lock, refusing maintenance while an active request holds a share; concurrent new requests see HTTP 503. Real cross-process/503 tests are included in CI. This still cannot drain Pro workers, external database writers, static web traffic or remote nodes, and a distributed filesystem may not honor local flock. Production rollback and cutover remain incomplete. See [SOURCE_HTTP_MAINTENANCE.md](SOURCE_HTTP_MAINTENANCE.md).
+
+---
+
 ## Read-only integrity and outstanding-work audit for signed Pro receipts — November 21, 2026
 
 `ProJobReceiptAudit` and `scripts/audit-pro-job-inbox.php` scan bounded private Pro receipt files and verify both the sealed receipt MAC and the originally signed job envelope. They refuse changed status, malformed JSON, extra/symlink/insecure files and unknown job identities, reporting pending/processing/done/failed counts without exposing payloads or secrets. **A clear local inbox never certifies external workers drained, database writers stopped or safe activation.** See [PRO_JOB_RECEIPT_AUDIT.md](PRO_JOB_RECEIPT_AUDIT.md); Pro and release workstreams stay open.
