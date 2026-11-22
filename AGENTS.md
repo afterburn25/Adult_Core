@@ -1,3 +1,9 @@
+## Signed baseline-to-candidate runtime transition preflight — 2026-11-21
+
+`SourceUpdatePreflight::inspect()` and `scripts/preflight-source-transition.php` verify BOTH independently signed old and new ZIPs, independently verify the private candidate stage, compare installed `src/`, `public/`, `config/editions/`, and `VERSION` against signed OLD file hashes, and refuse modified/removed code, unsigned PHP, symlinks, collisions, same/older versions and deletions. The future runtime update path explicitly excludes removed `install/`, mutable themes/modules, customer config/storage, tests, and developer docs. **Read-only; readiness flags stay false** for source activation, rollback, licensing and migrations. See `docs/SIGNED_RUNTIME_TRANSITION.md`; regression `tests/signed_runtime_preflight_tests.php` constructs a real signed old/new one-package distribution. Ten production release gates remain open.
+
+---
+
 ## Staged source re-verification before any future source switch — 2026-11-21
 
 `SourceStageVerifier::verify()` and `scripts/verify-source-stage.php` use the independently trusted ZIP signature to recheck an inert staged directory. They require exact signed file inventory and hashes, no extra/missing files, private permissions, valid receipt, no incomplete marker and no symlinks. They do not touch the installed app or authorize deployment. Covered by `tests/private_source_stage_verifier_tests.php` in PHP CI; keep all ten release gates open.

@@ -1,3 +1,9 @@
+## Offline signed runtime transition preflight — November 21, 2026
+
+Source transition review now authenticates **both** the installed old ZIP and candidate ZIP, re-verifies the candidate's private staging tree, and compares the complete installed runtime against a signed baseline before planning any source change. It excludes `install/`, add-on modules, mutable themes, customer config, private storage, and developer-only source from runtime changes. Local code modifications, unrecognized PHP, unsafe symlinks and downgrades fail closed. **No source switch, database mutation, live update, rollback, licensing approval, or launch certification is implemented.** See [SIGNED_RUNTIME_TRANSITION.md](SIGNED_RUNTIME_TRANSITION.md); all ten release workstreams remain open.
+
+---
+
 ## Independent private staged-source verification — November 21, 2026
 
 `scripts/verify-source-stage.php` can independently reauthenticate the signed release ZIP and inspect every staged source file, its private permissions and signed inventory membership. Extra/missing/modified files, symlinks, incorrect receipt metadata and incomplete stages are rejected. The verifier cannot activate a stage, perform an atomic update or close any external production release gate.
