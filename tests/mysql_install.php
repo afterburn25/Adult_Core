@@ -16,6 +16,8 @@ use AdultCore\Database\Connection;
 use AdultCore\Release\InstalledMigrationLedger;
 use AdultCore\Release\SignedCandidateDbContract;
 use AdultCore\Release\SourceArchive;
+use AdultCore\Release\SourceStage;
+use AdultCore\Release\SourceUpdatePreflight;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\StaffSchema;
 use AdultCore\Auth\StaffRepository;
@@ -1808,6 +1810,105 @@ try {
             ||$liveReview['source_activation_authorized']!==false){
             throw new RuntimeException('Signed DB preflight incorrectly approved an installation.');
         }
+        // Exercise the OPTIONAL live-SQL mode of the SAME signed source
+        // preflight, not merely two independent read-only reports.
+        // The source fixture is reconstructed with exact existing runtime
+        // bytes. No application PHP or SQL migration is executed.
+        if(!mkdir($root.'/src/Support',0700,true)
+            ||!mkdir($root.'/src/Database',0700)){
+            throw new RuntimeException('Cannot prepare private signed runtime test fixture.');
+        }
+        $runtimeOld=$sources;
+        foreach(['public/index.php','public/router.php','public/.htaccess',
+            'config/editions/lite.json','config/editions/pro.json'] as $path){
+            $contents=file_get_contents($root.'/'.$path);
+            if(!is_string($contents))throw new RuntimeException('Signed runtime fixture file unreadable.');
+            $runtimeOld[$path]=$contents;
+        }
+        $runtimeOld['src/Support/Autoload.php']=
+            (string)file_get_contents(dirname(__DIR__).'/src/Support/Autoload.php');
+        if(file_put_contents($root.'/src/Support/Autoload.php',
+                $runtimeOld['src/Support/Autoload.php'])===false
+            ||file_put_contents($root.'/src/Database/release-schema-contract.json',
+                $runtimeOld[SignedCandidateDbContract::CONTRACT_PATH])===false){
+            throw new RuntimeException('Cannot prepare installed signed source fixture.');
+        }
+        $runtimeNew=$runtimeOld;
+        $runtimeNew['VERSION']="0.8.13-dev\n";
+        $pack($oldZip,$runtimeOld);
+        $pack($newZip,$runtimeNew);
+        $runtimeOldManifest=SourceArchive::manifestJson($oldZip);
+        $runtimeNewManifest=SourceArchive::manifestJson($newZip);
+        $runtimeOldSig=$signSource($runtimeOldManifest);
+        $runtimeNewSig=$signSource($runtimeNewManifest);
+        $stage=$signedDbTmp.'/verified-candidate-stage';
+        SourceStage::prepare($root,$newZip,$runtimeNewManifest,
+            $runtimeNewSig,$publicKey,$stage);
+        $withoutDb=SourceUpdatePreflight::inspect(
+            $root,$stage,$oldZip,$runtimeOldManifest,$runtimeOldSig,
+            $newZip,$runtimeNewManifest,$runtimeNewSig,$publicKey
+        );
+        $withDb=static fn()=>SourceUpdatePreflight::inspect(
+            $root,$stage,$oldZip,$runtimeOldManifest,$runtimeOldSig,
+            $newZip,$runtimeNewManifest,$runtimeNewSig,$publicKey,$pdo
+        );
+        $joined=$withDb();
+        if($withoutDb['installed_database_migrations_checked']!==false
+            ||$withoutDb['signed_baseline_migrations_present']!==false
+            ||$joined['installed_database_migrations_checked']!==true
+            ||$joined['signed_baseline_migrations_present']!==true
+            ||$joined['installed_database_edition']!=='lite'
+            ||$joined['installed_migration_ledger_sha256']!==$migrationDigest
+            ||$joined['source_integrity_verified']!==true
+            ||$joined['candidate_stage_verified']!==true
+            ||$joined['migration_compatibility_checked']!==false
+            ||$joined['database_writers_quiesced']!==false
+            ||$joined['ready_for_activation']!==false){
+            throw new RuntimeException('Integrated signed source/installed SQL preflight is not fail-closed.');
+        }
+        foreach([
+            'old.manifest.json'=>$runtimeOldManifest,
+            'old.manifest.sig'=>$runtimeOldSig,
+            'next.manifest.json'=>$runtimeNewManifest,
+            'next.manifest.sig'=>$runtimeNewSig,
+            'publisher.pem'=>$publicKey,
+        ] as $filename=>$bytes){
+            if(file_put_contents($signedDbTmp.'/'.$filename,$bytes)===false)
+                throw new RuntimeException('Cannot write synthetic CLI verification input.');
+        }
+        $combinedCommand=escapeshellarg(PHP_BINARY).' '
+            .escapeshellarg(dirname(__DIR__).'/scripts/preflight-source-transition.php').' '
+            .implode(' ',array_map('escapeshellarg',[
+                $root,$stage,$oldZip,$signedDbTmp.'/old.manifest.json',
+                $signedDbTmp.'/old.manifest.sig',$newZip,
+                $signedDbTmp.'/next.manifest.json',$signedDbTmp.'/next.manifest.sig',
+                $signedDbTmp.'/publisher.pem'
+            ]));
+        $combinedOutput=[];
+        exec($combinedCommand.' --verify-installed-db 2>&1',$combinedOutput,$combinedExit);
+        if($combinedExit!==0
+            ||!str_contains(implode("\n",$combinedOutput),'"installed_database_migrations_checked": true')
+            ||!str_contains(implode("\n",$combinedOutput),'"ready_for_activation": false')){
+            throw new RuntimeException('Opt-in installed database CLI check failed.');
+        }
+        // A valid signed source cannot mask an inconsistent actual database.
+        $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+        try{
+            try{
+                $withDb();
+                throw new RuntimeException('Integrated preflight accepted a mismatched DB edition.');
+            }catch(RuntimeException $e){
+                if($e->getMessage()==='Integrated preflight accepted a mismatched DB edition.')throw $e;
+            }
+            $combinedOutput=[];
+            exec($combinedCommand.' --verify-installed-db 2>&1',$combinedOutput,$combinedExit);
+            if($combinedExit===0)throw new RuntimeException('Integrated CLI accepted mismatched DB edition.');
+        }finally{
+            $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+        }
+        if($withDb()['installed_migration_ledger_sha256']!==$migrationDigest){
+            throw new RuntimeException('Read-only joined source/SQL test altered the DB ledger.');
+        }
         // Independently signed previous source now declares an earlier
         // migration which is NOT in the real installed SQL ledger.
         $sources[SignedCandidateDbContract::CONTRACT_PATH]=$dbPolicy(2,['missing_base_id']);
@@ -1843,8 +1944,22 @@ try {
             throw new RuntimeException('Disposable signed DB policy audit did not restore original ledger.');
         }
     }finally{
-        foreach(glob($signedDbTmp.'/*')?:[] as $fixtureFile)unlink($fixtureFile);
-        rmdir($signedDbTmp);
+        // Clean only synthetic source and private stage entries owned by this test.
+        foreach(['src/Support/Autoload.php','src/Database/release-schema-contract.json'] as $item){
+            if(is_file($root.'/'.$item))unlink($root.'/'.$item);
+        }
+        foreach(['src/Support','src/Database','src'] as $item){
+            if(is_dir($root.'/'.$item))rmdir($root.'/'.$item);
+        }
+        $removeSignedFixture=static function(string $path)use(&$removeSignedFixture):void{
+            if(is_link($path)||is_file($path)){unlink($path);return;}
+            if(!is_dir($path))return;
+            foreach(scandir($path)?:[] as $item){
+                if($item!=='.'&&$item!=='..')$removeSignedFixture($path.'/'.$item);
+            }
+            rmdir($path);
+        };
+        $removeSignedFixture($signedDbTmp);
     }
 
     // Upgrade the original installation in place, preserving real MySQL content,
