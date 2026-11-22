@@ -84,7 +84,8 @@ final class ProJobReceiptAudit
                 || !JobInbox::validPayload($record['job'])
                 || !is_string($record['signature'])
                 || preg_match('/^[a-f0-9]{64}$/D', $record['signature']) !== 1
-                || !isset($counts[$record['status'] ?? ''])
+                || !is_string($record['status'])
+                || !isset($counts[$record['status']])
                 || !is_string($record['mac'])
                 || preg_match('/^[a-f0-9]{64}$/D', $record['mac']) !== 1
                 || !hash_equals(hash('sha256', $record['job']['id']).'.json', $name)) {
