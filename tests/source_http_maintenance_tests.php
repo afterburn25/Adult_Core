@@ -172,8 +172,8 @@ try{
         $busyOutput=[];exec($command,$busyOutput,$busyExit);
         $busyHtml=implode("\n",$busyOutput);
         $check($busyExit===0 && str_contains($busyHtml,'HTTP_CODE=503')
-            && str_contains($busyHtml,'Source maintenance in progress'),
-            'Actual front controller rejects new request while exclusive lock held');
+            && str_contains($busyHtml,'Source update maintenance'),
+            'Existing marker still blocks dynamic HTTP under operator exclusive lock');
     } finally {
         fclose($exclusive);
     }
@@ -245,6 +245,19 @@ try{
         &&$endStatus['status']==='inactive'
         &&$gate->status()===InstallationGate::READY,
         'CLI end removes private marker with current token and reopens dynamic HTTP');
+    // With READY state and no maintenance marker, contention itself must
+    // still deny a new dynamic PHP request with generic 503 before routing.
+    $exclusiveReady=SourceHttpRequestLock::exclusive($site);
+    try {
+        $busyReadyOutput=[];exec($command,$busyReadyOutput,$busyReadyExit);
+        $busyReadyHtml=implode("\n",$busyReadyOutput);
+        $check($busyReadyExit===0
+            && str_contains($busyReadyHtml,'HTTP_CODE=503')
+            && str_contains($busyReadyHtml,'Source maintenance in progress'),
+            'Ready site refuses incoming request while maintenance obtains exclusive lock');
+    } finally {
+        fclose($exclusiveReady);
+    }
     // Untrusted lock aliases must return 503 before any application controller.
     $savedLock=$tmp.'/saved-request-gate-lock';
     rename($lockFile,$savedLock);
