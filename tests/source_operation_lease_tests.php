@@ -58,6 +58,15 @@ try {
     $assert(!str_contains($raw,$token)
         && str_contains($raw,hash('sha256',$token)),
         'Private receipt stores only hashed release token');
+    $assert(SourceOperationLease::matchesTokenDigest(
+        $site,$parent,hash('sha256',$token)),
+        'Read-only digest comparison binds source marker to intact private lease');
+    $assert(!SourceOperationLease::matchesTokenDigest(
+        $site,$parent,str_repeat('0',64)),
+        'An unrelated marker token hash cannot match the private lease');
+    $assert(!SourceOperationLease::matchesTokenDigest(
+        $site,$parent,'malformed'),
+        'Malformed marker token fingerprint is always refused');
     $status=SourceOperationLease::status($site,$parent);
     $assert($status['status']==='operator_coordination_only'
         && !isset($status['release_token'])

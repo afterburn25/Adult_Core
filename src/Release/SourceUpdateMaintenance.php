@@ -102,8 +102,13 @@ final class SourceUpdateMaintenance
             ];
         }
         $record = self::record($path, $root);
-        $lease = SourceOperationLease::status($root, $privateCoordinationRoot);
-        if ($record === null || ($lease['status'] ?? null) !== 'operator_coordination_only') {
+        // A structurally valid marker is still untrusted if its token hash
+        // belongs to another lease. Never report it as normal active
+        // maintenance unless the private lease proves exact ownership.
+        $owned = $record !== null && SourceOperationLease::matchesTokenDigest(
+            $root, $privateCoordinationRoot, $record['lease_token_sha256']
+        );
+        if (!$owned) {
             return [
                 'schema' => 'adult-core-source-http-maintenance-v1',
                 'status' => 'incomplete_manual_recovery_required',
