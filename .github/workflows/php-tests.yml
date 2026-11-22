@@ -55,6 +55,8 @@ jobs:
         run: php tests/private_source_stage_verifier_tests.php
       - name: Signed runtime transition, rollback material and independent runtime stage integrity
         run: php tests/signed_runtime_preflight_tests.php
+      - name: Exclusive offline source coordination and recovery-safe lock tests
+        run: php tests/source_operation_lease_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
