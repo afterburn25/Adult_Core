@@ -1,3 +1,9 @@
+## Exclusive offline source-operation coordination — November 21, 2026
+
+An operator can now use `scripts/source-operation-lease.php` to claim a private source-operation slot exclusively, check its status, and release it with a random token supplied over stdin. Interrupted claims remain blocked; raw tokens are never stored in the receipt or exposed by status. The lease **does not** enforce HTTP maintenance, pause database writes, lock Pro workers, or authorize source activation. See [SOURCE_OPERATION_LEASE.md](SOURCE_OPERATION_LEASE.md); all ten production workstreams remain open.
+
+---
+
 ## Independent installer-free runtime stage verification — November 21, 2026
 
 `RuntimeSourceStageVerifier::verify()` and `scripts/verify-runtime-stage.php` independently verify every signed immutable runtime file and the runtime-only receipt, refusing injected installer paths, extra PHP, missing/altered files, symlinks, unsafe permissions and incomplete stage markers. It is **read-only**, never activates the software, and leaves all ten production release workstreams open. See [RUNTIME_SOURCE_STAGING.md](RUNTIME_SOURCE_STAGING.md).

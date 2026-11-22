@@ -1,3 +1,9 @@
+## Source operation coordination lease (2026-11-21)
+
+`SourceOperationLease::{acquire,status,release}` and `scripts/source-operation-lease.php` provide an offline **voluntary operator-only** exclusive lease in a private 0700 directory outside the installed source tree. The first claimant obtains a 64-hex random release token printed once; private receipt stores only SHA-256 token hash, site-root fingerprint and explicit false readiness flags. Status never shows token; release takes token on stdin, verifies it and refuses a changed/stale/incomplete lock. No auto-expiry or unsafe stale-lock cleanup. Tests in `tests/source_operation_lease_tests.php`. **It does NOT stop HTTP requests/DB writes/workers or protect live activation**; ten production gates remain OPEN. See `docs/SOURCE_OPERATION_LEASE.md`.
+
+---
+
 ## Independent runtime-only source integrity verification — 2026-11-21
 
 `RuntimeSourceStageVerifier::verify()` and `scripts/verify-runtime-stage.php` reauthenticate the signed unified source ZIP, then require exact approved private staged files (`src/`, `public/`, `VERSION`, `config/editions/`), matching per-file digests, private modes, correct `.ac-runtime-stage-complete.json` and no pending marker. Refuse unexpected `install/`, extra PHP, missing/altered files or symlinks. Extended `tests/signed_runtime_preflight_tests.php` covers tamper, receipt forgery, permissions, injected installer, CLI and no live-site changes. The verifier must always report `ready_for_activation=false`, `install_authorized=false`; ten release blockers remain open. See `docs/RUNTIME_SOURCE_STAGING.md`.
