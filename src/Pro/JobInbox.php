@@ -33,6 +33,9 @@ final class JobInbox
         if (!JobEnvelope::verify($envelope,$secret) || !self::validPayload($envelope['data'])) {
             throw new RuntimeException('Invalid or expired signed Pro job.');
         }
+        // No new signed job receipts while source/backup/recovery maintenance
+        // is active. This does not drain or stop any existing Pro worker.
+        ProJobAdmission::assertMayAccept($this->root);
         $storage=$this->root.'/storage';
         $dir=$storage.'/pro-jobs';
         // Signed job receipts are private. An attacker-controlled or mistaken
@@ -45,6 +48,9 @@ final class JobInbox
         @chmod($dir,0700);
         $id=$envelope['data']['id'];
         $path=$dir.'/'.hash('sha256',$id).'.json';
+        // Recheck after storage setup, as another operator may have entered
+        // maintenance between initial validation and directory creation.
+        ProJobAdmission::assertMayAccept($this->root);
         $fp=@fopen($path,'x');
         if ($fp===false) {
             // A job ID is idempotent only if the stored signed-job data is

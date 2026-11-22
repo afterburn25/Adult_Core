@@ -50,3 +50,7 @@ End verifies the active lease, marker version, root identity, token hash and abs
 **Do not deploy code solely because HTTP maintenance is active.** This is an application front-controller gate, not an operating-system/filesystem lock or service-wide maintenance coordinator. It does not drain in-flight PHP requests, block directly served static files, pause worker queues, prevent database writes by separate commands, or guarantee atomic source activation/database rollback. The production gate remains open until worker/DB quiescence, approved migration and backup planning, live host acceptance and failure drills are complete.
 
 Run `php tests/source_http_maintenance_tests.php` in a disposable environment to exercise private marker authenticity, 503 routing, CLI begin/end via stdin, lock precedence, symlink/corruption denial and preservation of the installed customer license. The unified Lite/Pro product continues to be licensed per independent self-hosted installation.
+
+## Pro job receipt admission during maintenance
+
+`ProJobAdmission` is now checked by `JobInbox::accept()` so new signed Pro receipts are refused while source, backup, edition or license recovery markers exist. This does not pause workers already running. See [PRO_JOB_MAINTENANCE.md](PRO_JOB_MAINTENANCE.md). Real worker shutdown and database-write coordination are still mandatory before deployment.

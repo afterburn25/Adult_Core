@@ -1,3 +1,9 @@
+## Pro signed-job receipt intake respects source/recovery maintenance — November 21, 2026
+
+`ProJobAdmission` makes the existing Pro signed `JobInbox` refuse new and replayed receipts during source HTTP maintenance, backup maintenance, backup restore, edition upgrade or license update pending markers, including symlinks. `tests/pro_job_maintenance_tests.php` covers denial and safe resumption. Existing workers, queues, FFmpeg, DB writes and streaming are **not drained or stopped**; production Pro release remains blocked. See [PRO_JOB_MAINTENANCE.md](PRO_JOB_MAINTENANCE.md).
+
+---
+
 ## Token-bound source-update HTTP front-controller maintenance — November 21, 2026
 
 `SourceUpdateMaintenance::{begin,status,end}` requires an exclusive private operator lease. It creates a private, unreusable marker that `InstallationGate` checks before member/admin routes; during source maintenance dynamic HTTP returns a generic **503** page with retry header. Wrong token, damaged/symlink marker, and interrupted backup recovery fail closed; the coordination lease cannot be released until maintenance is ended. **Static web files, in-flight requests, DB writes, independent scripts and Pro workers are not paused; this is not a production-safe update lock.** See [SOURCE_HTTP_MAINTENANCE.md](SOURCE_HTTP_MAINTENANCE.md). All ten production workstreams remain open.

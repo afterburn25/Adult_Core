@@ -1,3 +1,9 @@
+## Pro signed job receipt maintenance admission (2026-11-21)
+
+`src/Pro/ProJobAdmission.php` now fail-closes `src/Pro/JobInbox.php::accept()` on the presence of `.source-update-maintenance`, `.backup-maintenance`, `.backup-restore-pending`, `.edition-upgrade-pending` or `.license-update-pending` under private storage, including symlink/directory markers. Admission is checked after signature verification and immediately before creating a receipt, and replays are refused during maintenance. The redacted status always reports `existing_jobs_drained=false`, `pro_worker_quiesced=false`, `production_ready=false` even if intake is open. `tests/pro_job_maintenance_tests.php` runs in CI, see `docs/PRO_JOB_MAINTENANCE.md`. **Do NOT claim this pauses existing Pro workers or DB writes.** Ten production gates OPEN.
+
+---
+
 ## Token-bound HTTP front-controller source maintenance — 2026-11-21
 
 `SourceUpdateMaintenance::{begin,status,end}`, `scripts/source-http-maintenance.php`, and new `InstallationGate::SOURCE_UPDATE_MAINTENANCE` provide CLI-only owner-controlled dynamic HTTP 503 maintenance. Requires private `SourceOperationLease` release token on stdin, signed installed READY state and private 0700 `storage/`. `.source-update-maintenance` marker is 0600 and binds token hash/site root; tamper/incomplete/symlinks still block. `public/index.php` serves generic 503 + Retry-After before all dynamic/admin routes. Lease release refuses while marker exists; end only when no higher-priority pending recovery marker. `tests/source_http_maintenance_tests.php` checks real front controller, duplicate/forged token, corrupt/symlink marker, recovery priority, CLI and preservation of license/version. See `docs/SOURCE_HTTP_MAINTENANCE.md`. **Static assets, in-flight requests, external DB scripts and Pro workers NOT blocked; no source activation or production approval. Ten launch gates remain OPEN.**

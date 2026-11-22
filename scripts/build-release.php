@@ -93,7 +93,7 @@ try {
         'src/Release/SourceArchive.php', 'src/Release/SourceDelta.php', 'src/Release/SourceStage.php', 'src/Release/SourceStageVerifier.php', 'src/Release/SourceUpdatePreflight.php', 'src/Release/SourceRollbackReadiness.php', 'src/Release/RuntimeSourceStage.php', 'src/Release/RuntimeSourceStageVerifier.php', 'src/Release/SourceOperationLease.php', 'src/Release/SourceUpdateMaintenance.php', 'src/Release/SignedManifest.php',
         'scripts/preview-source-update.php', 'scripts/stage-source-release.php', 'scripts/verify-source-stage.php', 'scripts/preflight-source-transition.php', 'scripts/check-source-rollback-material.php', 'scripts/stage-runtime-source.php', 'scripts/verify-runtime-stage.php', 'scripts/source-operation-lease.php', 'scripts/source-http-maintenance.php',
         'scripts/sign-source-release.php', 'scripts/verify-source-release.php',
-        'src/Billing/WebhookInbox.php', 'src/Pro/JobInbox.php',
+        'src/Billing/WebhookInbox.php', 'src/Pro/JobInbox.php', 'src/Pro/ProJobAdmission.php',
         'src/Media/PrivateMediaAudit.php', 'src/Media/ImageMetadataPolicy.php',
         'scripts/audit-private-media.php',
         'src/Verification/VerificationRegistry.php',
