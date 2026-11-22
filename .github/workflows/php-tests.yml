@@ -63,6 +63,8 @@ jobs:
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
         run: php tests/pro_release_tests.php
+      - name: Pro signed job intake rejects maintenance, recovery and symlink markers
+        run: php tests/pro_job_maintenance_tests.php
       - name: Lite shared-host / Pro VPS deployment preflight safety tests
         run: php tests/deployment_preflight_tests.php
       - name: Token-authenticated Pro agent and deployment CLI contract
