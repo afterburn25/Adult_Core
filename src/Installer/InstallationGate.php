@@ -25,6 +25,7 @@ final class InstallationGate
     public const LICENSE_UPDATE_PENDING = 'license_update_pending';
     public const BACKUP_RESTORE_PENDING = 'backup_restore_pending';
     public const BACKUP_MAINTENANCE = 'backup_maintenance';
+    public const SOURCE_UPDATE_MAINTENANCE = 'source_update_maintenance';
 
     public function __construct(private readonly string $projectRoot)
     {
@@ -53,13 +54,20 @@ final class InstallationGate
             || is_link($this->projectRoot . '/storage/.backup-maintenance')) {
             return self::BACKUP_MAINTENANCE;
         }
+        // A CLI-only authenticated operator can set this private marker to
+        // block ALL Adult Core application HTTP routes before source work.
+        // An interrupted/corrupt/symlink marker keeps requests blocked.
+        if (file_exists($this->projectRoot . '/storage/.source-update-maintenance')
+            || is_link($this->projectRoot . '/storage/.source-update-maintenance')) {
+            return self::SOURCE_UPDATE_MAINTENANCE;
+        }
         return $this->installedStatus();
     }
 
     /** CLI-only backups may run while HTTP is locked for maintenance. */
     public function eligibleForBackup(): bool
     {
-        if (in_array($this->status(), [self::BACKUP_RESTORE_PENDING, self::EDITION_UPGRADE_PENDING, self::LICENSE_UPDATE_PENDING], true)) {
+        if (in_array($this->status(), [self::BACKUP_RESTORE_PENDING, self::EDITION_UPGRADE_PENDING, self::LICENSE_UPDATE_PENDING, self::SOURCE_UPDATE_MAINTENANCE], true)) {
             return false;
         }
         // An add-on activation can also leave two private entitlement files
