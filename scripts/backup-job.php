@@ -22,6 +22,7 @@ $root = dirname(__DIR__);
 $lock = null;
 $ownsLock = false;
 $ownsMarker = false;
+$backupFinishToken = null;
 $exitCode = 0;
 $lockPath = $root.'/storage/.backup-job.lock';
 try {
@@ -65,7 +66,8 @@ try {
     // Obtain the same EXCLUSIVE local guard used by signed Pro receipts
     // and dynamic HTTP requests BEFORE publishing backup maintenance.
     // Refuse if either a participating request/receipt is still active.
-    BackupMaintenanceAdmission::begin($root);
+    $admission = BackupMaintenanceAdmission::begin($root);
+    $backupFinishToken = $admission['finish_token'];
     $ownsMarker = true;
     if ($gate->status() !== InstallationGate::BACKUP_MAINTENANCE || !$gate->eligibleForBackup()) {
         throw new RuntimeException('Unable to isolate signed installation during maintenance.');
@@ -89,7 +91,7 @@ try {
     // the marker in place, deliberately blocking HTTP until an operator investigates.
     if ($ownsMarker) {
         try {
-            BackupMaintenanceAdmission::finish($root);
+            BackupMaintenanceAdmission::finish($root, $backupFinishToken);
         } catch (Throwable $cleanup) {
             fwrite(STDERR, "Backup maintenance cannot safely reopen the site: "
                 . $cleanup->getMessage() . "\n");
