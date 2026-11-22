@@ -98,6 +98,9 @@ try {
         $makeZip($required + [$path => 'bad']);
         $reject(static fn() => SourceArchive::inventory($zipPath), 'Dangerous ZIP entry rejected: ' . $path);
     }
+    $makeZip($required + ['public/assets/oversized.css' => str_repeat('Z', SourceArchive::MAX_ENTRY_BYTES + 1)]);
+    $reject(static fn() => SourceArchive::inventory($zipPath),
+        'Compression cannot bypass the maximum unpacked file size');
     $makeZip($required + ['PUBLIC/INDEX.PHP' => 'collision']);
     $reject(static fn() => SourceArchive::inventory($zipPath),
         'Case-insensitive duplicate entry rejected');
