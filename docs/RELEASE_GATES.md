@@ -1,3 +1,9 @@
+## Read-only installed MySQL/MariaDB migration ledger audit — November 21, 2026
+
+`InstalledMigrationLedger::inspect()` and `scripts/check-installed-migrations.php` compare the signed installed Lite/Pro state against database edition, base schema and up to 250 InnoDB tables/500 migration ledger records. They produce a redacted deterministic ledger hash, refuse invalid entries/edition mismatches, and do not execute DDL. The real disposable MySQL 8/MariaDB 10.11 installation tests cover negative cases and confirm cleanup. **Candidate schema compatibility, database writer quiescence and migration rollback are not implemented**; see [INSTALLED_MIGRATION_LEDGER.md](INSTALLED_MIGRATION_LEDGER.md). Ten production gates remain open.
+
+---
+
 ## Encrypted recovery archive identity tied to installed release — November 21, 2026
 
 `SourceBackupEvidence::inspect()` and `scripts/check-update-backup.php` now semantically authenticate an external `.acfull` backup and require its signed installation app-key identity, Lite/Pro edition and source version to match the current installed site. Wrong-site backups are refused even when version and edition match; encrypted archive/vault must be owner-only and outside the site. The offline AES key is passed on stdin and never printed. All success reports retain `restore_drill_completed=false`, `database_writers_quiesced=false`, `source_activation_authorized=false` and `production_ready=false`; an encrypted backup check is not a production recovery drill. See [SOURCE_UPDATE_BACKUP_EVIDENCE.md](SOURCE_UPDATE_BACKUP_EVIDENCE.md). All ten workstreams remain open.

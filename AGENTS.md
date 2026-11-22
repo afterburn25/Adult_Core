@@ -1,3 +1,9 @@
+## Read-only installed SQL migration and edition ledger audit — 2026-11-21
+
+`src/Release/InstalledMigrationLedger.php::inspect()` and `scripts/check-installed-migrations.php` use the installed private DB config for SELECT-only inspection. They require valid signed Lite/Pro installed state, compare current DB `ac_installations` edition, require existing `Schema::verify`, verify bounded `ac_` InnoDB table inventory plus version/date entries in `ac_schema_migrations`, and return counts + canonical ledger SHA-256 without credentials/identities. Real `tests/mysql_install.php` on MySQL and MariaDB checks mismatched edition, malformed migration entry, hash stability and CLI. See `docs/INSTALLED_MIGRATION_LEDGER.md`. **This does not compare a signed candidate's future migration scripts, pause DB writers, execute migrations or certify database rollback**. All ten production release workstreams remain OPEN.
+
+---
+
 ## Exact-site encrypted recovery evidence for future source updates — 2026-11-21
 
 `BackupVerifier::verify($archive,$key,$expectedInstalledAppKey)` now optionally verifies a backup's signed random app key in constant time without exposing keys. `SourceBackupEvidence::inspect()` and `scripts/check-update-backup.php` read-only inspect current signed installed Lite/Pro edition, exact `VERSION`, a separate owner-only vault/archive and fully encrypted `.acfull` backup. They fail closed for wrong site/version/edition, unsafe vault, wrong key, corrupt data or pending recovery. CLI gets offline key on STDIN only. Test `tests/source_backup_evidence_tests.php` builds synthetic encrypted backups and tests mismatches, tampering and no installed writes. See `docs/SOURCE_UPDATE_BACKUP_EVIDENCE.md`. **No source activation, certified backup age, independent restore drill, DB writer coordination or production readiness.** Keep ten launch gates OPEN.
