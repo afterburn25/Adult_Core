@@ -1,3 +1,8 @@
+## Read-only authenticated source update comparison — 2026-11-21
+
+`SourceArchive::verifiedInventory()` authenticates a detached signature and the complete ZIP file inventory once. The new `SourceDelta::preview()` and offline `scripts/preview-source-update.php` examine ONLY signed source-relative paths in an explicitly selected existing application root and refuse unsafe file/directory symlinks. They expose missing/different source files and unchanged counts, never content or customer secrets. There is NO write operation, deletion assessment, database migration, license approval, production update, data transfer, or live-host certification. See `docs/SIGNED_SOURCE_UPDATE_PREVIEW.md`. Keep all ten production launch workstreams blocked.
+
+---
 ## Offline signed unified source release verification — 2026-11-21
 
 A single Lite/Pro source ZIP can now be signed **offline** with `scripts/sign-source-release.php` and independently verified with `scripts/verify-source-release.php`, using the caller's *separately trusted, pinned* public key. `src/Release/SourceArchive.php` validates all entries by streamed SHA-256 hash, refuses unsafe/duplicate path segments, case-insensitive collisions, private config PHP, storage/secrets, symlinks, unsafe Unix file modes, and oversized ZIP contents. `SignedManifest::verify()` authenticates the detached raw JSON before comparing the complete ZIP inventory. CI tests include a real unified ZIP produced by `scripts/build-release.php` as well as tampered, forged, extra, missing and malicious ZIPs. See `docs/SIGNED_SOURCE_RELEASES.md`.

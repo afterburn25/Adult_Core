@@ -1,3 +1,8 @@
+## Signed-source update preview remains non-destructive — 2026-11-21
+
+The authenticated source ZIP can be compared against an existing local source root with `scripts/preview-source-update.php`. The report is read-only and limited to signed paths; it does not assess deletions, version upgrade eligibility, migrations, rollback or live compatibility. See [SIGNED_SOURCE_UPDATE_PREVIEW.md](SIGNED_SOURCE_UPDATE_PREVIEW.md). Workstreams 7, 9 and 10 remain open.
+
+---
 ## Offline authenticated source distributions — November 21, 2026
 
 Maintainers can now sign a complete unified Lite/Pro source ZIP with a private, offline signing key and verify every ZIP entry with a separately trusted public key. The detached manifest is signed before verification, and bounded streaming ZIP checks refuse tampered/extra/missing files, unsafe paths, secret files, symlinks and case-fold collisions. See [SIGNED_SOURCE_RELEASES.md](SIGNED_SOURCE_RELEASES.md) for commands and trust requirements. This is **not** a signed atomic in-place updater, a managed rollback system, a production key-custody attestation or an approved executable plug-in loader. Workstreams 7, 9 and 10 remain open.
