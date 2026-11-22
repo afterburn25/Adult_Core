@@ -1,3 +1,9 @@
+## Installer-free runtime-only signed source staging — 2026-11-21
+
+`RuntimeSourceStage::prepare()` and `scripts/stage-runtime-source.php` take a complete, independently signed and verified PRIVATE source stage, then copy only `VERSION`, `src/**`, `public/**`, and `config/editions/**` into a NEW 0700 private directory, making 0600 files, rehashing all bytes against the trusted signed manifest, leaving an incomplete marker on failure and writing `.ac-runtime-stage-complete.json` on success. Explicitly omit `install/`, themes/modules, maintainer/test files, and all local customer config/storage. This **cannot** activate a site or make the subset independently runnable. Tests extend `tests/signed_runtime_preflight_tests.php`, see `docs/RUNTIME_SOURCE_STAGING.md`. Keep ten production release blockers OPEN.
+
+---
+
 ## Independent old-source rollback material verification — 2026-11-21
 
 `SourceRollbackReadiness::inspect()` and `scripts/check-source-rollback-material.php` reverify installed source against the publisher-signed OLD baseline, check a private staged signed OLD release for exact intact bytes, and separately reverify a private signed NEW candidate. Report `previous_source_stage_verified` but permanently `rollback_implemented=false`, `database_rollback_verified=false`, `ready_for_activation=false` and `license_authorized=false` until independent production implementation and evidence. The enhanced `tests/signed_runtime_preflight_tests.php` tests tampered/incomplete rollback source, mismatched stages and CLI with disposable fixtures. See `docs/SIGNED_ROLLBACK_MATERIAL.md`. Never claim source staging is production backup/restore; all ten release gates remain open.
