@@ -57,7 +57,7 @@ jobs:
         run: php tests/signed_runtime_preflight_tests.php
       - name: Exclusive offline source coordination and recovery-safe lock tests
         run: php tests/source_operation_lease_tests.php
-      - name: Private token-bound HTTP source maintenance, live request drain locks and real 503 tests
+      - name: Private token-bound source maintenance, HTTP drain and signed Pro receipt exclusion
         run: php tests/source_http_maintenance_tests.php
       - name: Publisher-signed candidate SQL schema contract comparison and forgery tests
         run: php tests/signed_candidate_db_contract_tests.php
@@ -67,7 +67,7 @@ jobs:
         run: php tests/release_matrix_tests.php
       - name: Pro envelope and release-gate tests
         run: php tests/pro_release_tests.php
-      - name: Pro signed job intake rejects maintenance, recovery and symlink markers
+      - name: Pro signed receipt lifetime locking, cross-process maintenance contention and recovery denial
         run: php tests/pro_job_maintenance_tests.php
       - name: Read-only authenticated Pro receipt audit and corrupted-job refusal
         run: php tests/pro_job_receipt_audit_tests.php
