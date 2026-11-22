@@ -53,7 +53,7 @@ jobs:
         run: php tests/private_source_stage_tests.php
       - name: Independently verify complete private source stage and reject tampering
         run: php tests/private_source_stage_verifier_tests.php
-      - name: Offline signed runtime transition and separate rollback source material
+      - name: Signed runtime transition, rollback material and installer-free private staging
         run: php tests/signed_runtime_preflight_tests.php
       - name: All ten release workstreams and fail-closed JSON readiness status
         run: php tests/release_matrix_tests.php
