@@ -388,10 +388,16 @@ try{
     $tamperedOwner['lease_token_sha256']=str_repeat('0',64);
     file_put_contents($marker,json_encode($tamperedOwner,JSON_THROW_ON_ERROR)."\n");
     chmod($marker,0600);
+    $check(SourceUpdateMaintenance::status($site,$coord)['status']
+        ==='incomplete_manual_recovery_required',
+        'Marker from another release-token hash reports recovery required, not active');
     $reject($localSnapshot,
         'Correct lease token rejects an otherwise well-formed alien maintenance marker');
     file_put_contents($marker,$ownedMarker);
     chmod($marker,0600);
+    $check(SourceUpdateMaintenance::status($site,$coord)['status']
+        ==='front_controller_maintenance',
+        'Restored exact lease and marker identity reports active source maintenance');
     $check($localSnapshot()['signed_local_receipts_verified']===2,
         'Restoring original owner marker permits read-only receipt snapshot');
     file_put_contents($proReceipt,$originalProReceipt);
