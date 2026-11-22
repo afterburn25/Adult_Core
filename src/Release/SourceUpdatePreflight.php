@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Release;
 
 use FilesystemIterator;
+use PDO;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use RuntimeException;
@@ -43,7 +44,8 @@ final class SourceUpdatePreflight
         string $candidateZip,
         string $candidateManifest,
         string $candidateSignature,
-        string $trustedPublicKeyPem
+        string $trustedPublicKeyPem,
+        ?PDO $installedPdo = null
     ): array {
         // Both releases MUST authenticate independently before reading an
         // installed source path or relying on staging receipt metadata.
@@ -141,6 +143,22 @@ final class SourceUpdatePreflight
             }
         }
 
+        // Explicit opt-in: compare the already authenticated source baseline
+        // against the signed LIVE installed edition and SELECT-only SQL ledger.
+        // Never treat declaration presence as migration compatibility proof.
+        if ($installedPdo !== null) {
+            $databaseReview = SignedCandidateDbContract::inspectInstalled(
+                $installedRoot, $installedPdo,
+                $baselineZip, $baselineManifest, $baselineSignature,
+                $candidateZip, $candidateManifest, $candidateSignature,
+                $trustedPublicKeyPem
+            );
+            if ($databaseReview['baseline_version'] !== $baseline['version']
+                || $databaseReview['candidate_version'] !== $candidate['version']) {
+                throw new RuntimeException('Installed database audit source identity mismatch.');
+            }
+        }
+
         return [
             'schema' => 'adult-core-signed-runtime-preflight-v1',
             'read_only' => true,
@@ -156,7 +174,11 @@ final class SourceUpdatePreflight
             'database_sensitive_source_changes' => $databaseReview['db_sensitive_source_changes'],
             'manual_database_review_required' =>
                 $databaseReview['manual_database_compatibility_review_required'],
-            'installed_database_migrations_checked' => false,
+            'installed_database_migrations_checked' => $installedPdo !== null,
+            'installed_database_edition' => $databaseReview['installed_database_edition'] ?? null,
+            'installed_migration_ledger_sha256' => $databaseReview['installed_migration_ledger_sha256'] ?? null,
+            'signed_baseline_migrations_present' => $databaseReview['signed_baseline_migrations_present'] ?? false,
+            'database_writers_quiesced' => false,
             'installed_version' => $baseline['version'],
             'candidate_version' => $candidate['version'],
             'installed_runtime_files_checked' => count($previous),
