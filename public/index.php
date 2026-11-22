@@ -17,19 +17,25 @@ header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 
 $root = dirname(__DIR__);
-// Hold the shared lock through the entire dynamic HTTP request. A pending
-// exclusive maintenance operation responds 503 before any admin/site routing.
-try {
-    $activeHttpRequestLock = SourceHttpRequestLock::enter($root);
-} catch (\RuntimeException) {
-    http_response_code(503);
-    header('Retry-After: 30');
-    $heading = 'Source maintenance in progress';
-    $message = 'The website is temporarily unavailable while its server operator prepares maintenance. Please try again shortly.';
-    require $root . '/src/Installer/LockedScreen.php';
-    exit;
-}
 $gate = new InstallationGate($root);
+// The installer and invalid/recovery states retain their existing access
+// behavior. Only a READY installed site may enter source maintenance, so
+// acquire the lifetime reader lock only for READY dynamic requests.
+$initialState = $gate->status();
+if ($initialState === InstallationGate::READY) {
+    try {
+        $activeHttpRequestLock = SourceHttpRequestLock::enter($root);
+    } catch (\RuntimeException) {
+        http_response_code(503);
+        header('Retry-After: 30');
+        $heading = 'Source maintenance in progress';
+        $message = 'The website is temporarily unavailable while its server operator prepares maintenance. Please try again shortly.';
+        require $root . '/src/Installer/LockedScreen.php';
+        exit;
+    }
+}
+// Reevaluate after acquiring the shared lock: maintenance might have begun
+// between the initial READY check and request-lock acquisition.
 $state = $gate->status();
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 $path = is_string($path) ? rtrim($path, '/') : '/';
