@@ -33,6 +33,45 @@ php tests/release_distribution_tests.php
 
 The report intentionally exposes `ready_for_activation: false`, `rollback_implemented: false`, `licensing_checked: false`, and `migration_compatibility_checked: false`. It is not an approval gate that can flip those flags. A fully supported updater still requires secure host maintenance locking, license and compatibility checks, source and database snapshots, commit/rollback coordination, safe source activation under active requests, deployment evidence and independent review. All ten production release workstreams remain open.
 
+## Optional joined installed database audit (read-only)
+
+On an **already installed, signed** Lite or Pro website, append
+`--verify-installed-db` to the same command. This opens the installed site's
+private MySQL/MariaDB configuration only after validating its signed
+installation gate, then runs `InstalledMigrationLedger::inspect()` and
+`SignedCandidateDbContract::inspectInstalled()` after signed source integrity
+checks. No credentials or private migration rows are printed.
+
+```sh
+php scripts/preflight-source-transition.php \
+  /home/account/Adult_Core \
+  /home/account/private-release-staging/next-release \
+  /private/releases/installed.zip \
+  /private/releases/installed.manifest.json \
+  /private/releases/installed.manifest.sig \
+  /private/releases/new-release.zip \
+  /private/releases/new-release.manifest.json \
+  /private/releases/new-release.manifest.sig \
+  /trusted/keys/approved-source-public.pem \
+  --verify-installed-db
+```
+
+Without the explicit flag, the preflight remains offline and reports
+`installed_database_migrations_checked: false`. With it, the report verifies
+the signed installed Lite/Pro identity matches the database edition and that
+every declared baseline migration exists in the **actual** installed migration
+ledger. It includes a redacted ledger SHA-256 and edition, or refuses a damaged,
+mismatched or incomplete installation. The disposable MySQL/MariaDB fixture
+tests this joined check and its CLI, including mismatched edition denial.
+
+**The live database can change immediately after this SELECT-only audit.**
+The flag does not hold a persistent database read transaction, drain database
+writers, execute candidate migrations, prove schema compatibility, coordinate
+external Pro jobs, activate a release or implement rollback. Both modes keep
+`migration_compatibility_checked: false`, `database_writers_quiesced: false`,
+`ready_for_activation: false`, and `rollback_implemented: false`.
+All ten release workstreams remain open.
+
 ## Integrated signed database declaration review
 
 The standard `SourceUpdatePreflight::inspect()` / `scripts/preflight-source-transition.php` output now always includes `SignedCandidateDbContract::compare()`. It authenticates the source-bundled database policy in both independent signed ZIPs and fails closed if either declaration is missing, invalid, changed outside its detached signature, or rewrites declared migration history. This prevents a source-only operator from accidentally omitting the separate migration declaration review.
