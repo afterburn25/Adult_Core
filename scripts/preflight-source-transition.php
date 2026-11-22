@@ -9,9 +9,12 @@ declare(strict_types=1);
 require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Release\SourceUpdatePreflight;
+use AdultCore\Database\Connection;
+use AdultCore\Installer\InstallationGate;
 
-if (PHP_SAPI !== 'cli' || count($argv) !== 10) {
-    fwrite(STDERR, "Usage: php scripts/preflight-source-transition.php installed-root staged-candidate old.zip old.manifest.json old.manifest.sig new.zip new.manifest.json new.manifest.sig trusted-public.pem\n");
+if (PHP_SAPI !== 'cli' || !in_array(count($argv), [10, 11], true)
+    || (count($argv) === 11 && $argv[10] !== '--verify-installed-db')) {
+    fwrite(STDERR, "Usage: php scripts/preflight-source-transition.php installed-root staged-candidate old.zip old.manifest.json old.manifest.sig new.zip new.manifest.json new.manifest.sig trusted-public.pem [--verify-installed-db]\n");
     exit(64);
 }
 
@@ -41,9 +44,21 @@ try {
         || !is_string($key)) {
         throw new RuntimeException('Detached source verification input cannot be read.');
     }
+    // The opt-in live ledger audit requires a complete, signed installation
+    // before loading private installed DB config. No credentials are printed.
+    $pdo = null;
+    if (count($argv) === 11) {
+        $status = (new InstallationGate($root))->status();
+        if (!in_array($status, [
+            InstallationGate::READY, InstallationGate::SOURCE_UPDATE_MAINTENANCE,
+        ], true)) {
+            throw new RuntimeException('Installed DB audit requires a complete signed installation.');
+        }
+        $pdo = Connection::open($root);
+    }
     $report = SourceUpdatePreflight::inspect(
         $root, $stage, $oldZip, $oldJson, $oldSignature,
-        $newZip, $newJson, $newSignature, $key
+        $newZip, $newJson, $newSignature, $key, $pdo
     );
     echo json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), "\n";
     fwrite(STDERR, "Signed source preflight completed. NO activation, rollback, migration or production authorization.\n");
