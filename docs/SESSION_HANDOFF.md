@@ -1,3 +1,9 @@
+## Staged source re-verification before any future source switch — 2026-11-21
+
+`SourceStageVerifier::verify()` and `scripts/verify-source-stage.php` use the independently trusted ZIP signature to recheck an inert staged directory. They require exact signed file inventory and hashes, no extra/missing files, private permissions, valid receipt, no incomplete marker and no symlinks. They do not touch the installed app or authorize deployment. Covered by `tests/private_source_stage_verifier_tests.php` in PHP CI; keep all ten release gates open.
+
+---
+
 ## Offline private signed source staging — 2026-11-21
 
 `SourceStage::prepare()` and `scripts/stage-source-release.php` require a trusted signed one-package Lite/Pro ZIP and existing site source root. The output is an inert, previously absent private directory beneath a 0700 parent outside the installed site. Rehash all copied files, protect subfolders/files, leave `.ac-stage-pending` on failure and create `.ac-stage-complete.json` only after all bytes match. Do not touch installed site files, DB, license, secrets or private content. Tests in `tests/private_source_stage_tests.php`, operator details in `docs/PRIVATE_SOURCE_STAGING.md`. No live updates or production approval; ten release gates still open.
