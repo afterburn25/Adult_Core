@@ -180,14 +180,14 @@ try{
     stream_set_timeout($workerPipes[1],8);
     $workerReady=fgets($workerPipes[1]);
     try {
-        $check($workerReady==="PRO_WORKER_RUNNING\\n",
+        $check($workerReady==="PRO_WORKER_RUNNING\n",
             'Independent Pro worker acquired its signed-edition lifetime guard');
         $reject(static fn()=>BackupMaintenanceAdmission::begin($site),
             'Active independent Pro worker prevents local backup entry');
         $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
             'Active independent Pro worker prevents source maintenance entry');
     } finally {
-        fwrite($workerPipes[0],"\\n");fclose($workerPipes[0]);
+        fwrite($workerPipes[0],"\n");fclose($workerPipes[0]);
         stream_get_contents($workerPipes[1]);fclose($workerPipes[1]);
         stream_get_contents($workerPipes[2]);fclose($workerPipes[2]);
         $workerExit=proc_close($workerProcess);
