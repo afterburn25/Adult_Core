@@ -1,3 +1,9 @@
+## Token-bound HTTP front-controller source maintenance — 2026-11-21
+
+`SourceUpdateMaintenance::{begin,status,end}`, `scripts/source-http-maintenance.php`, and new `InstallationGate::SOURCE_UPDATE_MAINTENANCE` provide CLI-only owner-controlled dynamic HTTP 503 maintenance. Requires private `SourceOperationLease` release token on stdin, signed installed READY state and private 0700 `storage/`. `.source-update-maintenance` marker is 0600 and binds token hash/site root; tamper/incomplete/symlinks still block. `public/index.php` serves generic 503 + Retry-After before all dynamic/admin routes. Lease release refuses while marker exists; end only when no higher-priority pending recovery marker. `tests/source_http_maintenance_tests.php` checks real front controller, duplicate/forged token, corrupt/symlink marker, recovery priority, CLI and preservation of license/version. See `docs/SOURCE_HTTP_MAINTENANCE.md`. **Static assets, in-flight requests, external DB scripts and Pro workers NOT blocked; no source activation or production approval. Ten launch gates remain OPEN.**
+
+---
+
 ## Source operation coordination lease (2026-11-21)
 
 `SourceOperationLease::{acquire,status,release}` and `scripts/source-operation-lease.php` provide an offline **voluntary operator-only** exclusive lease in a private 0700 directory outside the installed source tree. The first claimant obtains a 64-hex random release token printed once; private receipt stores only SHA-256 token hash, site-root fingerprint and explicit false readiness flags. Status never shows token; release takes token on stdin, verifies it and refuses a changed/stale/incomplete lock. No auto-expiry or unsafe stale-lock cleanup. Tests in `tests/source_operation_lease_tests.php`. **It does NOT stop HTTP requests/DB writes/workers or protect live activation**; ten production gates remain OPEN. See `docs/SOURCE_OPERATION_LEASE.md`.
