@@ -9,6 +9,7 @@ use AdultCore\Release\SourceStage;
 use AdultCore\Release\SourceUpdatePreflight;
 use AdultCore\Release\SourceRollbackReadiness;
 use AdultCore\Release\RuntimeSourceStage;
+use AdultCore\Release\RuntimeSourceStageVerifier;
 
 if (!class_exists(ZipArchive::class)) {
     throw new RuntimeException('Signed transition preflight tests require PHP ext-zip.');
@@ -298,6 +299,66 @@ try {
         && $runtimeReceipt['signed_manifest_sha256']===hash('sha256',$newJson)
         && !file_exists($runtimeStage.'/.ac-runtime-stage-pending'),
         'Complete private runtime stage carries signed receipt and no incomplete marker');
+    $verifyRuntime=static fn()=>RuntimeSourceStageVerifier::verify(
+        $runtimeStage,$candidate,$newJson,$newSig,$trusted
+    );
+    $verifiedRuntime=$verifyRuntime();
+    $check($verifiedRuntime['runtime_stage_verified']===true
+        && $verifiedRuntime['ready_for_activation']===false
+        && $verifiedRuntime['install_authorized']===false
+        && $verifiedRuntime['runtime_files_verified']===$report['candidate_runtime_files'],
+        'Independent runtime stage verification matches signed immutable inventory');
+    $reject(static fn()=>RuntimeSourceStageVerifier::verify(
+        $runtimeStage,$candidate,$newJson,base64_encode(random_bytes(256)),$trusted
+    ),'Independent runtime verifier rejects forged publisher signature');
+    $runtimePhp=$runtimeStage.'/public/index.php';
+    $runtimePhpBytes=file_get_contents($runtimePhp);
+    file_put_contents($runtimePhp,"<?php echo 'injected';");
+    $reject($verifyRuntime,'Modified staged runtime PHP rejected');
+    file_put_contents($runtimePhp,$runtimePhpBytes);
+    $check($verifyRuntime()['runtime_stage_verified']===true,
+        'Restoring signed runtime PHP permits re-verification');
+
+    $injectedInstall=$runtimeStage.'/install';
+    mkdir($injectedInstall,0700);
+    file_put_contents($injectedInstall.'/index.php',"<?php echo 'installer';");
+    chmod($injectedInstall.'/index.php',0600);
+    $reject($verifyRuntime,'Reintroduced browser installer refused even when private');
+    unlink($injectedInstall.'/index.php');rmdir($injectedInstall);
+
+    $extraPhp=$runtimeStage.'/public/unsigned.php';
+    file_put_contents($extraPhp,"<?php echo 'extra';");chmod($extraPhp,0600);
+    $reject($verifyRuntime,'Additional unsanctioned runtime PHP refused');
+    unlink($extraPhp);
+
+    $movedRuntime=$tmp.'/temporarily-missing-runtime.php';
+    rename($runtimePhp,$movedRuntime);
+    $reject($verifyRuntime,'Missing signed runtime file refused');
+    rename($movedRuntime,$runtimePhp);
+
+    chmod($runtimePhp,0644);
+    $reject($verifyRuntime,'Public-readable runtime source permissions refused');
+    chmod($runtimePhp,0600);
+
+    if(function_exists('symlink') && symlink($runtimePhp,$runtimeStage.'/public/evil-link.php')){
+        $reject($verifyRuntime,'Runtime stage symlink entry refused');
+        unlink($runtimeStage.'/public/evil-link.php');
+    }
+
+    $runtimePending=$runtimeStage.'/.ac-runtime-stage-pending';
+    file_put_contents($runtimePending,"incomplete\n");chmod($runtimePending,0600);
+    $reject($verifyRuntime,'Incomplete runtime stage marker refuses verification');
+    unlink($runtimePending);
+
+    $runtimeReceiptPath=$runtimeStage.'/.ac-runtime-stage-complete.json';
+    $receiptOriginal=file_get_contents($runtimeReceiptPath);
+    $fake=json_decode($receiptOriginal,true);$fake['installer_excluded']=false;
+    file_put_contents($runtimeReceiptPath,json_encode($fake));
+    $reject($verifyRuntime,'Runtime receipt cannot falsely authorize installer restoration');
+    file_put_contents($runtimeReceiptPath,$receiptOriginal);
+    $check($verifyRuntime()['runtime_stage_verified']===true,
+        'Restored complete private runtime stage passes all checks');
+
     $reject(static fn()=>RuntimeSourceStage::prepare(
         $installed,$stage,$candidate,$newJson,$newSig,$trusted,$runtimeStage
     ),'Runtime staging never overwrites an existing complete directory');
@@ -340,11 +401,22 @@ try {
         && is_file($runtimeCliPath.'/.ac-runtime-stage-complete.json')
         && str_contains(implode("\n",$runtimeCliLines),'"ready_for_activation": false'),
         'Offline CLI stages only approved runtime source with explicit non-deployable receipt');
+    $verificationCli=escapeshellarg(PHP_BINARY).' '
+        .escapeshellarg($root.'/scripts/verify-runtime-stage.php').' '
+        .implode(' ',array_map('escapeshellarg',[
+            $runtimeCliPath,$candidate,$newManifestPath,$newSigPath,$pubPath
+        ])).' 2>&1';
+    $verificationLines=[];exec($verificationCli,$verificationLines,$verificationExit);
+    $check($verificationExit===0
+        && str_contains(implode("\n",$verificationLines),'"runtime_stage_verified": true')
+        && str_contains(implode("\n",$verificationLines),'"ready_for_activation": false'),
+        'Offline runtime stage verifier CLI authenticates private-only source without deploy permission');
+
     $check(file_get_contents($installed.'/config/license.php')===$customerBefore
         && file_get_contents($installed.'/VERSION')===$oldVersion,
-        'Runtime source preparation and CLI never touch live version or customer license');
+        'Runtime source preparation, re-verification and CLI preserve installed version and license');
 
-    echo "Passed {$checks} signed runtime source, rollback material and private staging checks.\n";
+    echo "Passed {$checks} signed runtime source, rollback material and private staging verification checks.\n";
 } finally {
     $remove($tmp);
 }
