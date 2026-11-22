@@ -8,6 +8,7 @@ use AdultCore\Installer\InstallationGate;
 use AdultCore\Installer\InstallationState;
 use AdultCore\Release\SourceOperationLease;
 use AdultCore\Release\SourceUpdateMaintenance;
+use AdultCore\Release\SourceHttpRequestLock;
 
 $passed=0;
 $check=static function(bool $value,string $label) use (&$passed):void{
@@ -35,12 +36,14 @@ try{
     mkdir($site.'/config',0700);mkdir($site.'/public',0700);
     mkdir($site.'/src',0700);mkdir($site.'/src/Support',0700);
     mkdir($site.'/src/Installer',0700);
+    mkdir($site.'/src/Release',0700);
     foreach([
         'public/index.php',
         'src/Support/Autoload.php',
         'src/Installer/InstallationGate.php',
         'src/Installer/InstallationState.php',
         'src/Installer/LockedScreen.php',
+        'src/Release/SourceHttpRequestLock.php',
     ] as $p) {
         if(!copy($repo.'/'.$p,$site.'/'.$p)){
             throw new RuntimeException('Unable to copy HTTP maintenance fixture '.$p);
@@ -70,12 +73,59 @@ try{
         'One-time coordinator token authenticates same installed root');
     $check(!SourceOperationLease::matches($site,$coord,str_repeat('f',64)),
         'Wrong token never authenticates maintenance ownership');
+    // Real requests hold a shared flock until their PHP execution ends.
+    // Operator maintenance may not begin while any request is in flight.
+    $requestLease=SourceHttpRequestLock::enter($site);
+    $check(is_resource($requestLease),'Dynamic request obtains lifetime source lock');
+    $lockFile=$site.'/storage/.source-http-requests.lock';
+    $check(is_file($lockFile)&&(fileperms($lockFile)&0077)===0
+        &&filesize($lockFile)===0,'Persistent request lock is private and holds no secret');
+    $secondLease=SourceHttpRequestLock::enter($site);
+    $check(is_resource($secondLease),'Parallel HTTP requests hold shared locks');
+    $reject(static fn()=>SourceHttpRequestLock::exclusive($site),
+        'Exclusive maintenance lock is blocked by active shared requests');
+    $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
+        'Maintenance cannot start with in-flight requests');
+    $check(!file_exists($site.'/storage/.source-update-maintenance'),
+        'A rejected maintenance begin never publishes an early marker');
+    fclose($requestLease);
+    $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
+        'One remaining active request blocks maintenance');
+    fclose($secondLease);
+
+    // A different PHP process must honor the same filesystem lock.
+    $code='require '.var_export($repo.'/src/Support/Autoload.php',true).';'
+        .'$request=\AdultCore\Release\SourceHttpRequestLock::enter('
+        .var_export($site,true).');'
+        .'echo "REQUEST_LOCKED\n";flush();fgets(STDIN);fclose($request);';
+    $commandHold=escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($code);
+    $holderPipes=[];
+    $holder=proc_open($commandHold,
+        [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$holderPipes);
+    if(!is_resource($holder))throw new RuntimeException('Cannot run separate PHP request holder.');
+    stream_set_timeout($holderPipes[1],8);
+    $ready=fgets($holderPipes[1]);
+    try {
+        $check($ready==="REQUEST_LOCKED\n",'Independent PHP process holds shared request lock');
+        $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
+            'Maintenance cannot start with an independent in-flight PHP request');
+        $check(!file_exists($site.'/storage/.source-update-maintenance'),
+            'Independent active request keeps maintenance marker absent');
+    } finally {
+        fwrite($holderPipes[0],"\n");fclose($holderPipes[0]);
+        stream_get_contents($holderPipes[1]);fclose($holderPipes[1]);
+        stream_get_contents($holderPipes[2]);fclose($holderPipes[2]);
+        $holderExit=proc_close($holder);
+    }
+    $check($holderExit===0,'Independent request finished successfully');
+
     $begin=SourceUpdateMaintenance::begin($site,$coord,$token);
     $check($begin['status']==='front_controller_maintenance'
         && $begin['site_http_front_controller_blocked']===true
         && $begin['static_assets_blocked']===false
         && $begin['pro_workers_blocked']===false
-        && $begin['ready_for_activation']===false,
+        && $begin['ready_for_activation']===false
+        && $begin['dynamic_requests_drained_at_entry']===true,
         'Source marker blocks only dynamic application HTTP, not workers or static assets');
     $marker=$site.'/storage/.source-update-maintenance';
     $check(is_file($marker)&&(fileperms($marker)&0077)===0
@@ -115,6 +165,18 @@ try{
     $check($exit===0 && str_contains($html,'HTTP_CODE=503')
         && str_contains($html,'Source update maintenance'),
         'Real front controller returns 503 maintenance screen for /admin');
+
+    // An operator exclusive guard rejects new front controller PHP requests.
+    $exclusive=SourceHttpRequestLock::exclusive($site);
+    try {
+        $busyOutput=[];exec($command,$busyOutput,$busyExit);
+        $busyHtml=implode("\n",$busyOutput);
+        $check($busyExit===0 && str_contains($busyHtml,'HTTP_CODE=503')
+            && str_contains($busyHtml,'Source maintenance in progress'),
+            'Actual front controller rejects new request while exclusive lock held');
+    } finally {
+        fclose($exclusive);
+    }
 
     file_put_contents($marker,'{"invalid":"damaged"}');chmod($marker,0600);
     $check(SourceUpdateMaintenance::status($site,$coord)['status']
@@ -163,6 +225,13 @@ try{
         && !isset($json['lease_token_sha256']),
         'Offline maintenance CLI status is private and read-only');
 
+    $stillRendering=SourceHttpRequestLock::enter($site);
+    $reject(static fn()=>SourceUpdateMaintenance::end($site,$coord,$token),
+        'Maintenance cannot reopen HTTP during another active request');
+    $check($gate->status()===InstallationGate::SOURCE_UPDATE_MAINTENANCE,
+        'Failed maintenance end retains private blocking marker');
+    fclose($stillRendering);
+
     $endCmd=$cli.' end '.escapeshellarg($site).' '.escapeshellarg($coord);
     $pipes=[];
     $proc=proc_open($endCmd,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
@@ -176,6 +245,19 @@ try{
         &&$endStatus['status']==='inactive'
         &&$gate->status()===InstallationGate::READY,
         'CLI end removes private marker with current token and reopens dynamic HTTP');
+    // Untrusted lock aliases must return 503 before any application controller.
+    $savedLock=$tmp.'/saved-request-gate-lock';
+    rename($lockFile,$savedLock);
+    if(function_exists('symlink') && symlink($savedLock,$lockFile)){
+        $unsafeOutput=[];exec($command,$unsafeOutput,$unsafeExit);
+        $unsafeHtml=implode("\n",$unsafeOutput);
+        $check($unsafeExit===0 && str_contains($unsafeHtml,'HTTP_CODE=503')
+            && str_contains($unsafeHtml,'Source maintenance in progress'),
+            'Symlinked request lock returns 503 instead of serving application');
+        unlink($lockFile);
+    }
+    rename($savedLock,$lockFile);
+
     $check(SourceOperationLease::status($site,$coord)['status']==='operator_coordination_only',
         'Ending maintenance does not silently release operator coordination token');
     SourceOperationLease::release($site,$coord,$token);
