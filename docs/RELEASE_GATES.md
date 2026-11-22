@@ -1,3 +1,9 @@
+## Independent installer-free runtime stage verification — November 21, 2026
+
+`RuntimeSourceStageVerifier::verify()` and `scripts/verify-runtime-stage.php` independently verify every signed immutable runtime file and the runtime-only receipt, refusing injected installer paths, extra PHP, missing/altered files, symlinks, unsafe permissions and incomplete stage markers. It is **read-only**, never activates the software, and leaves all ten production release workstreams open. See [RUNTIME_SOURCE_STAGING.md](RUNTIME_SOURCE_STAGING.md).
+
+---
+
 ## Installer-free signed runtime-only staging — November 21, 2026
 
 `RuntimeSourceStage::prepare()` and `scripts/stage-runtime-source.php` can copy **only** approved signed runtime source files (`VERSION`, `src/`, `public/`, `config/editions/`) into a new inert 0700 private destination, rechecking every file hash. The removed browser installer, mutable themes/modules, developer files and all customer config/storage remain excluded. **It is not a complete runnable installation, source switch, atomic updater, database migration, or rollback.** See [RUNTIME_SOURCE_STAGING.md](RUNTIME_SOURCE_STAGING.md); all ten release workstreams remain open.

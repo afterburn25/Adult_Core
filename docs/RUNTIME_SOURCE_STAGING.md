@@ -29,3 +29,18 @@ Crucially, the runtime stage **never includes** `install/index.php`, `install/`,
 For future activation work, use the earlier signed transition preflight and independent previous-release source checks. Additional atomic activation, database backup/restore, installation locks and real Lite cPanel/Pro VPS acceptance are still required. The ten production release workstreams remain open.
 
 Regression tests: `php tests/signed_runtime_preflight_tests.php`, which builds and signs disposable unified old/new releases, verifies the full source stage, and asserts installer exclusion, file hashes, private permissions, refusal of unsafe destinations, and preservation of customer data.
+
+## Independently verify the private runtime-only stage
+
+Run the read-only verifier separately from the staging command:
+
+```sh
+php scripts/verify-runtime-stage.php \
+  /home/account/private-runtime-stages/runtime-candidate \
+  /private/releases/new-release.zip \
+  /private/releases/new-release.manifest.json \
+  /private/releases/new-release.manifest.sig \
+  /trusted/keys/approved-source-public.pem
+```
+
+`RuntimeSourceStageVerifier` independently reauthenticates the publisher's ZIP and validates the runtime receipt, exact runtime allowlist, every staged file hash and private file modes. It refuses inserted `install/`, extra executable code, missing files, altered source, symlinks and pending/incomplete copies. The result must still say `ready_for_activation: false` and `install_authorized: false`; integrity alone cannot approve live deployment, database migrations, licensed modules, or rollback.
