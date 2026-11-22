@@ -9,12 +9,14 @@ use RuntimeException;
 /**
  * Advisory, LOCAL-host front-controller request lifetime lock.
  *
- * Every dynamic PHP request holds a shared flock for its lifetime. Source
- * maintenance must obtain an exclusive, NONBLOCKING flock before publishing
- * its HTTP marker, refusing to enter maintenance while requests remain active.
+ * Every READY dynamic HTTP request and every signed Pro JOB RECEIPT writer
+ * holds a shared flock for its lifetime. Source maintenance obtains an
+ * exclusive, NONBLOCKING flock before publishing its HTTP marker. It cannot
+ * cut across an active local request or a cooperating receipt writer.
  *
- * This does NOT coordinate Pro workers, other PHP scripts, databases, static
- * HTTP assets, remote nodes, or filesystems with unreliable flock support.
+ * This does NOT quiesce existing Pro jobs, running FFmpeg workers, independent
+ * PHP/CLI scripts, databases, static assets, remote nodes, or filesystems
+ * with unreliable flock semantics.
  */
 final class SourceHttpRequestLock
 {

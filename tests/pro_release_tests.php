@@ -94,5 +94,5 @@ try {
     @rmdir($linkRoot);
 }
 foreach(glob($root.'/storage/pro-jobs/*')?:[] as $p)unlink($p);
-rmdir($root.'/storage/pro-jobs');rmdir($root.'/storage');rmdir($root);
+rmdir($root.'/storage/pro-jobs');unlink($root.'/storage/.source-http-requests.lock');rmdir($root.'/storage');rmdir($root);
 echo "Passed $checks Pro/release checks.\n";
