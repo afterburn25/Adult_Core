@@ -42,6 +42,10 @@ $makeZip = static function (array $entries) use ($zipPath): void {
     }
     foreach ($entries as $path => $data) {
         if (!$zip->addFromString($path, $data)) throw new RuntimeException('Cannot add test entry.');
+        $index = $zip->locateName($path);
+        if ($index === false || !$zip->setExternalAttributesIndex($index, ZipArchive::OPSYS_UNIX, 0100644 << 16)) {
+            throw new RuntimeException('Cannot normalize test ZIP entry mode.');
+        }
     }
     $zip->close();
 };
