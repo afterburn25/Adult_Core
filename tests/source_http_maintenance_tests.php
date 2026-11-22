@@ -12,6 +12,7 @@ use AdultCore\Release\SourceHttpRequestLock;
 use AdultCore\Release\BackupMaintenanceAdmission;
 use AdultCore\Pro\JobInbox;
 use AdultCore\Pro\JobEnvelope;
+use AdultCore\Pro\ProWorkerExecutionGuard;
 
 $passed=0;
 $check=static function(bool $value,string $label) use (&$passed):void{
@@ -135,6 +136,83 @@ try{
         'One-time coordinator token authenticates same installed root');
     $check(!SourceOperationLease::matches($site,$coord,str_repeat('f',64)),
         'Wrong token never authenticates maintenance ownership');
+    // Local execution workers must be Pro-edition and must retain the
+    // SAME shared lifetime guard as HTTP and signed job receipt intake.
+    $reject(static fn()=>ProWorkerExecutionGuard::enter($site),
+        'Lite signed installation cannot start a Pro worker');
+    $afterLiteRefusal=SourceHttpRequestLock::exclusive($site);
+    $check(is_resource($afterLiteRefusal),
+        'Refused Lite worker releases its shared source lock');
+    fclose($afterLiteRefusal);
+    file_put_contents($site.'/storage/install-state.json',
+        InstallationState::encode('pro',$key));
+    $worker=ProWorkerExecutionGuard::enter($site);
+    try {
+        $check(is_resource($worker),'Signed Pro installation admits a cooperative job guard');
+        $reject(static fn()=>BackupMaintenanceAdmission::begin($site),
+            'Active local Pro execution prevents backup marker entry');
+        $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
+            'Active local Pro execution prevents source marker entry');
+        $check($gate->status()===InstallationGate::READY,
+            'Blocked maintenance leaves signed Pro site ready and unmodified');
+    } finally {
+        fclose($worker);
+    }
+    $exclusiveWorkerTest=SourceHttpRequestLock::exclusive($site);
+    try {
+        $reject(static fn()=>ProWorkerExecutionGuard::enter($site),
+            'Operator exclusive guard refuses new Pro work before its marker exists');
+    } finally {
+        fclose($exclusiveWorkerTest);
+    }
+
+    // Independent executor process must hold its shared guard until the
+    // operator has actually observed the job's completion.
+    $workerCode='require '.var_export($repo.'/src/Support/Autoload.php',true).';'
+        .'$guard=\\AdultCore\\Pro\\ProWorkerExecutionGuard::enter('
+        .var_export($site,true).');'
+        .'echo "PRO_WORKER_RUNNING\\n";flush();fgets(STDIN);fclose($guard);';
+    $workerCmd=escapeshellarg(PHP_BINARY).' -r '.escapeshellarg($workerCode);
+    $workerPipes=[];
+    $workerProcess=proc_open($workerCmd,
+        [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$workerPipes);
+    if(!is_resource($workerProcess))throw new RuntimeException('Cannot start disposable Pro worker holder.');
+    stream_set_timeout($workerPipes[1],8);
+    $workerReady=fgets($workerPipes[1]);
+    try {
+        $check($workerReady==="PRO_WORKER_RUNNING\n",
+            'Independent Pro worker acquired its signed-edition lifetime guard');
+        $reject(static fn()=>BackupMaintenanceAdmission::begin($site),
+            'Active independent Pro worker prevents local backup entry');
+        $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
+            'Active independent Pro worker prevents source maintenance entry');
+    } finally {
+        fwrite($workerPipes[0],"\n");fclose($workerPipes[0]);
+        stream_get_contents($workerPipes[1]);fclose($workerPipes[1]);
+        stream_get_contents($workerPipes[2]);fclose($workerPipes[2]);
+        $workerExit=proc_close($workerProcess);
+    }
+    $check($workerExit===0,'Independent Pro worker guard released on process exit');
+    $workerAfter=ProWorkerExecutionGuard::enter($site);
+    fclose($workerAfter);
+    // A newly published backup marker must also deny any Pro worker
+    // that starts AFTER the prior execution guard was released.
+    $idleBackup=BackupMaintenanceAdmission::begin($site);
+    try {
+        $reject(static fn()=>ProWorkerExecutionGuard::enter($site),
+            'New Pro execution refuses the active backup maintenance marker');
+    } finally {
+        BackupMaintenanceAdmission::finish($site,$idleBackup['finish_token']);
+    }
+    $check($gate->status()===InstallationGate::READY,
+        'Finished backup maintenance reopens signed Pro worker admission');
+    $workerResume=ProWorkerExecutionGuard::enter($site);
+    fclose($workerResume);
+    file_put_contents($site.'/storage/install-state.json',
+        InstallationState::encode('lite',$key));
+    $check($gate->status()===InstallationGate::READY,
+        'Pro execution fixture restores original signed Lite edition');
+
     // An actual signed Pro receipt uses the same lifetime shared barrier
     // as HTTP. Receipts created before maintenance remain untouched.
     $proInbox=new JobInbox($site);
