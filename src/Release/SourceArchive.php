@@ -146,6 +146,16 @@ final class SourceArchive
         string $signatureBase64,
         string $trustedPublicKeyPem
     ): string {
+        return self::verifiedInventory($archivePath, $signedManifestJson, $signatureBase64, $trustedPublicKeyPem)['version'];
+    }
+
+    /** @return array{version:string,files:list<array{path:string,sha256:string}>} */
+    public static function verifiedInventory(
+        string $archivePath,
+        string $signedManifestJson,
+        string $signatureBase64,
+        string $trustedPublicKeyPem
+    ): array {
         // Verify authenticity FIRST, before trusting any declared digest/path.
         $signed = SignedManifest::verify($signedManifestJson, trim($signatureBase64), $trustedPublicKeyPem);
         $actual = self::inventory($archivePath);
@@ -163,7 +173,7 @@ final class SourceArchive
                 throw new RuntimeException('Signed release does not match ZIP contents.');
             }
         }
-        return $actual['version'];
+        return $actual;
     }
 
     private static function safePath(string $path): bool
