@@ -1,0 +1,6 @@
+{
+  "format": "adult-core-db-contract-v1",
+  "family": "adult-core-mysql",
+  "revision": 1,
+  "declared_migrations": []
+}
