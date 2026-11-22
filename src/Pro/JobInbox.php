@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Pro;
 
+use AdultCore\Release\SourceHttpRequestLock;
 use RuntimeException;
 
 /** Signed, replay-safe job RECEIPT only. Does not run FFmpeg or shell commands. */
@@ -33,8 +34,26 @@ final class JobInbox
         if (!JobEnvelope::verify($envelope,$secret) || !self::validPayload($envelope['data'])) {
             throw new RuntimeException('Invalid or expired signed Pro job.');
         }
-        // No new signed job receipts while source/backup/recovery maintenance
-        // is active. This does not drain or stop any existing Pro worker.
+        // Participate in the SAME shared lifetime lock as dynamic HTTP.
+        // The operator needs an exclusive lock to publish the source
+        // maintenance marker. Hold this reader across *all* receipt writes,
+        // including duplicate detection, to close the admission/check race.
+        // This is a local advisory lock, NOT external worker quiescence.
+        $receiptGuard = SourceHttpRequestLock::enter($this->root);
+        if (!is_resource($receiptGuard)) {
+            throw new RuntimeException('Pro job receipt lock requires private installed storage.');
+        }
+        try {
+            return $this->acceptUnderSourceGuard($envelope, $secret);
+        } finally {
+            fclose($receiptGuard);
+        }
+    }
+
+    private function acceptUnderSourceGuard(array $envelope, string $secret): bool
+    {
+        // No signed receipts during source/backup/recovery maintenance.
+        // Operator marker publication cannot race this locked section.
         ProJobAdmission::assertMayAccept($this->root);
         $storage=$this->root.'/storage';
         $dir=$storage.'/pro-jobs';
