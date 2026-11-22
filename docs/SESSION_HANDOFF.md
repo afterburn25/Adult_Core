@@ -1,3 +1,9 @@
+## Independent runtime-only source integrity verification — 2026-11-21
+
+`RuntimeSourceStageVerifier::verify()` and `scripts/verify-runtime-stage.php` reauthenticate the signed unified source ZIP, then require exact approved private staged files (`src/`, `public/`, `VERSION`, `config/editions/`), matching per-file digests, private modes, correct `.ac-runtime-stage-complete.json` and no pending marker. Refuse unexpected `install/`, extra PHP, missing/altered files or symlinks. Extended `tests/signed_runtime_preflight_tests.php` covers tamper, receipt forgery, permissions, injected installer, CLI and no live-site changes. The verifier must always report `ready_for_activation=false`, `install_authorized=false`; ten release blockers remain open. See `docs/RUNTIME_SOURCE_STAGING.md`.
+
+---
+
 ## Installer-free runtime-only signed source staging — 2026-11-21
 
 `RuntimeSourceStage::prepare()` and `scripts/stage-runtime-source.php` take a complete, independently signed and verified PRIVATE source stage, then copy only `VERSION`, `src/**`, `public/**`, and `config/editions/**` into a NEW 0700 private directory, making 0600 files, rehashing all bytes against the trusted signed manifest, leaving an incomplete marker on failure and writing `.ac-runtime-stage-complete.json` on success. Explicitly omit `install/`, themes/modules, maintainer/test files, and all local customer config/storage. This **cannot** activate a site or make the subset independently runnable. Tests extend `tests/signed_runtime_preflight_tests.php`, see `docs/RUNTIME_SOURCE_STAGING.md`. Keep ten production release blockers OPEN.
