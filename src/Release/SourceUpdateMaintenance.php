@@ -27,6 +27,9 @@ final class SourceUpdateMaintenance
         if (!SourceOperationLease::matches($root, $privateCoordinationRoot, $releaseToken)) {
             throw new RuntimeException('A matching private source-operation lease is required.');
         }
+        // Wait-free exclusive entry refuses to race an existing dynamic request.
+        $exclusiveRequests = SourceHttpRequestLock::exclusive($root);
+        try {
         if ((new InstallationGate($root))->status() !== InstallationGate::READY) {
             throw new RuntimeException('Installed application is not ready for source maintenance.');
         }
@@ -77,7 +80,11 @@ final class SourceUpdateMaintenance
             'static_assets_blocked' => false,
             'pro_workers_blocked' => false,
             'ready_for_activation' => false,
+            'dynamic_requests_drained_at_entry' => true,
         ];
+        } finally {
+            fclose($exclusiveRequests);
+        }
     }
 
     /** @return array<string,mixed> */
@@ -122,6 +129,9 @@ final class SourceUpdateMaintenance
         if (!SourceOperationLease::matches($root, $privateCoordinationRoot, $releaseToken)) {
             throw new RuntimeException('A matching private source-operation lease is required.');
         }
+        // Prevent new dynamic requests until the marker has been removed.
+        $exclusiveRequests = SourceHttpRequestLock::exclusive($root);
+        try {
         $path = self::storage($root) . '/' . self::MARKER;
         $record = self::record($path, $root);
         if ($record === null || !hash_equals(
@@ -139,6 +149,9 @@ final class SourceUpdateMaintenance
         }
         if ((new InstallationGate($root))->status() !== InstallationGate::READY) {
             throw new RuntimeException('Source maintenance ended but installation is still blocked.');
+        }
+        } finally {
+            fclose($exclusiveRequests);
         }
     }
 

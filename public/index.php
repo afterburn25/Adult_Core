@@ -6,6 +6,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Http\AdminController;
+use AdultCore\Release\SourceHttpRequestLock;
 
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: no-store, no-cache, must-revalidate');
@@ -16,6 +17,18 @@ header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
 
 $root = dirname(__DIR__);
+// Hold the shared lock through the entire dynamic HTTP request. A pending
+// exclusive maintenance operation responds 503 before any admin/site routing.
+try {
+    $activeHttpRequestLock = SourceHttpRequestLock::enter($root);
+} catch (\RuntimeException) {
+    http_response_code(503);
+    header('Retry-After: 30');
+    $heading = 'Source maintenance in progress';
+    $message = 'The website is temporarily unavailable while its server operator prepares maintenance. Please try again shortly.';
+    require $root . '/src/Installer/LockedScreen.php';
+    exit;
+}
 $gate = new InstallationGate($root);
 $state = $gate->status();
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
