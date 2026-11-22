@@ -1,3 +1,9 @@
+## Publisher-signed candidate database contract — 2026-11-22
+
+A unified Lite/Pro source ZIP now contains signed runtime `src/Database/release-schema-contract.json`; `SignedCandidateDbContract::compare()` requires this in *both* independently signed old/new archives, refuses migration declaration rewrites, duplicate IDs, schema revision regression, or modified ZIP signatures, and conservatively flags any source PHP change for manual SQL compatibility review. `SignedCandidateDbContract::inspectInstalled()` also checks the real signed installed Lite/Pro database and required historical migration IDs. Offline CLI: `scripts/review-candidate-schema.php`. Tests: `tests/signed_candidate_db_contract_tests.php` plus real MySQL/MariaDB `tests/mysql_install.php`. See [SIGNED_CANDIDATE_DB_CONTRACT.md](SIGNED_CANDIDATE_DB_CONTRACT.md). **NO migrations execute or become certified safe, NO source activation or production signoff. Ten launch gates remain OPEN.**
+
+---
+
 ## Read-only installed MySQL/MariaDB migration ledger audit — November 21, 2026
 
 `InstalledMigrationLedger::inspect()` and `scripts/check-installed-migrations.php` compare the signed installed Lite/Pro state against database edition, base schema and up to 250 InnoDB tables/500 migration ledger records. They produce a redacted deterministic ledger hash, refuse invalid entries/edition mismatches, and do not execute DDL. The real disposable MySQL 8/MariaDB 10.11 installation tests cover negative cases and confirm cleanup. **Candidate schema compatibility, database writer quiescence and migration rollback are not implemented**; see [INSTALLED_MIGRATION_LEDGER.md](INSTALLED_MIGRATION_LEDGER.md). Ten production gates remain open.
