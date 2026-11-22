@@ -1,3 +1,10 @@
+## Offline signed unified source release verification — 2026-11-21
+
+A single Lite/Pro source ZIP can now be signed **offline** with `scripts/sign-source-release.php` and independently verified with `scripts/verify-source-release.php`, using the caller's *separately trusted, pinned* public key. `src/Release/SourceArchive.php` validates all entries by streamed SHA-256 hash, refuses unsafe/duplicate path segments, case-insensitive collisions, private config PHP, storage/secrets, symlinks, unsafe Unix file modes, and oversized ZIP contents. `SignedManifest::verify()` authenticates the detached raw JSON before comparing the complete ZIP inventory. CI tests include a real unified ZIP produced by `scripts/build-release.php` as well as tampered, forged, extra, missing and malicious ZIPs. See `docs/SIGNED_SOURCE_RELEASES.md`.
+
+This is **only offline development-stage source verification**. Never claim an automatic signed update, deployment rollback, live cPanel/VPS acceptance, externally audited signing-key custody, adult-content launch clearance or approved executable add-ons. The ten release workstreams stay open.
+
+---
 ## Suspended-member profile access and pending-only restoration tests — 2026-11-21
 
 The m22 name is never readable or mutable while the local member is suspended. Direct disposable SQL tests verify both `MemberProfiles::current()` and `save()/clear()` fail for a suspended account, and that a step-up-authorized restoration **only to pending** preserves the member's existing private nickname and revision. Real two-browser HTTP tests confirm the suspended member cannot reach `/members/profile` and a copied pre-suspension cookie cannot regain nickname access even after restoration. Identity/consent/payment and public-media gates remain unchanged.
