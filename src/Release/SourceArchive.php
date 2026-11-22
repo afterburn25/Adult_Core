@@ -170,7 +170,8 @@ final class SourceArchive
     {
         if (strlen($path) > 200
             || !preg_match('#^(?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+$#D', $path)
-            || str_contains($path, '..')
+            || in_array('.', explode('/', $path), true)
+            || in_array('..', explode('/', $path), true)
             || preg_match('#(?:^|/)(?:storage|private|vendor|\.git)(?:/|$)#i', $path) === 1
             || preg_match('#(?:^|/)\.env(?:\..*)?$#i', $path) === 1
             || preg_match('#^config/[^/]+\.php$#i', $path) === 1
