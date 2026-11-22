@@ -39,3 +39,7 @@ This checks the complete signed file inventory, every staged file hash, receipt 
 ## Next safety boundary: installed signed runtime preflight
 
 Before any future updater can touch a live site, `scripts/preflight-source-transition.php` checks that the installed runtime still matches an independently signed **old** release and the private staged files still match the signed **new** release. It excludes the browser installer and customer-managed files. See [SIGNED_RUNTIME_TRANSITION.md](SIGNED_RUNTIME_TRANSITION.md). A passing result still says `ready_for_activation: false` and is not permission to deploy.
+
+## Create a separate installer-free runtime-only stage
+
+After re-verifying the complete full-source stage, `scripts/stage-runtime-source.php` can create a second, private, inert directory containing only immutable runtime source paths. It does not include `install/`, themes, modules, development tools or customer config/storage. See [RUNTIME_SOURCE_STAGING.md](RUNTIME_SOURCE_STAGING.md). This is not a live updater or a deployable website; activation and rollback remain unavailable.

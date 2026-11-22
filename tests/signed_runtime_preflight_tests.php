@@ -8,6 +8,7 @@ use AdultCore\Release\SourceArchive;
 use AdultCore\Release\SourceStage;
 use AdultCore\Release\SourceUpdatePreflight;
 use AdultCore\Release\SourceRollbackReadiness;
+use AdultCore\Release\RuntimeSourceStage;
 
 if (!class_exists(ZipArchive::class)) {
     throw new RuntimeException('Signed transition preflight tests require PHP ext-zip.');
@@ -251,7 +252,99 @@ try {
     $check(file_get_contents($installed.'/config/license.php')===$customerBefore,
         'Both source rollback verification and CLI preserve private license config');
 
-    echo "Passed {$checks} signed runtime source and rollback material checks.\n";
+    // Create an additional PRIVATE staging representation containing only
+    // immutable runtime paths, excluding the post-install browser installer.
+    $runtimeStage=$tmp.'/private-runtime-only';
+    $runtime=RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,$newSig,$trusted,$runtimeStage
+    );
+    $check($runtime['status']==='runtime_stage_only'
+        && $runtime['install_authorized']===false
+        && $runtime['ready_for_activation']===false
+        && $runtime['installer_excluded']===true,
+        'Runtime stage does not authorize installer re-entry or active deployment');
+    $check($runtime['runtime_files']===$report['candidate_runtime_files']
+        && $runtime['excluded_archive_entries']===$report['archive_entries_excluded'],
+        'Private runtime staging matches signed transition allowlist exactly');
+    $check(is_file($runtimeStage.'/public/index.php')
+        && is_file($runtimeStage.'/src/Support/Autoload.php')
+        && is_file($runtimeStage.'/VERSION')
+        && is_file($runtimeStage.'/public/assets/preflight-new.css'),
+        'Signed runtime PHP, metadata and new asset are staged');
+    $check(!file_exists($runtimeStage.'/install/index.php')
+        && !is_dir($runtimeStage.'/install')
+        && !is_dir($runtimeStage.'/tests')
+        && !is_dir($runtimeStage.'/scripts')
+        && !is_dir($runtimeStage.'/themes')
+        && !is_dir($runtimeStage.'/modules')
+        && !file_exists($runtimeStage.'/config/license.php')
+        && !is_dir($runtimeStage.'/storage'),
+        'Installer, developer files, themes/modules and all customer secrets excluded');
+    $check(hash_file('sha256',$runtimeStage.'/src/Support/Autoload.php')
+        ===hash_file('sha256',$stage.'/src/Support/Autoload.php')
+        && hash_file('sha256',$runtimeStage.'/VERSION')
+        ===hash_file('sha256',$stage.'/VERSION'),
+        'Runtime-only staged files match independently signed source bytes');
+    $check((fileperms($runtimeStage)&0077)===0
+        && (fileperms($runtimeStage.'/public')&0077)===0
+        && (fileperms($runtimeStage.'/public/index.php')&0077)===0,
+        'Runtime source files and directories remain private');
+    $runtimeReceipt=json_decode(
+        (string)file_get_contents($runtimeStage.'/.ac-runtime-stage-complete.json'),true
+    );
+    $check(is_array($runtimeReceipt)
+        && $runtimeReceipt['schema']==='adult-core-runtime-source-stage-v1'
+        && $runtimeReceipt['installer_excluded']===true
+        && $runtimeReceipt['signed_manifest_sha256']===hash('sha256',$newJson)
+        && !file_exists($runtimeStage.'/.ac-runtime-stage-pending'),
+        'Complete private runtime stage carries signed receipt and no incomplete marker');
+    $reject(static fn()=>RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,$newSig,$trusted,$runtimeStage
+    ),'Runtime staging never overwrites an existing complete directory');
+    $forgedRuntime=$tmp.'/unsigned-runtime-stage';
+    $reject(static fn()=>RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,base64_encode(random_bytes(256)),
+        $trusted,$forgedRuntime
+    ),'Forged runtime source signature refused before writes');
+    $check(!file_exists($forgedRuntime),'Forgery creates no private runtime source');
+    $insideRuntime=$installed.'/unapproved-runtime-stage';
+    $reject(static fn()=>RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,$newSig,$trusted,$insideRuntime
+    ),'Runtime staging cannot occur inside installed live source');
+    $check(!file_exists($insideRuntime),'Installed application is not modified by unsafe destination');
+    $publicParent=$tmp.'/nonprivate-runtime-parent';
+    mkdir($publicParent,0755);
+    $reject(static fn()=>RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,$newSig,$trusted,$publicParent.'/next'
+    ),'Publicly traversable runtime staging parent rejected');
+    $check(!file_exists($publicParent.'/next'),'Unsafe staging parent creates no output');
+
+    $tamperSource=$stage.'/src/Support/Autoload.php';
+    $signedStageBytes=file_get_contents($tamperSource);
+    file_put_contents($tamperSource,"<?php echo 'modified after signature';");
+    $wouldBeTampered=$tmp.'/tampered-runtime';
+    $reject(static fn()=>RuntimeSourceStage::prepare(
+        $installed,$stage,$candidate,$newJson,$newSig,$trusted,$wouldBeTampered
+    ),'Changed full staged source cannot be copied into runtime snapshot');
+    file_put_contents($tamperSource,$signedStageBytes);
+    $check(!file_exists($wouldBeTampered),'Tampered source was refused before creating destination');
+
+    $runtimeCliPath=$tmp.'/runtime-from-cli';
+    $runtimeCli=escapeshellarg(PHP_BINARY).' '
+        .escapeshellarg($root.'/scripts/stage-runtime-source.php').' '
+        .implode(' ',array_map('escapeshellarg',[
+            $installed,$stage,$candidate,$newManifestPath,$newSigPath,$pubPath,$runtimeCliPath
+        ])).' 2>&1';
+    $runtimeCliLines=[];exec($runtimeCli,$runtimeCliLines,$runtimeCliExit);
+    $check($runtimeCliExit===0
+        && is_file($runtimeCliPath.'/.ac-runtime-stage-complete.json')
+        && str_contains(implode("\n",$runtimeCliLines),'"ready_for_activation": false'),
+        'Offline CLI stages only approved runtime source with explicit non-deployable receipt');
+    $check(file_get_contents($installed.'/config/license.php')===$customerBefore
+        && file_get_contents($installed.'/VERSION')===$oldVersion,
+        'Runtime source preparation and CLI never touch live version or customer license');
+
+    echo "Passed {$checks} signed runtime source, rollback material and private staging checks.\n";
 } finally {
     $remove($tmp);
 }

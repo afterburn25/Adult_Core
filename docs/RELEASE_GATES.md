@@ -1,3 +1,9 @@
+## Installer-free signed runtime-only staging — November 21, 2026
+
+`RuntimeSourceStage::prepare()` and `scripts/stage-runtime-source.php` can copy **only** approved signed runtime source files (`VERSION`, `src/`, `public/`, `config/editions/`) into a new inert 0700 private destination, rechecking every file hash. The removed browser installer, mutable themes/modules, developer files and all customer config/storage remain excluded. **It is not a complete runnable installation, source switch, atomic updater, database migration, or rollback.** See [RUNTIME_SOURCE_STAGING.md](RUNTIME_SOURCE_STAGING.md); all ten release workstreams remain open.
+
+---
+
 ## Separately signed previous source recovery material — November 21, 2026
 
 The offline `scripts/check-source-rollback-material.php` command validates three distinct states: a clean installed runtime matching the trusted signed old ZIP, an independently intact private old-source stage, and a separate signed private candidate stage. It refuses tampered or incomplete prior source, stage collisions, untrusted signatures and version inconsistencies. **It never performs rollback**, undoes a migration, touches customer data, approves a license or activates PHP source. See [SIGNED_ROLLBACK_MATERIAL.md](SIGNED_ROLLBACK_MATERIAL.md). All ten production acceptance workstreams remain open.
