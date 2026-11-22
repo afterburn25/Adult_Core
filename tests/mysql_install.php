@@ -1935,8 +1935,34 @@ try {
         );
         if($review['new_declared_migrations']!==['planned_next_id']
             ||$review['manual_database_compatibility_review_required']!==true
+            ||$review['signed_baseline_migrations_present']!==true
+            ||$review['candidate_only_migrations_absent']!==true
+            ||$review['migration_ledger_stable_during_review']!==true
             ||$review['migrations_executed']!==false){
             throw new RuntimeException('Signed DB preflight failed to identify unapplied candidate migration.');
+        }
+        // A candidate-only migration appearing in the live ledger before
+        // source transition must never be accepted as a clean baseline.
+        $pdo->prepare('INSERT INTO ac_schema_migrations (version,applied_at) VALUES (?,UTC_TIMESTAMP())')
+            ->execute(['planned_next_id']);
+        try{
+            try{
+                SignedCandidateDbContract::inspectInstalled(
+                    $root,$pdo,$oldZip,$oldManifest,$signedOld,
+                    $newZip,$newManifest,$signedNew,$publicKey);
+                throw new RuntimeException('Pre-applied candidate-only migration was accepted.');
+            }catch(RuntimeException $e){
+                if($e->getMessage()==='Pre-applied candidate-only migration was accepted.')throw $e;
+            }
+        }finally{
+            $pdo->prepare('DELETE FROM ac_schema_migrations WHERE version=?')
+                ->execute(['planned_next_id']);
+        }
+        if(SignedCandidateDbContract::inspectInstalled(
+            $root,$pdo,$oldZip,$oldManifest,$signedOld,
+            $newZip,$newManifest,$signedNew,$publicKey
+        )['candidate_only_migrations_absent']!==true){
+            throw new RuntimeException('Clean candidate migration ledger cannot recover after negative test.');
         }
         $pdo->prepare('DELETE FROM ac_schema_migrations WHERE version=?')
             ->execute(['missing_base_id']);
