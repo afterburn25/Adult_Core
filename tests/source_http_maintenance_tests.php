@@ -81,6 +81,7 @@ try{
     fclose($inflightBackupReader);
 
     $backupBegin=BackupMaintenanceAdmission::begin($site);
+    $backupToken=$backupBegin['finish_token'];
     $backupMarker=$site.'/storage/.backup-maintenance';
     $check($backupBegin['status']==='backup_http_and_receipt_admission_blocked'
         &&$backupBegin['signed_receipt_writers_drained_at_entry']===true
@@ -91,8 +92,16 @@ try{
         'Private backup marker blocks the site without claiming Pro/DB quiescence');
     $check(is_file($backupMarker)
         &&(fileperms($backupMarker)&0077)===0
+        &&preg_match('/^[a-f0-9]{64}$/D',$backupToken)===1
+        &&!str_contains((string)file_get_contents($backupMarker),$backupToken)
         &&$gate->eligibleForBackup(),
-        'Private backup marker permits operator backup while normal requests are blocked');
+        'Private backup marker stores only the digest of the random finish token');
+    $reject(static fn()=>BackupMaintenanceAdmission::finish($site,str_repeat('0',64)),
+        'Wrong owner token cannot reopen backup maintenance');
+    $reject(static fn()=>BackupMaintenanceAdmission::finish($site,'bad-token'),
+        'Malformed owner token cannot reopen backup maintenance');
+    $check($gate->status()===InstallationGate::BACKUP_MAINTENANCE,
+        'Refused finish does not clear the original backup maintenance marker');
 
     $backupTestInbox=new JobInbox($site);
     $backupTestSecret=str_repeat('y',32);
@@ -105,13 +114,15 @@ try{
     $originalBackupMarker=file_get_contents($backupMarker);
     file_put_contents($backupMarker,"corrupt untrusted marker\n");
     chmod($backupMarker,0600);
-    $reject(static fn()=>BackupMaintenanceAdmission::finish($site),
-        'Corrupted backup marker is retained instead of auto-removal');
+    $reject(static fn()=>BackupMaintenanceAdmission::finish($site,$backupToken),
+        'Corrupted backup marker is retained even when caller knows its owner token');
     $check($gate->status()===InstallationGate::BACKUP_MAINTENANCE,
         'Incomplete backup marker continues to deny dynamic HTTP');
     file_put_contents($backupMarker,$originalBackupMarker);
     chmod($backupMarker,0600);
-    BackupMaintenanceAdmission::finish($site);
+    BackupMaintenanceAdmission::finish($site,$backupToken);
+    $reject(static fn()=>BackupMaintenanceAdmission::finish($site,$backupToken),
+        'Consumed backup owner token cannot finish again without a marker');
     $check($gate->status()===InstallationGate::READY
         &&!file_exists($backupMarker),
         'Only a verified unchanged backup marker can reopen the site');
