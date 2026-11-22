@@ -64,6 +64,16 @@ final class SourceUpdatePreflight
             throw new RuntimeException('Candidate release must be newer than the signed installed baseline.');
         }
 
+        // Review both publisher-signed database declarations within the
+        // SAME offline transition. A missing/reordered/forged DB contract
+        // cannot be silently skipped by an operator using this preflight.
+        // This flags migration risk; it is NEVER a SQL compatibility proof.
+        $databaseReview = SignedCandidateDbContract::compare(
+            $baselineZip, $baselineManifest, $baselineSignature,
+            $candidateZip, $candidateManifest, $candidateSignature,
+            $trustedPublicKeyPem
+        );
+
         $root = realpath($installedRoot);
         if ($root === false || $root === '/' || !is_dir($root) || is_link($installedRoot)) {
             throw new RuntimeException('Installed application source root is unsafe.');
@@ -140,6 +150,13 @@ final class SourceUpdatePreflight
             'rollback_implemented' => false,
             'licensing_checked' => false,
             'migration_compatibility_checked' => false,
+            'signed_database_contract_checked' => $databaseReview['both_source_archives_authenticated'],
+            'declared_database_contract_changed' => $databaseReview['declared_database_contract_changed'],
+            'new_declared_migration_ids' => $databaseReview['new_declared_migrations'],
+            'database_sensitive_source_changes' => $databaseReview['db_sensitive_source_changes'],
+            'manual_database_review_required' =>
+                $databaseReview['manual_database_compatibility_review_required'],
+            'installed_database_migrations_checked' => false,
             'installed_version' => $baseline['version'],
             'candidate_version' => $candidate['version'],
             'installed_runtime_files_checked' => count($previous),
