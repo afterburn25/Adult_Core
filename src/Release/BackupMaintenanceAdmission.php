@@ -18,8 +18,7 @@ use RuntimeException;
 final class BackupMaintenanceAdmission
 {
     private const MARKER = '.backup-maintenance';
-    private const CONTENT =
-        "Backup maintenance started. Inspect any interrupted backup before removing this marker.\n";
+    private const MAX_MARKER_BYTES = 2048;
 
     /** @return array<string,mixed> */
     public static function begin(string $installedRoot): array
@@ -34,6 +33,20 @@ final class BackupMaintenanceAdmission
             if (file_exists($marker) || is_link($marker)) {
                 throw new RuntimeException('Backup maintenance marker already exists or needs recovery.');
             }
+            // Generate the finish capability only in this running backup job.
+            // The marker stores its SHA-256, never the raw token. Crashes keep
+            // the marker blocking HTTP until a separate manual recovery.
+            $finishToken = bin2hex(random_bytes(32));
+            $record = [
+                'schema' => 'adult-core-backup-maintenance-owner-v1',
+                'status' => 'backup_in_progress',
+                'installed_root_sha256' => hash('sha256', $root),
+                'finish_token_sha256' => hash('sha256', $finishToken),
+                'created_utc' => gmdate('Y-m-d\\TH:i:s\\Z'),
+            ];
+            $content = json_encode(
+                $record, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+            ) . "\n";
             // Exclusive source coordination remains held from the READY
             // check until the private marker has been fully persisted.
             $fp = @fopen($marker, 'x+b');
@@ -42,7 +55,7 @@ final class BackupMaintenanceAdmission
             }
             try {
                 if (!chmod($marker, 0600)
-                    || fwrite($fp, self::CONTENT) !== strlen(self::CONTENT)
+                    || fwrite($fp, $content) !== strlen($content)
                     || !fflush($fp)
                     || (function_exists('fsync') && !fsync($fp))) {
                     // Deliberately retain incomplete marker for manual
@@ -56,7 +69,8 @@ final class BackupMaintenanceAdmission
                 throw new RuntimeException('Backup marker is present but another site gate needs recovery.');
             }
             return [
-                'schema' => 'adult-core-cooperative-backup-maintenance-v1',
+                'schema' => 'adult-core-cooperative-backup-maintenance-v2',
+                'finish_token' => $finishToken,
                 'status' => 'backup_http_and_receipt_admission_blocked',
                 'active_dynamic_requests_drained_at_entry' => true,
                 'signed_receipt_writers_drained_at_entry' => true,
@@ -70,22 +84,45 @@ final class BackupMaintenanceAdmission
     }
 
     /**
-     * Only the same running backup-job code should call this on success/error
-     * cleanup. Corrupted/replaced markers are intentionally NOT auto-cleared.
+     * Only the original backup job knows the one-time finish token.
+     * Corrupted/replaced markers and crashed jobs are NOT auto-cleared.
      */
-    public static function finish(string $installedRoot): void
+    public static function finish(string $installedRoot, string $finishToken): void
     {
         $root = self::site($installedRoot);
+        if (preg_match('/^[a-f0-9]{64}$/D', $finishToken) !== 1) {
+            throw new RuntimeException('Valid backup maintenance owner token is required.');
+        }
         $exclusive = SourceHttpRequestLock::exclusive($root);
         try {
             $marker = self::privateStorage($root) . '/' . self::MARKER;
+            clearstatcache(true, $marker);
             $mode = @fileperms($marker);
             $size = @filesize($marker);
-            if (is_link($marker) || !is_file($marker)
+            if (is_link($marker) || !is_file($marker) || !is_readable($marker)
                 || !is_int($mode) || ($mode & 0077) !== 0
-                || $size !== strlen(self::CONTENT)
-                || file_get_contents($marker) !== self::CONTENT) {
+                || !is_int($size) || $size < 1 || $size > self::MAX_MARKER_BYTES) {
                 throw new RuntimeException('Backup maintenance marker is missing, changed or corrupted.');
+            }
+            $raw = file_get_contents($marker);
+            try {
+                $record = is_string($raw)
+                    ? json_decode($raw, true, 8, JSON_THROW_ON_ERROR) : null;
+            } catch (\JsonException) {
+                $record = null;
+            }
+            if (!is_array($record) || array_keys($record) !== [
+                'schema', 'status', 'installed_root_sha256',
+                'finish_token_sha256', 'created_utc',
+            ] || $record['schema'] !== 'adult-core-backup-maintenance-owner-v1'
+                || $record['status'] !== 'backup_in_progress'
+                || $record['installed_root_sha256'] !== hash('sha256', $root)
+                || !is_string($record['finish_token_sha256'])
+                || preg_match('/^[a-f0-9]{64}$/D', $record['finish_token_sha256']) !== 1
+                || !hash_equals($record['finish_token_sha256'], hash('sha256', $finishToken))
+                || !is_string($record['created_utc'])
+                || preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/D', $record['created_utc']) !== 1) {
+                throw new RuntimeException('Backup maintenance marker is not owned by this backup job.');
             }
             if ((new InstallationGate($root))->status() !== InstallationGate::BACKUP_MAINTENANCE) {
                 throw new RuntimeException('Another blocking recovery state prevents ending backup maintenance.');

@@ -1,3 +1,31 @@
+## One-time owner token for backup maintenance cleanup — 2026-11-22
+
+`BackupMaintenanceAdmission::begin()` now returns a random 64-hex **finish token**
+only to the current backup process. Its private 0600 marker stores the SHA-256
+of that token, the real installed-site root fingerprint and a bounded UTC
+creation stamp; it never stores the original token. `scripts/backup-job.php`
+retains the token only in process memory and supplies it to `finish()`.
+An unrelated process, malformed token or a corrupted/replaced marker cannot
+reopen HTTP merely by calling the backup cleanup API. A successful finish
+deletes the marker, so the old token cannot be replayed.
+
+After a hard crash the in-memory token is lost and the marker remains
+**fail-closed**. There is deliberately no public, timer-based or automatic
+override: an operator must independently investigate backup/archive integrity,
+site state, active writers and workers before a separately authorized recovery.
+**Never log the finish token, store it in an archive, or return it to HTTP.**
+
+This is only local cooperating PHP request / signed-receipt coordination.
+It does **not** stop external Pro workers, independently started PHP or
+database writers, distributed hosts, SQL transactions or background media
+processing. The explicit operator pause acknowledgments and all production
+release/restore acceptance gates remain in force.
+
+`tests/source_http_maintenance_tests.php` now verifies refused wrong and
+malformed tokens, refusal of corrupted markers with the correct token,
+one-use completion, and unchanged signed Pro receipt admission boundaries.
+
+---
 ## Creator planning recovery coverage — 2026-11-21 (development)
 
 The encrypted backup engine discovers all ordinary local `ac_` InnoDB tables rather than a fixed table list, including the additive `ac_creator_profiles`, `ac_creator_drafts`, `ac_creator_actions`, `ac_creator_draft_events` and member email confirmation records. The disposable MySQL recovery integration now creates an independently installed website's owner-provisioned creator, saved/archived/submitted/rejected text plans, private feedback and numeric review events. It exports an authenticated encrypted `.acfull` archive, destroys the test DB tables, restores to a fresh empty database and verifies the entire creator snapshot, email confirmation and review queue are identical to the source. No cross-site identity or SaaS data is involved.
