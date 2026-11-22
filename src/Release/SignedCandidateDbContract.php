@@ -94,7 +94,7 @@ final class SignedCandidateDbContract
             'baseline_declared_migrations' => $baselineMigrations,
             'new_declared_migrations' => $newMigrations,
             'db_sensitive_source_changes' => $dbSensitive,
-            'other_php_application_changes_count' => count($applicationChanged),
+            'changed_php_application_files_count' => count($applicationChanged),
             'declared_database_contract_changed' => $contractChanged,
             'manual_database_compatibility_review_required' =>
                 $contractChanged || $dbSensitive !== [] || $applicationChanged !== [],

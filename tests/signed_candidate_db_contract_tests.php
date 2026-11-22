@@ -115,7 +115,7 @@ try{
         $newZip,$signed,$sign($signed),$pub);
     $check($report['manual_database_compatibility_review_required']===true
         &&$report['db_sensitive_source_changes']===[]
-        &&$report['other_php_application_changes_count']===1,
+        &&$report['changed_php_application_files_count']===1,
         'Any new PHP application code requires manual SQL compatibility review');
 
     $modified=$newFiles;
@@ -224,8 +224,8 @@ try{
         $newZip,$signed,base64_encode(random_bytes(256)),$pub),
         'Forged candidate publisher signature refused');
 
-    $check(file_get_contents($repo.'/src/Database/release-schema-contract.json')
-        ===$contract(1),'Tests did not modify real source schema contract');
+    $check(json_decode((string)file_get_contents($repo.'/src/Database/release-schema-contract.json'),true)
+        ===json_decode($contract(1),true),'Tests did not modify real source schema contract');
     echo "Passed {$passed} signed database migration contract review tests.\n";
 }finally{
     $cleanup($tmp);
