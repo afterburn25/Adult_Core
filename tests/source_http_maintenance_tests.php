@@ -337,16 +337,22 @@ try{
     $check($pendingExit!==0 && $pendingStdout==='',
         'CLI refuses pending signed Pro receipts without misleading readiness JSON');
 
+    $backupSignedReceipt=$site.'/storage/pro-jobs/'.
+        hash('sha256','backup-colliding-pro-0001').'.json';
     $originalProReceipt=file_get_contents($proReceipt);
-    $completedReceipt=json_decode($originalProReceipt,true,12,JSON_THROW_ON_ERROR);
-    $completedReceipt['status']='done';
-    $completedReceipt['mac']=hash_hmac('sha256',
-        "adult-core-pro-receipt-v1\n".json_encode(
-            array_slice($completedReceipt,0,4,true),
-            JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES
-        ),$proSecret);
-    file_put_contents($proReceipt,json_encode($completedReceipt,JSON_THROW_ON_ERROR));
-    chmod($proReceipt,0600);
+    $originalBackupReceipt=file_get_contents($backupSignedReceipt);
+    foreach([$proReceipt=>$originalProReceipt,
+        $backupSignedReceipt=>$originalBackupReceipt] as $path=>$rawReceipt){
+        $completedReceipt=json_decode($rawReceipt,true,12,JSON_THROW_ON_ERROR);
+        $completedReceipt['status']='done';
+        $completedReceipt['mac']=hash_hmac('sha256',
+            "adult-core-pro-receipt-v1\n".json_encode(
+                array_slice($completedReceipt,0,4,true),
+                JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES
+            ),$proSecret);
+        file_put_contents($path,json_encode($completedReceipt,JSON_THROW_ON_ERROR));
+        chmod($path,0600);
+    }
     $verifiedSnapshot=$localSnapshot();
     $check($verifiedSnapshot['read_only']===true
         &&$verifiedSnapshot['signed_pro_edition_verified']===true
@@ -390,6 +396,8 @@ try{
         'Restoring original owner marker permits read-only receipt snapshot');
     file_put_contents($proReceipt,$originalProReceipt);
     chmod($proReceipt,0600);
+    file_put_contents($backupSignedReceipt,$originalBackupReceipt);
+    chmod($backupSignedReceipt,0600);
     file_put_contents($site.'/storage/install-state.json',
         InstallationState::encode('lite',$key));
     $check(hash_file('sha256',$proReceipt)===$oldProHash
