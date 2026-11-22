@@ -88,6 +88,7 @@ try {
     foreach ([
         '../config/app-key.php',
         'config/app-key.php',
+        'config/email.php',
         'storage/license-cache.json',
         'public/./index.php',
         'public/../index.php',
@@ -108,6 +109,14 @@ try {
     $zip->close();
     $reject(static fn() => SourceArchive::inventory($zipPath),
         'Unix symlink file type rejected');
+    $makeZip($required);
+    $zip = new ZipArchive();
+    $zip->open($zipPath);
+    $index = $zip->locateName('public/index.php');
+    $zip->setExternalAttributesIndex($index, ZipArchive::OPSYS_UNIX, 0104755 << 16);
+    $zip->close();
+    $reject(static fn() => SourceArchive::inventory($zipPath),
+        'Unix setuid file permission rejected');
     $makeZip($required);
     $privatePath = $dir . '/private.pem';
     $publicPath = $dir . '/trusted-public.pem';
