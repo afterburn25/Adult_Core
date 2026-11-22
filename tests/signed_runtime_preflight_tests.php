@@ -138,8 +138,35 @@ try {
         && !in_array('config/license.php',$report['would_add'],true),
         'Neither web installer nor private user config may be resurrected');
     $check($report['licensing_checked']===false
-        && $report['migration_compatibility_checked']===false,
-        'Missing external license and migration acceptance remain explicit');
+        && $report['migration_compatibility_checked']===false
+        && $report['installed_database_migrations_checked']===false,
+        'Missing external license, live SQL ledger and migration acceptance remain explicit');
+    $check($report['signed_database_contract_checked']===true
+        && $report['declared_database_contract_changed']===false
+        && $report['new_declared_migration_ids'] === []
+        && $report['database_sensitive_source_changes'] === []
+        && $report['manual_database_review_required']===true,
+        'Signed DB declaration is unchanged but changed autoloader PHP still requires DB review');
+
+    // A separately signed older baseline that predates the DB contract
+    // must FAIL CLOSED in the integrated transition preflight, not quietly
+    // return an incomplete migration risk report.
+    $noDbBaseline=$tmp.'/old-missing-db-contract.zip';
+    if(!copy($baseline,$noDbBaseline))
+        throw new RuntimeException('Cannot create missing-contract source fixture.');
+    $noDbZip=new ZipArchive();
+    if($noDbZip->open($noDbBaseline)!==true)
+        throw new RuntimeException('Cannot open missing-contract source fixture.');
+    if(!$noDbZip->deleteName('src/Database/release-schema-contract.json'))
+        throw new RuntimeException('Cannot remove DB contract from negative fixture.');
+    $noDbZip->close();
+    $noDbJson=SourceArchive::manifestJson($noDbBaseline);
+    if(!openssl_sign($noDbJson,$noDbSigBytes,$key,OPENSSL_ALGO_SHA256))
+        throw new RuntimeException('Cannot sign source without database contract.');
+    $reject(static fn()=>SourceUpdatePreflight::inspect(
+        $installed,$stage,$noDbBaseline,$noDbJson,base64_encode($noDbSigBytes),
+        $candidate,$newJson,$newSig,$trusted
+    ),'Signed baseline with missing database contract blocks integrated source preflight');
 
     $recovery=$rollbackCheck();
     $check($recovery['previous_source_stage_verified']===true

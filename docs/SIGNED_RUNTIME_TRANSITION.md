@@ -32,3 +32,11 @@ php tests/release_distribution_tests.php
 ```
 
 The report intentionally exposes `ready_for_activation: false`, `rollback_implemented: false`, `licensing_checked: false`, and `migration_compatibility_checked: false`. It is not an approval gate that can flip those flags. A fully supported updater still requires secure host maintenance locking, license and compatibility checks, source and database snapshots, commit/rollback coordination, safe source activation under active requests, deployment evidence and independent review. All ten production release workstreams remain open.
+
+## Integrated signed database declaration review
+
+The standard `SourceUpdatePreflight::inspect()` / `scripts/preflight-source-transition.php` output now always includes `SignedCandidateDbContract::compare()`. It authenticates the source-bundled database policy in both independent signed ZIPs and fails closed if either declaration is missing, invalid, changed outside its detached signature, or rewrites declared migration history. This prevents a source-only operator from accidentally omitting the separate migration declaration review.
+
+The read-only JSON now exposes `signed_database_contract_checked`, `declared_database_contract_changed`, `new_declared_migration_ids`, `database_sensitive_source_changes` and `manual_database_review_required`. If *any* application PHP file changes, the reviewer requires manual database compatibility assessment, even when the contract itself is unchanged. The gate still returns `migration_compatibility_checked: false`, `installed_database_migrations_checked: false`, `ready_for_activation: false` and `rollback_implemented: false`. It does **not** execute SQL or prove the live SQL migration ledger is compatible. See [SIGNED_CANDIDATE_DB_CONTRACT.md](SIGNED_CANDIDATE_DB_CONTRACT.md) and [INSTALLED_MIGRATION_LEDGER.md](INSTALLED_MIGRATION_LEDGER.md).
+
+`tests/signed_runtime_preflight_tests.php` checks the integrated fields and refuses an independently publisher-signed baseline with no database contract. Old distributions predating the contract require separately reviewed migration planning; no compatibility bypass is provided.
