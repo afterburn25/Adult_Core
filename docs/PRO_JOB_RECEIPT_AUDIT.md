@@ -16,6 +16,47 @@ The tool inventories `storage/pro-jobs` only. It refuses a symlink or non-privat
 
 The versioned report contains counts for `pending_receipts`, `processing_receipts`, `done_receipts`, `failed_receipts` and `signed_receipts_verified`, plus `no_locally_open_receipts`. Even when the last flag is true, **`external_workers_quiesced`, `database_writes_quiesced` and `ready_for_activation` must remain false**. A clean local receipt inventory cannot prove that a separately hosted worker or preexisting FFmpeg task has stopped.
 
+## Token-owned source-maintenance receipt snapshot (development)
+
+`ProSourceMaintenanceReceiptSnapshot::inspect()` and the CLI
+`scripts/check-pro-source-receipts.php` now provide a more restrictive,
+**read-only local scan** while source HTTP maintenance is already active.
+Unlike the ordinary receipt inventory, this rejects unfinished signed
+`pending`/`processing` receipts and requires:
+
+- The operator's **actual** source lease token to match both its private
+  lease and its intact source-maintenance marker
+- A signed installed **Pro** edition (Lite cannot claim this proof)
+- An exclusive **nonblocking local SourceHttpRequestLock** during the scan,
+  which refuses if any cooperating local PHP request, Pro receipt writer
+  or execution guard is active
+- An authenticated HMAC for every bounded local receipt
+
+Both sensitive values arrive through **STDIN**, not arguments: first line
+the 64-character source lease token, remainder the protected Pro receipt HMAC
+secret. For example, with two separate 0600 private secret files:
+
+```sh
+{ cat /private/keys/source-lease-token; printf '\n';
+  cat /private/keys/pro-job-hmac-secret; printf '\n'; } |
+  php scripts/check-pro-source-receipts.php \
+    /home/account/Adult_Core /private/source-coordination
+```
+
+A pending job, invalid signature, wrong token, altered marker, Lite site,
+unavailable exclusive lock, or inconsistent recovery state returns a nonzero
+exit and **no success JSON**. The success report contains only bounded
+receipt counts and intentionally reports `external_pro_workers_quiesced: false`,
+`database_writers_quiesced: false`, and `ready_for_activation: false`.
+The scan is a momentary observation: once it releases the lock, other work
+can start if maintenance is ended. There is **no** real worker shutdown,
+distributed lock, SQL transaction drain, update activation or production
+readiness certification. This does not alter any signed receipt.
+
+Regression: `tests/source_http_maintenance_tests.php` includes a pending
+receipt refusal, separately sealed synthetic completed receipts, wrong
+token/CLI, forged marker digest, and competing shared-lock refusal.
+
 ## During source maintenance
 
 The private inbox audit is read-only and can be run while `storage/.source-update-maintenance` is present. `ProJobAdmission` already prevents new signed receipt intake while maintenance and recovery markers are active. It does not mark existing records done, cancel jobs, drain a queue or release application locks. Before production updates, a real Pro agent must implement authenticated stop/drain acknowledgements and database-side quiescence, paired with a tested rollback strategy.
