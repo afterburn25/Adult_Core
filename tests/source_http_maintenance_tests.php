@@ -106,7 +106,8 @@ try{
         'Refused finish does not clear the original backup maintenance marker');
 
     $backupTestInbox=new JobInbox($site);
-    $backupTestSecret=str_repeat('y',32);
+    // One installed Pro site uses one trusted local job-receipt HMAC secret.
+    $backupTestSecret=str_repeat('p',32);
     $backupDenied=JobEnvelope::create('backup-colliding-pro-0001',
         'video.thumbnail',['asset_id'=>51],$backupTestSecret);
     $reject(static fn()=>$backupTestInbox->accept($backupDenied,$backupTestSecret),
