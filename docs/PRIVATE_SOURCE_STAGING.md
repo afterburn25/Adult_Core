@@ -35,3 +35,7 @@ php scripts/verify-source-stage.php \
 ```
 
 This checks the complete signed file inventory, every staged file hash, receipt metadata, private permissions and absence of a pending marker. It rejects extra files, symlinks, missing source and altered executable code. A successful audit explicitly reports `ready_for_install: false`; **it does not authorize activation, a version switch, database migrations or public launch**.
+
+## Next safety boundary: installed signed runtime preflight
+
+Before any future updater can touch a live site, `scripts/preflight-source-transition.php` checks that the installed runtime still matches an independently signed **old** release and the private staged files still match the signed **new** release. It excludes the browser installer and customer-managed files. See [SIGNED_RUNTIME_TRANSITION.md](SIGNED_RUNTIME_TRANSITION.md). A passing result still says `ready_for_activation: false` and is not permission to deploy.
