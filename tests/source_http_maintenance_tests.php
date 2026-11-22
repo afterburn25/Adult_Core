@@ -13,6 +13,7 @@ use AdultCore\Release\BackupMaintenanceAdmission;
 use AdultCore\Pro\JobInbox;
 use AdultCore\Pro\JobEnvelope;
 use AdultCore\Pro\ProWorkerExecutionGuard;
+use AdultCore\Pro\ProSourceMaintenanceReceiptSnapshot;
 
 $passed=0;
 $check=static function(bool $value,string $label) use (&$passed):void{
@@ -105,7 +106,8 @@ try{
         'Refused finish does not clear the original backup maintenance marker');
 
     $backupTestInbox=new JobInbox($site);
-    $backupTestSecret=str_repeat('y',32);
+    // One installed Pro site uses one trusted local job-receipt HMAC secret.
+    $backupTestSecret=str_repeat('p',32);
     $backupDenied=JobEnvelope::create('backup-colliding-pro-0001',
         'video.thumbnail',['asset_id'=>51],$backupTestSecret);
     $reject(static fn()=>$backupTestInbox->accept($backupDenied,$backupTestSecret),
@@ -299,6 +301,109 @@ try{
         && !isset($status['lease_token_sha256'])
         && !isset($status['release_token']),
         'Read-only maintenance status cannot disclose credential hashes');
+    // A maintenance operator may snapshot an authenticated local Pro inbox,
+    // but pending/processing receipts, wrong ownership and even an already
+    // held shared request guard MUST fail closed.
+    $localSnapshot=static fn()=>ProSourceMaintenanceReceiptSnapshot::inspect(
+        $site,$coord,$token,$proSecret
+    );
+    $reject($localSnapshot,
+        'Signed Lite installation cannot claim Pro receipt maintenance evidence');
+    file_put_contents($site.'/storage/install-state.json',
+        InstallationState::encode('pro',$key));
+    $reject(static fn()=>ProSourceMaintenanceReceiptSnapshot::inspect(
+        $site,$coord,str_repeat('f',64),$proSecret),
+        'Wrong lease token cannot inspect Pro maintenance receipts');
+    $reject($localSnapshot,
+        'Outstanding signed pending job refuses Pro maintenance snapshot');
+
+    $runProSnapshotCli=static function(string $inputToken)use(
+        $repo,$site,$coord,$proSecret
+    ):array{
+        $cli=escapeshellarg(PHP_BINARY).' '
+            .escapeshellarg($repo.'/scripts/check-pro-source-receipts.php').' '
+            .escapeshellarg($site).' '.escapeshellarg($coord);
+        $pipes=[];$process=proc_open($cli,
+            [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+        if(!is_resource($process))
+            throw new RuntimeException('Cannot run Pro maintenance receipt CLI fixture.');
+        fwrite($pipes[0],$inputToken."\n".$proSecret."\n");
+        fclose($pipes[0]);
+        $stdout=stream_get_contents($pipes[1]);fclose($pipes[1]);
+        $stderr=stream_get_contents($pipes[2]);fclose($pipes[2]);
+        return [proc_close($process),$stdout,$stderr];
+    };
+    [$pendingExit,$pendingStdout]=$runProSnapshotCli($token);
+    $check($pendingExit!==0 && $pendingStdout==='',
+        'CLI refuses pending signed Pro receipts without misleading readiness JSON');
+
+    $backupSignedReceipt=$site.'/storage/pro-jobs/'.
+        hash('sha256','backup-colliding-pro-0001').'.json';
+    $originalProReceipt=file_get_contents($proReceipt);
+    $originalBackupReceipt=file_get_contents($backupSignedReceipt);
+    foreach([$proReceipt=>$originalProReceipt,
+        $backupSignedReceipt=>$originalBackupReceipt] as $path=>$rawReceipt){
+        $completedReceipt=json_decode($rawReceipt,true,12,JSON_THROW_ON_ERROR);
+        $completedReceipt['status']='done';
+        $completedReceipt['mac']=hash_hmac('sha256',
+            "adult-core-pro-receipt-v1\n".json_encode(
+                array_slice($completedReceipt,0,4,true),
+                JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES
+            ),$proSecret);
+        file_put_contents($path,json_encode($completedReceipt,JSON_THROW_ON_ERROR));
+        chmod($path,0600);
+    }
+    $verifiedSnapshot=$localSnapshot();
+    $check($verifiedSnapshot['read_only']===true
+        &&$verifiedSnapshot['signed_pro_edition_verified']===true
+        &&$verifiedSnapshot['owned_source_maintenance_marker_verified']===true
+        &&$verifiedSnapshot['cooperating_local_guard_exclusive_at_scan']===true
+        &&$verifiedSnapshot['signed_local_receipts_verified']===2
+        &&$verifiedSnapshot['pending_receipts']===0
+        &&$verifiedSnapshot['processing_receipts']===0
+        &&$verifiedSnapshot['no_unfinished_signed_local_receipts_at_scan']===true
+        &&$verifiedSnapshot['external_pro_workers_quiesced']===false
+        &&$verifiedSnapshot['database_writers_quiesced']===false
+        &&$verifiedSnapshot['ready_for_activation']===false,
+        'Signed completed local Pro receipts produce no false external worker or launch proof');
+    $inflightAuditReader=SourceHttpRequestLock::enter($site);
+    $reject($localSnapshot,
+        'Live shared local activity prevents exclusive maintenance receipt snapshot');
+    fclose($inflightAuditReader);
+
+    [$cliCode,$cliStdout,$cliStderr]=$runProSnapshotCli($token);
+    $cliReport=json_decode($cliStdout,true);
+    $check($cliCode===0 && is_array($cliReport)
+        &&$cliReport['ready_for_activation']===false
+        &&$cliReport['signed_local_receipts_verified']===2
+        &&!str_contains($cliStdout,$token)
+        &&!str_contains($cliStdout,$proSecret),
+        'Private two-line-STDIN CLI emits only redacted local snapshot evidence');
+    [$wrongCliExit,$wrongCliStdout]=$runProSnapshotCli(str_repeat('a',64));
+    $check($wrongCliExit!==0&&$wrongCliStdout==='',
+        'Wrong CLI lease credential cannot produce a receipt readiness report');
+
+    $ownedMarker=file_get_contents($marker);
+    $tamperedOwner=json_decode($ownedMarker,true,8,JSON_THROW_ON_ERROR);
+    $tamperedOwner['lease_token_sha256']=str_repeat('0',64);
+    file_put_contents($marker,json_encode($tamperedOwner,JSON_THROW_ON_ERROR)."\n");
+    chmod($marker,0600);
+    $reject($localSnapshot,
+        'Correct lease token rejects an otherwise well-formed alien maintenance marker');
+    file_put_contents($marker,$ownedMarker);
+    chmod($marker,0600);
+    $check($localSnapshot()['signed_local_receipts_verified']===2,
+        'Restoring original owner marker permits read-only receipt snapshot');
+    file_put_contents($proReceipt,$originalProReceipt);
+    chmod($proReceipt,0600);
+    file_put_contents($backupSignedReceipt,$originalBackupReceipt);
+    chmod($backupSignedReceipt,0600);
+    file_put_contents($site.'/storage/install-state.json',
+        InstallationState::encode('lite',$key));
+    $check(hash_file('sha256',$proReceipt)===$oldProHash
+        &&$gate->status()===InstallationGate::SOURCE_UPDATE_MAINTENANCE,
+        'Maintenance audit restored original signed receipt and Lite test state');
+
     $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
         'Double begin cannot overwrite existing maintenance marker');
     $reject(static fn()=>SourceOperationLease::release($site,$coord,$token),
