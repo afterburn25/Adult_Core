@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace AdultCore\Pro;
 
+use AdultCore\Release\SourceHttpRequestLock;
 use RuntimeException;
 
 /**
@@ -48,7 +49,18 @@ final class ProJobAdmission
     {
         $open = true;
         try {
-            self::assertMayAccept($siteRoot);
+            // Snapshot the SAME shared coordination lock used by JobInbox.
+            // If source maintenance currently owns the exclusive guard,
+            // report intake as closed even before its marker is published.
+            $guard = SourceHttpRequestLock::enter($siteRoot);
+            if (!is_resource($guard)) {
+                throw new RuntimeException('Private Pro receipt coordination lock unavailable.');
+            }
+            try {
+                self::assertMayAccept($siteRoot);
+            } finally {
+                fclose($guard);
+            }
         } catch (RuntimeException) {
             $open = false;
         }
