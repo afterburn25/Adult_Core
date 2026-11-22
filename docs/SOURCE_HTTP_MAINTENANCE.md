@@ -28,6 +28,8 @@ php scripts/source-http-maintenance.php status \
 
 An owner-only `storage/.source-update-maintenance` is created exclusively. The front controller's `InstallationGate` handles this marker before site/admin routing, displays a generic maintenance screen, sends HTTP 503 and `Retry-After: 300`. An interrupted or symbolic-link marker still blocks application requests. The command must never be used to bypass a backup/edition/license pending-recovery state.
 
+The read-only `status` command now cross-checks the marker's hashed owner token against the **exact private coordination lease**, not merely that both records look valid separately. A well-formed marker with a different lease hash returns `incomplete_manual_recovery_required` while HTTP remains blocked. Neither the raw token nor either credential hash appears in status output. This does not end maintenance or certify safe source activation.
+
 The coordination lease cannot be released while the marker exists, even with the right token. This prevents an operator from accidentally discarding the control token before dynamic HTTP is restored.
 
 ## 3. End HTTP maintenance, then release operator coordination
