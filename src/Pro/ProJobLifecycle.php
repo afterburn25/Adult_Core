@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace AdultCore\Pro;
 
+use AdultCore\Release\SourceHttpRequestLock;
+use AdultCore\Release\SourceUpdateMaintenance;
 use RuntimeException;
 
 /**
@@ -35,11 +37,7 @@ final class ProJobLifecycle
         try {
             $lock=$this->workerLock();
             ProJobAdmission::assertMayAccept($this->root);
-            $dir=$this->root.'/storage/pro-jobs';
-            $mode=@fileperms($dir);
-            if(is_link($dir)||!is_dir($dir)||!is_int($mode)||($mode&0077)!==0)
-                throw new RuntimeException('Private Pro inbox is unavailable.');
-            $path=$dir.'/'.hash('sha256',$jobId).'.json';
+            $path=$this->receiptPath($jobId);
             $record=$this->read($path,$jobId,$secret);
             if($record['status']!=='pending')
                 throw new RuntimeException('Only a pending job can be executed.');
@@ -56,6 +54,60 @@ final class ProJobLifecycle
             if(is_resource($lock))fclose($lock);
             fclose($guard);
         }
+    }
+
+    /**
+     * Explicit operator resolution only. The operator must independently
+     * stop/reconcile any actual work. No handler is called, no job is retried,
+     * and no receipt is marked successful by this method.
+     */
+    public function resolveInterrupted(
+        string $jobId, string $secret, string $coordinationRoot,
+        string $releaseToken, bool $workStoppedAndReconciled
+    ): array {
+        if(PHP_SAPI!=='cli'||!$workStoppedAndReconciled
+            ||preg_match('/^[a-zA-Z0-9-]{8,100}$/D',$jobId)!==1
+            ||strlen($secret)<32||strlen($secret)>4096)
+            throw new RuntimeException('Explicit operator reconciliation acknowledgment is required.');
+        $guard=SourceHttpRequestLock::exclusive($this->root);
+        $lock=null;
+        try{
+            SourceUpdateMaintenance::assertOwnedMarker($this->root,$coordinationRoot,$releaseToken);
+            ProWorkerExecutionGuard::assertSignedProEdition($this->root);
+            $lock=$this->workerLock();
+            $path=$this->receiptPath($jobId);
+            $record=$this->read($path,$jobId,$secret);
+            if($record['status']!=='processing')
+                throw new RuntimeException('Only an interrupted processing receipt can be resolved.');
+            // Validate the complete inbox before mutating one receipt; a
+            // corrupted unrelated receipt must not be hidden by resolution.
+            ProJobReceiptAudit::inspect($this->root,$secret);
+            SourceUpdateMaintenance::assertOwnedMarker($this->root,$coordinationRoot,$releaseToken);
+            $this->transition($path,$record,'failed',$secret);
+            return [
+                'schema'=>'adult-core-pro-interrupted-resolution-v1',
+                'resolved_status'=>'failed',
+                'operator_reconciliation_acknowledged'=>true,
+                'job_retried'=>false,
+                'external_workers_quiesced'=>false,
+                'database_writers_quiesced'=>false,
+                'ready_for_activation'=>false,
+                'production_ready'=>false,
+            ];
+        }finally{
+            if(is_resource($lock))fclose($lock);
+            fclose($guard);
+        }
+    }
+
+    private function receiptPath(string $jobId):string
+    {
+        $dir=$this->root.'/storage/pro-jobs';
+        clearstatcache(true,$dir);
+        $mode=@fileperms($dir);
+        if(is_link($dir)||!is_dir($dir)||!is_int($mode)||($mode&0077)!==0)
+            throw new RuntimeException('Private Pro inbox is unavailable.');
+        return $dir.'/'.hash('sha256',$jobId).'.json';
     }
 
     /** @return resource Stable local mutex; never unlink or replace. */
