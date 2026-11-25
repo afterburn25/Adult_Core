@@ -66,7 +66,7 @@ try {
     vaultCheck($report['edition']==='lite'&&$report['source_version']==='0.8.8-backup-dev','Edition/version verified');
     vaultCheck($report['tables']===5&&$report['rows']===1&&$report['files']===5,'Database and file counts verified');
     vaultCheck($report['sha256']===hash_file('sha256',$archive),'Vault verification includes archive fingerprint');
-    vaultCheck(!isset($report['app_key'],$report['license_key']),'Verification output excludes secrets');
+    vaultCheck(!isset($report['app_key'])&&!isset($report['license_key'])&&!isset($report['vault_site_binding']),'Verification output excludes secrets and internal site binding');
     vaultReject(static fn()=> $verifier->verify($archive,bin2hex(random_bytes(32))),'Wrong key rejected before copy');
     vaultFixture($tmp.'/stage/bad-sha.acfull',$backupKey,$appKey,badHash:true);
     vaultReject(static fn()=> $verifier->verify($tmp.'/stage/bad-sha.acfull',$backupKey),'Authenticated but incorrect file checksum rejected');
@@ -102,6 +102,29 @@ try {
     vaultCheck($fourth['skipped_invalid']===1&&is_file($older),'Corrupted historic archive preserved for operator review');
     vaultCheck(count(glob($tmp.'/vault/*.acfull'))===3,'Retention holds two verified and one quarantined corrupt file');
     vaultCheck(!file_exists($tmp.'/vault/.adult-core-vault.lock'),'Vault releases mutex after success');
+    // Different customer installations can accidentally share an offline
+    // backup key. Valid HMACs alone must never authorize cross-site pruning.
+    $foreignAppKey=bin2hex(random_bytes(32));
+    $foreignOlder=$tmp.'/vault/adult-core-19990101T000000Z-112345abcdef.acfull';
+    $foreignNewer=$tmp.'/vault/adult-core-20990101T000000Z-212345abcdef.acfull';
+    vaultFixture($foreignOlder,$backupKey,$foreignAppKey);
+    vaultFixture($foreignNewer,$backupKey,$foreignAppKey);
+    $foreignHashes=[hash_file('sha256',$foreignOlder),hash_file('sha256',$foreignNewer)];
+    $inventoryBefore=glob($tmp.'/vault/*.acfull');
+    vaultReject(static fn()=> $vault->ship($archive,$tmp.'/vault',$backupKey,2,$foreignAppKey),
+        'Expected installed identity refuses foreign staging archive');
+    vaultReject(static fn()=> $vault->ship($archive,$tmp.'/vault',$backupKey,2,$appKey,str_repeat('0',64)),
+        'Previously verified archive digest mismatch refuses copy and retention');
+    vaultCheck(glob($tmp.'/vault/*.acfull')===$inventoryBefore,
+        'Refused identity or digest leaves vault inventory unchanged');
+    $fifth=$vault->ship($archive,$tmp.'/vault',$backupKey,2,$appKey,$report['sha256']);
+    vaultCheck($fifth['pruned']===1&&$fifth['skipped_invalid']===3
+        &&$fifth['retained']===5,'Retention preserves two same-site copies plus three foreign or corrupt archives');
+    vaultCheck(hash_file('sha256',$foreignOlder)===$foreignHashes[0]
+        &&hash_file('sha256',$foreignNewer)===$foreignHashes[1],
+        'Foreign authenticated backups retained byte-for-byte regardless of age');
+    vaultCheck(!isset($fifth['vault_site_binding'])&&!isset($fifth['app_key']),
+        'Vault transfer result exposes neither opaque binding nor secret');
     // Signed installation remains eligible for backup while *all* HTTP routes are locked.
     mkdir($tmp.'/site/storage');mkdir($tmp.'/site/config');
     file_put_contents($tmp.'/site/storage/install-state.json',InstallationState::encode('lite',$appKey));
