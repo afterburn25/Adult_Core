@@ -13,8 +13,8 @@ use RuntimeException;
  * A cooperative LOCAL Pro job executor holds this guard for its entire job
  * execution lifetime. Source/backup maintenance cannot enter while it is held.
  *
- * This contract is for FUTURE local execution integrations: JobInbox currently
- * stores signed receipts only. It does not launch, interrupt, drain or verify
+ * Used by the local trusted handler lifecycle. It does not launch, interrupt,
+ * drain or verify
  * FFmpeg workers, external agents, DB writers, static delivery, or remote nodes.
  */
 final class ProWorkerExecutionGuard
@@ -38,25 +38,7 @@ final class ProWorkerExecutionGuard
             if ((new InstallationGate($installedRoot))->status() !== InstallationGate::READY) {
                 throw new RuntimeException('Pro worker cannot begin during installation or maintenance.');
             }
-            $appKeyFile = $installedRoot . '/config/app-key.php';
-            $stateFile = $installedRoot . '/storage/install-state.json';
-            if (is_link($appKeyFile) || is_link($stateFile)
-                || !is_file($appKeyFile) || !is_readable($appKeyFile)
-                || !is_file($stateFile) || !is_readable($stateFile)
-                || (filesize($appKeyFile) ?: 0) > 4096
-                || (filesize($stateFile) ?: 0) > 4096) {
-                throw new RuntimeException('Pro worker signed edition identity is unsafe.');
-            }
-            $key = require $appKeyFile;
-            $raw = file_get_contents($stateFile);
-            if (!is_string($key) || !is_string($raw)
-                || !InstallationState::valid($raw, $key)) {
-                throw new RuntimeException('Pro worker requires a valid signed installation.');
-            }
-            $state = json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
-            if ($state['edition'] !== 'pro') {
-                throw new RuntimeException('A Lite license cannot start Pro worker execution.');
-            }
+            self::assertSignedProEdition($installedRoot);
             // A concurrent source/backup maintenance marker cannot be
             // published while our shared lifetime guard is held.
             ProJobAdmission::assertMayAccept($installedRoot);
@@ -64,6 +46,29 @@ final class ProWorkerExecutionGuard
         } catch (\Throwable $error) {
             fclose($guard);
             throw $error;
+        }
+    }
+    /** Signed edition identity only; caller must own the required local guard and gate. */
+    public static function assertSignedProEdition(string $installedRoot): void
+    {
+        $appKeyFile = $installedRoot . '/config/app-key.php';
+        $stateFile = $installedRoot . '/storage/install-state.json';
+        if (is_link($appKeyFile) || is_link($stateFile)
+            || !is_file($appKeyFile) || !is_readable($appKeyFile)
+            || !is_file($stateFile) || !is_readable($stateFile)
+            || (filesize($appKeyFile) ?: 0) > 4096
+            || (filesize($stateFile) ?: 0) > 4096) {
+            throw new RuntimeException('Pro worker signed edition identity is unsafe.');
+        }
+        $key = require $appKeyFile;
+        $raw = file_get_contents($stateFile);
+        if (!is_string($key) || !is_string($raw)
+            || !InstallationState::valid($raw, $key)) {
+            throw new RuntimeException('Pro worker requires a valid signed installation.');
+        }
+        $state = json_decode($raw, true, 8, JSON_THROW_ON_ERROR);
+        if ($state['edition'] !== 'pro') {
+            throw new RuntimeException('A Lite license cannot start Pro worker execution.');
         }
     }
 }
