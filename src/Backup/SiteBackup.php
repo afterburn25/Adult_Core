@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace AdultCore\Backup;
 
 use AdultCore\Database\Schema;
+use AdultCore\Database\Connection;
+use AdultCore\Release\BackupMaintenanceAdmission;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Installer\InstallationState;
 use PDO;
@@ -39,6 +41,77 @@ final class SiteBackup
         if($parts[1]==='packages' && ($parts[2]??null)==='module-licenses'
             && isset($parts[3]) && str_starts_with($parts[3],'.'))return false;
         return true;
+    }
+
+    /**
+     * Manual operator backup with the same token-owned local maintenance
+     * marker as scheduled jobs. Explicit pause acknowledgments are NOT
+     * evidence of independent SQL/Pro worker quiescence.
+     *
+     * @return array<string,mixed> Authenticated archive report
+     */
+    public function createCoordinated(
+        string $destination, string $hexKey, bool $writesPaused, bool $proJobsStopped
+    ): array {
+        if (PHP_SAPI !== 'cli' || !$writesPaused) {
+            throw new RuntimeException('Console operator must pause site writes before backup.');
+        }
+        if (preg_match('/^[a-f0-9]{64}$/D', $hexKey) !== 1) {
+            throw new RuntimeException('A separate 256-bit offline backup key is required.');
+        }
+        $root = realpath($this->root);
+        $parent = realpath(dirname($destination));
+        $mode = $parent !== false ? @fileperms($parent) : false;
+        if ($root === false || $parent === false || is_link(dirname($destination))
+            || $parent === $root || str_starts_with($parent, $root.'/')
+            || !is_int($mode) || ($mode & 0077) !== 0
+            || !str_ends_with($destination, '.acfull')
+            || file_exists($destination) || is_link($destination)) {
+            throw new RuntimeException('Choose a new .acfull archive in an owner-only directory outside the site.');
+        }
+
+        // Do not take a database connection or capture the installed edition
+        // before establishing the local maintenance boundary.
+        $admission = BackupMaintenanceAdmission::begin($root);
+        $token = $admission['finish_token'];
+        try {
+            $gate = new InstallationGate($root);
+            if ($gate->status() !== InstallationGate::BACKUP_MAINTENANCE
+                || !$gate->eligibleForBackup()) {
+                throw new RuntimeException('Installed backup maintenance state is inconsistent.');
+            }
+            $appKey = require $root.'/config/app-key.php';
+            $rawState = file_get_contents($root.'/storage/install-state.json');
+            if (!is_string($appKey) || !is_string($rawState)
+                || !InstallationState::valid($rawState, $appKey)) {
+                throw new RuntimeException('Signed installed edition cannot be verified.');
+            }
+            $edition = json_decode($rawState, true, 8, JSON_THROW_ON_ERROR)['edition'];
+            if ($edition === 'pro' && !$proJobsStopped) {
+                throw new RuntimeException('Operator must first stop all Pro workers.');
+            }
+            $pdo = Connection::open($root);
+            if ($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn() !== $edition) {
+                throw new RuntimeException('Database edition differs from signed installation.');
+            }
+
+            $stats = $this->create($pdo, $destination, $hexKey);
+            // Authenticate every archive record and the original installed
+            // site key; do not report a successful backup on a partial or
+            // mismatched export. Preserve failed evidence for operator review.
+            $report = (new BackupVerifier())->verify($destination, $hexKey, $appKey);
+            foreach ($stats as $field => $value) {
+                if (($report[$field] ?? null) !== $value) {
+                    throw new RuntimeException('Encrypted archive verification totals differ.');
+                }
+            }
+            if ($report['edition'] !== $edition) {
+                throw new RuntimeException('Encrypted archive edition differs from installed site.');
+            }
+            return $report;
+        } finally {
+            BackupMaintenanceAdmission::finish($root, $token);
+        }
     }
 
     /** CLI-managed export; quiesce site and Pro workers before calling. */
