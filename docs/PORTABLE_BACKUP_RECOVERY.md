@@ -27,10 +27,15 @@ From the *installed* Adult_Core root, with `install/` already physically removed
 php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'
 
 # Set AC_BACKUP_KEY only in this shell or a secret manager; DO NOT put it in scripts or web config.
+# First stop independent SQL/filesystem writers and uploads; for Pro also stop workers.
+export AC_BACKUP_WRITES_PAUSED=YES
+# On Pro only, after stopping all Pro workers: export AC_PRO_JOBS_STOPPED=YES
 AC_BACKUP_KEY="$OFFLINE_KEY" php scripts/backup-site.php /private/offsite-backups/adult-core-2026-11-20.acfull
 ```
 
-The destination must be a **new file outside the entire site root**. The file is permission-restricted; copy it to separately controlled off-server storage. Check it can be decrypted in a nonproduction drill. Without the offline key it is not recoverable. Never use `config/app-key.php` as the backup key.
+The manual command now requires the same token-owned local maintenance admission as the scheduled backup job. It refuses active cooperating local requests/receipts/workers, confirms the signed installed edition matches MySQL, authenticates the completed archive against this site's app key, and reports its SHA-256 only after verified cleanup. Operator acknowledgments are still required; this does not independently stop external writers or workers. A hard crash retains the marker for operator review.
+
+The destination must be a **new file in an owner-only directory outside the entire site root**. The file is permission-restricted; copy it to separately controlled off-server storage. Check it can be decrypted in a nonproduction drill. Without the offline key it is not recoverable. Never use `config/app-key.php` as the backup key.
 
 ## Restore (never on a live site)
 
