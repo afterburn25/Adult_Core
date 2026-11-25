@@ -2171,6 +2171,39 @@ try {
     $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1 AND edition='lite'");
     if ((new InstallationGate($root))->status()!==InstallationGate::EDITION_UPGRADE_PENDING)
         throw new RuntimeException('Crashed upgrade failed to lock every site route.');
+    $pendingEdition=$root.'/storage/.edition-upgrade-pending';
+    $beforeRollbackMarker=file_get_contents($pendingEdition);
+    $beforeRollbackConfig=file_get_contents($root.'/config/license.php');
+    $beforeRollbackState=file_get_contents($root.'/storage/install-state.json');
+    $assertEditionRecoveryUnchanged=static function()use(
+        $pdo,$root,$pendingEdition,$beforeRollbackMarker,$beforeRollbackConfig,$beforeRollbackState
+    ):void {
+        if($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='pro'
+            ||file_get_contents($pendingEdition)!==$beforeRollbackMarker
+            ||file_get_contents($root.'/config/license.php')!==$beforeRollbackConfig
+            ||file_get_contents($root.'/storage/install-state.json')!==$beforeRollbackState){
+            throw new RuntimeException('Refused console edition recovery changed SQL or private state.');
+        }
+    };
+    $rejectEditionRecovery=static function()use($normalUpgrade,$assertEditionRecoveryUnchanged):void{
+        try{
+            $normalUpgrade->rollback();
+            throw new RuntimeException('Conflicting console edition recovery was accepted.');
+        }catch(RuntimeException $error){
+            if($error->getMessage()==='Conflicting console edition recovery was accepted.')throw $error;
+        }
+        $assertEditionRecoveryUnchanged();
+    };
+    $reader=SourceHttpRequestLock::enter($root);
+    try{$rejectEditionRecovery();}finally{fclose($reader);}
+    $operator=SourceHttpRequestLock::exclusive($root);
+    try{$rejectEditionRecovery();}finally{fclose($operator);}
+    foreach(['.license-update-pending','.backup-restore-pending',
+        '.backup-maintenance','.source-update-maintenance'] as $otherMarker){
+        $other=$root.'/storage/'.$otherMarker;
+        \AdultCore\Installer\AtomicFile::write($other,'disposable overlapping recovery');
+        try{$rejectEditionRecovery();}finally{unlink($other);}
+    }
     $normalUpgrade->rollback();
     if ((new InstallationGate($root))->status()!==InstallationGate::READY
         || $pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='lite'
