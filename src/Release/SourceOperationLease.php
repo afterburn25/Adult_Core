@@ -148,6 +148,18 @@ final class SourceOperationLease
             throw new RuntimeException('Source coordination release token is invalid.');
         }
         $site = self::site($installedRoot);
+        // An installed site and operator's source-maintenance begin/end
+        // MUST serialize on the same local exclusive flock. Otherwise a
+        // release could discard the lease after begin's ownership check,
+        // stranding a newly written HTTP maintenance marker without an owner.
+        // Bare installer-free offline coordination fixtures may lack storage;
+        // any PRESENT but unsafe storage must fail closed.
+        $siteStorage = $site . '/storage';
+        $sourceGuard = null;
+        if (file_exists($siteStorage) || is_link($siteStorage)) {
+            $sourceGuard = SourceHttpRequestLock::exclusive($site);
+        }
+        try {
         $parent = self::parent($privateCoordinationRoot, $site);
         $path = $parent . '/' . self::DIRECTORY;
         if (is_link($path) || !is_dir($path)) {
@@ -189,6 +201,9 @@ final class SourceOperationLease
         } finally {
             flock($handle, LOCK_UN);
             fclose($handle);
+        }
+        } finally {
+            if (is_resource($sourceGuard)) fclose($sourceGuard);
         }
     }
 
