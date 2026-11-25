@@ -281,6 +281,69 @@ try{
     verifyRecovery(hash_file('sha256',$archive)===$originalArchiveHash
         && !file_exists($src.'/storage/.backup-maintenance'),
         'Coordinated manual backup refuses existing archive without changing site or bytes');
+    // Execute the real scheduled CLI against this disposable installed root.
+    // Only its autoloader is forwarded to the checked-out source tree.
+    mkdir($src.'/scripts',0700);
+    mkdir($src.'/src/Support',0700,true);
+    copy(dirname(__DIR__).'/scripts/backup-job.php',$src.'/scripts/backup-job.php');
+    file_put_contents($src.'/src/Support/Autoload.php',
+        '<?php require '.var_export(dirname(__DIR__).'/src/Support/Autoload.php',true).';');
+    $scheduledStage=$base.'/scheduled-stage';
+    $scheduledVault=$base.'/scheduled-vault';
+    mkdir($scheduledStage,0700);mkdir($scheduledVault,0700);
+    $runScheduled=static function(bool $paused,bool $proStopped)use(
+        $src,$scheduledStage,$scheduledVault,$backupKey
+    ):array{
+        $env=array_merge(getenv(),[
+            'AC_BACKUP_KEY'=>$backupKey,
+            'AC_BACKUP_WRITES_PAUSED'=>$paused?'YES':'NO',
+            'AC_PRO_JOBS_STOPPED'=>$proStopped?'YES':'NO',
+        ]);
+        $pipes=[];
+        $process=proc_open([PHP_BINARY,$src.'/scripts/backup-job.php',$scheduledStage,$scheduledVault,'2'],
+            [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,null,$env);
+        if(!is_resource($process))throw new RuntimeException('Cannot launch disposable scheduled backup CLI.');
+        fclose($pipes[0]);$stdout=stream_get_contents($pipes[1]);fclose($pipes[1]);
+        $stderr=stream_get_contents($pipes[2]);fclose($pipes[2]);
+        return [proc_close($process),$stdout,$stderr];
+    };
+    $rejectScheduled=static function(bool $paused,bool $proStopped)use(
+        $runScheduled,$src,$scheduledStage,$scheduledVault
+    ):void{
+        [$exit,$stdout,$stderr]=$runScheduled($paused,$proStopped);
+        verifyRecovery($exit!==0&&!str_contains($stdout,'backup complete')
+            &&!(glob($scheduledStage.'/*.acfull')?:[])
+            &&!(glob($scheduledVault.'/*.acfull')?:[])
+            &&!file_exists($src.'/storage/.backup-maintenance')
+            &&!file_exists($src.'/storage/.backup-job.lock'),
+            'Refused scheduled backup does not publish archives or leave owned lock');
+    };
+    $rejectScheduled(false,false);
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{$rejectScheduled(true,true);}
+    finally{$pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");}
+    file_put_contents($src.'/storage/install-state.json',
+        \AdultCore\Installer\InstallationState::encode('pro',$appKey));
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{$rejectScheduled(true,false);}
+    finally{
+        $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+        file_put_contents($src.'/storage/install-state.json',$originalState);
+    }
+    [$scheduledExit,$scheduledOut,$scheduledErr]=$runScheduled(true,false);
+    $staged=glob($scheduledStage.'/*.acfull')?:[];
+    $shipped=glob($scheduledVault.'/*.acfull')?:[];
+    verifyRecovery($scheduledExit===0&&count($staged)===1&&count($shipped)===1
+        &&str_contains($scheduledOut,'Encrypted lite backup complete')
+        &&!str_contains($scheduledOut,$backupKey)
+        &&!str_contains($scheduledOut,$appKey)
+        &&!file_exists($src.'/storage/.backup-maintenance')
+        &&!file_exists($src.'/storage/.backup-job.lock'),
+        'Real scheduled CLI creates and ships one verified backup without leaking credentials');
+    $scheduledReport=(new BackupVerifier())->verify($shipped[0],$backupKey,$appKey);
+    verifyRecovery($scheduledReport['sha256']===hash_file('sha256',$staged[0])
+        &&$scheduledReport['edition']==='lite','Scheduled vault contains the exact installed-site archive');
+
     removeDisposableTables($pdo);Schema::assertFresh($pdo);
     testRoot($dst);
     copy($src.'/config/database.php',$dst.'/config/database.php');
