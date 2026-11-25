@@ -25,6 +25,39 @@ try {
     backupReject(static fn()=>StreamArchive::write($path,$key,static fn($emit)=>$emit(['type'=>'end'])),'Cannot overwrite existing archive');
     backupReject(static fn()=>StreamArchive::write($tmp.'/weak.acfull','bad-key',static fn($emit)=>$emit(['type'=>'end'])),'Weak key denied');
     backupAssert(!is_file($tmp.'/weak.acfull'),'Invalid-key attempt cleans empty output');
+    $authenticated=StreamArchive::readVerified($path,$key,static fn(array $r)=>null);
+    backupAssert($authenticated['records']===6
+        &&$authenticated['sha256']===hash_file('sha256',$path),'Digest covers exactly the authenticated encrypted stream');
+    backupAssert((fileperms($path)&0077)===0,'New archive is created owner-only');
+    $swapped=$tmp.'/swapped.acfull';
+    copy($path,$swapped);
+    $replacement=$tmp.'/replacement.acfull';
+    StreamArchive::write($replacement,$key,static fn($emit)=>$emit(['type'=>'end']));
+    $replacementHash=hash_file('sha256',$replacement);
+    $swappedDuringRead=false;
+    backupReject(static function()use($swapped,$replacement,$key,&$swappedDuringRead):void{
+        StreamArchive::readVerified($swapped,$key,static function(array $r)use(
+            $swapped,$replacement,&$swappedDuringRead
+        ):void{
+            if(!$swappedDuringRead){
+                $swappedDuringRead=true;
+                if(!rename($replacement,$swapped))throw new RuntimeException('Cannot swap test archive.');
+            }
+        });
+    },'Replacing the path during an authenticated read fails closed');
+    backupAssert($swappedDuringRead&&hash_file('sha256',$swapped)===$replacementHash,
+        'Rejected read preserves the substituted file for investigation');
+    $output=$tmp.'/swapped-output.acfull';
+    backupReject(static function()use($output,$tmp,$key):void{
+        StreamArchive::write($output,$key,static function($emit)use($output,$tmp):void{
+            $emit(['type'=>'meta']);
+            if(!rename($output,$tmp.'/old-output.acfull'))throw new RuntimeException('Cannot move output fixture.');
+            file_put_contents($output,'unrelated replacement');
+            $emit(['type'=>'end']);
+        });
+    },'Replacing archive output during writing refuses success');
+    backupAssert(file_get_contents($output)==='unrelated replacement',
+        'Failed writer does not unlink a replacement file it did not create');
     $bytes=file_get_contents($path);$rows=explode("\n",trim($bytes));
     file_put_contents($tmp.'/truncated.acfull',implode("\n",array_slice($rows,0,-1))."\n");
     backupReject(static fn()=>StreamArchive::read($tmp.'/truncated.acfull',$key,static fn(array $r)=>null),'Truncated archive denied');
