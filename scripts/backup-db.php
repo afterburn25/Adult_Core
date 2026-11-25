@@ -8,6 +8,7 @@ require dirname(__DIR__) . '/src/Support/Autoload.php';
 use AdultCore\Backup\EncryptedSnapshot;
 use AdultCore\Database\Connection;
 use AdultCore\Database\Schema;
+use AdultCore\Database\ProvisioningLock;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Installer\InstallationState;
 use AdultCore\Release\BackupMaintenanceAdmission;
@@ -27,6 +28,7 @@ if (count($argv)!==2 || !is_string($key) || !preg_match('/^[a-f0-9]{64}$/D',$key
 }
 $token=null;
 $pdo=null;
+$databaseLock=null;
 $exit=0;
 try {
     $admission=BackupMaintenanceAdmission::begin($root);
@@ -42,6 +44,7 @@ try {
     if($edition==='pro'&&getenv('AC_PRO_JOBS_STOPPED')!=='YES')
         throw new RuntimeException('Operator must stop Pro workers before snapshot.');
     $pdo=Connection::open($root);
+    $databaseLock=ProvisioningLock::acquire($pdo);
     $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
     $pdo->beginTransaction();
     Schema::verify($pdo);
@@ -70,6 +73,7 @@ try {
         }finally{$query->closeCursor();}
     }
     $document=json_encode(['version'=>1,'created_at'=>gmdate('c'),'tables'=>$rows],JSON_THROW_ON_ERROR);
+    $databaseLock->assertHeld();
     $pdo->commit();
     $sealed=EncryptedSnapshot::seal($document,$key);
     // Do not overwrite or follow a replacement file, even on failure.
@@ -109,6 +113,13 @@ try {
     fwrite(STDERR,"Backup failed: ".$error->getMessage()."\n");
     $exit=1;
 }finally{
+    if($databaseLock!==null){
+        try{$databaseLock->release();}
+        catch(Throwable $error){
+            fwrite(STDERR,"Database maintenance lock cleanup failed; operator review required.\n");
+            $exit=1;
+        }
+    }
     if($token!==null){
         try{BackupMaintenanceAdmission::finish($root,$token);}
         catch(Throwable $error){
