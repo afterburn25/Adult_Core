@@ -405,6 +405,17 @@ try{
     testRoot($dst);
     copy($src.'/config/database.php',$dst.'/config/database.php');
     $recovery=new SiteBackup($dst);
+    $held=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try{
+        $blocked=false;
+        try{$recovery->restore(Connection::open($dst),$archive,$backupKey);}
+        catch(RuntimeException $error){$blocked=str_contains($error->getMessage(),'Another database provisioning operation');}
+        verifyRecovery($blocked,'Restore from a different SQL session refuses provisioning contention');
+        Schema::assertFresh($pdo);
+        verifyRecovery(scandir($dst.'/storage')===['.','..','.gitkeep']
+            &&!file_exists($dst.'/config/app-key.php'),'Contending restore does not stage files or publish a marker');
+        $held->assertHeld();
+    }finally{$held->release();}
     try{$recovery->restore(Connection::open($dst),$archive,bin2hex(random_bytes(32)));throw new RuntimeException('Wrong-key restore accepted');}
     catch(RuntimeException $e){if($e->getMessage()==='Wrong-key restore accepted')throw $e;}
     Schema::assertFresh($pdo);
