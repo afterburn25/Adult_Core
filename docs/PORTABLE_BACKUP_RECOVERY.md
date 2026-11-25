@@ -52,6 +52,12 @@ AC_BACKUP_KEY="$OFFLINE_KEY" php scripts/restore-site.php --confirm-empty-target
 
 The tool refuses any existing installed site or any nonempty target database. It preflights authenticated archive records, path validation, file hashes, exact source version and signed install state **before** importing database tables. It imports schema/rows and then publishes staged private files. An interrupted or failed import can leave partial MySQL DDL (MySQL DDL auto-commits). The persistent `storage/.backup-restore-pending` file blocks all site/admin HTTP routes: **never delete it to bypass recovery**. Wipe the failed, isolated target, create a new empty database/source tree and retry from the encrypted archive; do not attempt to patch or merge into an existing installation.
 
+## Authenticated stream identity and restore substitution protection
+
+The archive reader now computes SHA-256 directly over the encrypted bytes it authenticates, instead of reopening the filename after verification. It refuses a replaced inode or detectable size/timestamp change during reading. New archives are created owner-only, flushed and synced where supported; a failed write does not unlink a replacement file owned by a different operation. The archive format remains unchanged.
+
+Restore binds the database row import to the exact authenticated archive fingerprint established during preflight. A different archive, even one independently authenticated with the same key, cannot commit imported rows. If replacement is discovered after DDL began, InnoDB row changes are rolled back and the recovery marker is retained; no staged private files are published. Reinitialize the disposable failed target as described above. This is not filesystem snapshot isolation or a protection against arbitrary noncooperating same-account writers; keep archives and their containing directories private and unchanged throughout restore.
+
 ## Verification and outstanding work
 
 - Local: `php tests/backup_tests.php` and the existing test suites (archive cryptography, tampering/truncation/replay and unsafe-path handling).
