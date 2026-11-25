@@ -16,6 +16,7 @@ use AdultCore\Backup\BackupVerifier;
 use AdultCore\Backup\SiteBackup;
 use AdultCore\Database\Connection;
 use AdultCore\Installer\InstallationGate;
+use AdultCore\Installer\InstallationState;
 use AdultCore\Release\BackupMaintenanceAdmission;
 
 $root = dirname(__DIR__);
@@ -53,11 +54,6 @@ try {
     }
     $gate = new InstallationGate($root);
     if ($gate->status() !== InstallationGate::READY) throw new RuntimeException('Site is not installed and ready for maintenance.');
-    $pdo = Connection::open($root);
-    $edition = (string)$pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn();
-    if ($edition === 'pro' && getenv('AC_PRO_JOBS_STOPPED') !== 'YES') {
-        throw new RuntimeException('Pro worker processes must be stopped and AC_PRO_JOBS_STOPPED=YES set by the operator.');
-    }
     $lock = @fopen($lockPath, 'x+b');
     if (!is_resource($lock)) throw new RuntimeException('Backup lock already exists; inspect for a crashed job.');
     $ownsLock = true;
@@ -72,16 +68,33 @@ try {
     if ($gate->status() !== InstallationGate::BACKUP_MAINTENANCE || !$gate->eligibleForBackup()) {
         throw new RuntimeException('Unable to isolate signed installation during maintenance.');
     }
+    // Read signed identity and the SQL edition only after maintenance owns
+    // the local admission boundary. Never authorize Pro based on stale Lite data.
+    $appKey = require $root.'/config/app-key.php';
+    $rawState = file_get_contents($root.'/storage/install-state.json');
+    if (!is_string($appKey) || !is_string($rawState)
+        || !InstallationState::valid($rawState, $appKey)) {
+        throw new RuntimeException('Signed installed identity cannot be verified.');
+    }
+    $edition = json_decode($rawState, true, 8, JSON_THROW_ON_ERROR)['edition'];
+    if ($edition === 'pro' && getenv('AC_PRO_JOBS_STOPPED') !== 'YES') {
+        throw new RuntimeException('Pro worker processes must be stopped and AC_PRO_JOBS_STOPPED=YES set by the operator.');
+    }
+    $pdo = Connection::open($root);
+    if ($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn() !== $edition) {
+        throw new RuntimeException('Database edition differs from signed installation.');
+    }
     $name = 'adult-core-staging-'.gmdate('Ymd\THis\Z').'-'.bin2hex(random_bytes(6)).'.acfull';
     $archive = $staging.'/'.$name;
     $stats = (new SiteBackup($root))->create($pdo, $archive, $key);
-    $verified = (new BackupVerifier())->verify($archive, $key);
+    $verified = (new BackupVerifier())->verify($archive, $key, $appKey);
+    if ($verified['edition'] !== $edition) throw new RuntimeException('Archive edition differs from signed installation.');
     foreach ($stats as $field => $value) {
         if (($verified[$field] ?? null) !== $value) throw new RuntimeException('Backup totals do not match authenticated archive.');
     }
-    $sent = (new BackupVault($root))->ship($archive, $vault, $key, (int)$retain);
+    $sent = (new BackupVault($root))->ship($archive, $vault, $key, (int)$retain, $appKey, $verified['sha256']);
     echo "Encrypted {$edition} backup complete: {$verified['tables']} tables, {$verified['rows']} rows, {$verified['files']} files.\n";
-    echo "Vault copy: {$sent['archive']} (SHA-256 {$sent['sha256']}); pruned {$sent['pruned']}, preserved invalid {$sent['skipped_invalid']}.\n";
+    echo "Vault copy: {$sent['archive']} (SHA-256 {$sent['sha256']}); pruned {$sent['pruned']}, preserved foreign/invalid {$sent['skipped_invalid']}.\n";
     echo "Verified staging copy retained at {$archive}. Confirm remote replication and test an isolated restore.\n";
 } catch (Throwable $e) {
     fwrite(STDERR, "Backup job failed: ".$e->getMessage()."\n");
