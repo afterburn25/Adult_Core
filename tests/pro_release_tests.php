@@ -17,6 +17,18 @@ $conflict=JobEnvelope::create('pro-job-00001','video.transcode',['asset_id'=>999
 try {$inbox->accept($conflict,$secret);throw new RuntimeException('Conflicting job accepted');}
 catch(RuntimeException $e){ck($e->getMessage()!=='Conflicting job accepted','Reused Pro job ID with different asset rejected');}
 $receiptPath=$root.'/storage/pro-jobs/'.hash('sha256','pro-job-00001').'.json';
+ck((fileperms($root.'/storage/pro-jobs') & 0077)===0
+    &&(fileperms($receiptPath) & 0077)===0,
+    'New signed Pro receipt is stored only inside owner-private directory and file');
+chmod($receiptPath,0644);
+try {$inbox->accept($job,$secret);throw new RuntimeException('Publicly readable receipt replay accepted');}
+catch(RuntimeException $e){ck($e->getMessage()!=='Publicly readable receipt replay accepted',
+    'An owner-insecure existing receipt cannot be silently treated as a valid replay');}
+chmod($receiptPath,0600);
+chmod($root.'/storage/pro-jobs',0755);
+ck(!$inbox->accept($job,$secret)
+    &&(fileperms($root.'/storage/pro-jobs') & 0077)===0,
+    'Receipt admission normalizes a pre-existing world-traversable inbox before reading');
 $original=file_get_contents($receiptPath);
 file_put_contents($receiptPath,'{"unfinished":');
 try {$inbox->accept($job,$secret);throw new RuntimeException('Truncated receipt accepted');}
