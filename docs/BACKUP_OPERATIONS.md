@@ -63,6 +63,10 @@ The sender verifies the source *before* copying, creates a randomized private st
 
 The vault must have `0700` permissions. It may be a secured remote mount, but the tool cannot prove the remote host is reachable or that a provider has replicated the bytes; verify that separately. Monitor return codes, free space, skipped invalid archives and stale locks.
 
+### Site-bound vault retention
+
+The transfer tool now verifies an opaque, encryption-key-scoped binding to the signed installation's random application key. Retention counts only authenticated backups from the same installation as the newly transferred archive, even when several installations accidentally share an encryption key. Valid foreign-site archives, corrupted archives and archives encrypted with another key remain untouched, regardless of age. `retained` counts all matching named archives that remain; `skipped_invalid` includes preserved foreign-site or unverifiable archives. The private comparison value and application key never appear in normal reports. Retention still requires a private trusted vault and does not provide distributed locking or remote replication assurance.
+
 ## 4. Controlled scheduled backup job
 
 ```bash
@@ -74,6 +78,8 @@ export AC_BACKUP_WRITES_PAUSED=YES
 export AC_PRO_JOBS_STOPPED=YES
 php scripts/backup-job.php /private/staging /private/mounted-vault 7
 ```
+
+The scheduled job now reads the signed installed edition and SQL edition only after acquiring its own maintenance marker. A mismatch or missing Pro stop acknowledgment refuses export. It authenticates the completed staging archive against the installed application key and pins its verified SHA-256 through the vault copy. A valid but substituted archive is not eligible for transfer or retention.
 
 The job requires an already valid signed installation, an **empty backup-job lock**, an out-of-root private staging/vault pair, an external-write pause acknowledgment and, on Pro, a **stopped-Pro-worker acknowledgment**. It installs a private `storage/.backup-maintenance` marker that makes **all public and admin HTTP routes return 503**, performs an encrypted backup of the current schema/rows and files, verifies the archive, ships a verified copy, rotates only old verified vault archives, and then clears only the maintenance marker and job lock that it created. During a normal caught failure, the archive may remain in staging for salvage; the job exits nonzero and releases its own marker. After a hard crash, the maintenance marker/lock can persist and **must not be removed until an operator verifies no writer/export is active and the site state is sound**.
 
