@@ -2185,6 +2185,23 @@ try {
     try { $normalUpgrade->preflight($proKey,'other.example');
         throw new RuntimeException('Cross-domain Pro upgrade was accepted.');
     } catch (RuntimeException $e) { if ($e->getMessage()==='Cross-domain Pro upgrade was accepted.') throw $e; }
+    $dbBusy=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    $beforeBusyState=file_get_contents($root.'/storage/install-state.json');
+    try{
+        try{
+            $normalUpgrade->upgrade($proKey,'127.0.0.1');
+            throw new RuntimeException('Competing database maintenance allowed an edition upgrade.');
+        }catch(RuntimeException $error){
+            if(!str_contains($error->getMessage(),'Another database provisioning operation'))throw $error;
+        }
+        if($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='lite'
+            ||file_get_contents($root.'/storage/install-state.json')!==$beforeBusyState
+            ||file_exists($root.'/storage/.edition-upgrade-pending')
+            ||file_exists($root.'/storage/.edition-upgrade-backup')){
+            throw new RuntimeException('Refused concurrent edition upgrade altered private or database state.');
+        }
+        $dbBusy->assertHeld();
+    }finally{$dbBusy->release();}
     $noAgent=new \AdultCore\Licensing\EditionUpgrade($root,$proClient,static fn():array=>['php_83']);
     try {$noAgent->upgrade($proKey,'127.0.0.1');
         throw new RuntimeException('Pro upgrade allowed on Lite-only host.');
@@ -2243,6 +2260,8 @@ try {
         \AdultCore\Installer\AtomicFile::write($other,'disposable overlapping recovery');
         try{$rejectEditionRecovery();}finally{unlink($other);}
     }
+    $dbBusy=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try{$rejectEditionRecovery();$dbBusy->assertHeld();}finally{$dbBusy->release();}
     $normalUpgrade->rollback();
     if ((new InstallationGate($root))->status()!==InstallationGate::READY
         || $pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!=='lite'

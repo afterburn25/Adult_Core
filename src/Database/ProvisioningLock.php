@@ -8,9 +8,10 @@ use PDO;
 use RuntimeException;
 
 /**
- * Nonblocking, connection-scoped MySQL/MariaDB provisioning mutex.
- * Different application roots targeting the same schema on one DB server
- * must not simultaneously create or restore its tables.
+ * Nonblocking, connection-scoped MySQL/MariaDB database maintenance mutex.
+ * Cooperating installation, restoration, backup and edition transitions
+ * targeting one database cannot overlap across different application roots.
+ * Keep the original provisioning lock namespace for backward compatibility.
  * This is advisory: unrelated SQL clients and older releases can ignore it.
  */
 final class ProvisioningLock

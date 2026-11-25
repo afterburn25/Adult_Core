@@ -258,6 +258,13 @@ try{
         $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
         file_put_contents($src.'/storage/install-state.json',$originalState);
     }
+    $dbBusy=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try {
+        $rejectManual(true,false);
+        verifyRecovery(!file_exists($archive)&&!file_exists($src.'/storage/.backup-maintenance'),
+            'Manual backup refuses a competing SQL maintenance session');
+        $dbBusy->assertHeld();
+    } finally {$dbBusy->release();}
     $report=$manual->createCoordinated($archive,$backupKey,true,false);
     $stats=array_intersect_key($report,array_flip(['tables','rows','files','file_bytes']));
     verifyRecovery($report['edition']==='lite' && $report['sha256']===hash_file('sha256',$archive),
@@ -319,6 +326,8 @@ try{
             'Refused scheduled backup does not publish archives or leave owned lock');
     };
     $rejectScheduled(false,false);
+    $dbBusy=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try{$rejectScheduled(true,false);$dbBusy->assertHeld();}finally{$dbBusy->release();}
     $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
     try{$rejectScheduled(true,true);}
     finally{$pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");}
@@ -366,6 +375,8 @@ try{
             'Refused small SQL snapshot leaves no output or owned marker');
     };
     $rejectSmall($snapshot,false,false);
+    $dbBusy=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try{$rejectSmall($snapshot,true,false);$dbBusy->assertHeld();}finally{$dbBusy->release();}
     $rejectSmall($src.'/inside.acbak',true,false);
     $guard=SourceHttpRequestLock::enter($src);
     try{$rejectSmall($snapshot,true,false);}finally{fclose($guard);}
