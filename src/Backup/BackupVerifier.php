@@ -59,7 +59,7 @@ final class BackupVerifier
         $finished = false;
         $capture = ['config/app-key.php' => 4096, 'storage/install-state.json' => 4096];
 
-        StreamArchive::read($archive, $key, static function (array $r) use (
+        $authenticated = StreamArchive::readVerified($archive, $key, static function (array $r) use (
             &$phase, &$meta, &$tables, &$paths, &$stats, &$current, &$planned, &$count,
             &$hash, &$sensitive, &$finished, $capture
         ): void {
@@ -174,8 +174,7 @@ final class BackupVerifier
         if (($installed['edition'] ?? null) !== $meta['edition']) {
             throw new RuntimeException('Backup installation edition differs from metadata.');
         }
-        $digest = hash_file('sha256', $archive);
-        if (!is_string($digest)) throw new RuntimeException('Unable to hash verified backup.');
+        $digest = $authenticated['sha256'];
         $report = ['source_version' => $meta['source_version'], 'edition' => $meta['edition']]
             + $stats + ['sha256' => $digest];
         if ($vaultBinding) {
