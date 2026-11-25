@@ -8,6 +8,7 @@ use AdultCore\Backup\SiteBackup;
 use AdultCore\Backup\StreamArchive;
 use AdultCore\Backup\BackupVerifier;
 use AdultCore\Backup\BackupVault;
+use AdultCore\Release\SourceHttpRequestLock;
 use AdultCore\Database\Schema;
 use AdultCore\Database\Connection;
 use AdultCore\Installer\InstallService;
@@ -223,11 +224,47 @@ try{
     verifyRecovery((new InstallationGate($src))->status()===InstallationGate::READY,'Source is installed');
     $originalState=file_get_contents($src.'/storage/install-state.json');
     $originalMfaHash=(string)$pdo->query("SELECT password_hash FROM ac_users WHERE email='owner@example.test'")->fetchColumn();
-    file_put_contents($src.'/storage/.backup-maintenance','site writes paused for disposal fixture');
-    verifyRecovery((new InstallationGate($src))->status()===InstallationGate::BACKUP_MAINTENANCE,'Maintenance gate locks HTTP during real database backup');
-    $stats=(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);
-    unlink($src.'/storage/.backup-maintenance');
-    verifyRecovery((new InstallationGate($src))->status()===InstallationGate::READY,'Temporary backup maintenance releases signed site');
+    $manual=new SiteBackup($src);
+    $rejectManual=static function(bool $paused,bool $proStopped)use($manual,$archive,$backupKey):void{
+        try{
+            $manual->createCoordinated($archive,$backupKey,$paused,$proStopped);
+            throw new RuntimeException('Unsafe manual backup accepted.');
+        }catch(RuntimeException $error){
+            if($error->getMessage()==='Unsafe manual backup accepted.')throw $error;
+        }
+    };
+    $rejectManual(false,false);
+    verifyRecovery(!file_exists($archive)&&!file_exists($src.'/storage/.backup-maintenance'),
+        'Manual backup requires explicit operator writer pause before taking a marker');
+    $reader=SourceHttpRequestLock::enter($src);
+    try{$rejectManual(true,false);}finally{fclose($reader);}
+    verifyRecovery(!file_exists($archive)&&!file_exists($src.'/storage/.backup-maintenance'),
+        'Active local request refuses manual backup before marker or archive');
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{
+        $rejectManual(true,true);
+        verifyRecovery(!file_exists($archive)&&!file_exists($src.'/storage/.backup-maintenance'),
+            'Manual backup refuses mismatched signed/database edition and clears only its own marker');
+    }finally{$pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");}
+    $appKey=require $src.'/config/app-key.php';
+    file_put_contents($src.'/storage/install-state.json',
+        \AdultCore\Installer\InstallationState::encode('pro',$appKey));
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{
+        $rejectManual(true,false);
+        verifyRecovery(!file_exists($archive)&&!file_exists($src.'/storage/.backup-maintenance'),
+            'Signed Pro manual backup requires separate stopped-worker acknowledgment');
+    }finally{
+        $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+        file_put_contents($src.'/storage/install-state.json',$originalState);
+    }
+    $report=$manual->createCoordinated($archive,$backupKey,true,false);
+    $stats=array_intersect_key($report,array_flip(['tables','rows','files','file_bytes']));
+    verifyRecovery($report['edition']==='lite' && $report['sha256']===hash_file('sha256',$archive),
+        'Manual coordinated backup verifies exact-site encrypted archive before returning');
+    verifyRecovery((new InstallationGate($src))->status()===InstallationGate::READY
+        && !file_exists($src.'/storage/.backup-maintenance'),
+        'Manual backup releases only its own temporary maintenance marker');
     verifyRecovery($stats['tables']>=7&&$stats['rows']>=6&&$stats['files']>=6,'Encrypted backup contains schema, rows and private files');
     verifyRecovery(is_file($archive)&&!str_contains((string)file_get_contents($archive),'Original member content preserved.'),'Archive is encrypted');
     $originalArchiveHash=hash_file('sha256',$archive);
@@ -240,6 +277,10 @@ try{
     try{(new SiteBackup($src))->create(Connection::open($src),$archive,$backupKey);throw new RuntimeException('Archive overwrite accepted');}
     catch(RuntimeException $e){if($e->getMessage()==='Archive overwrite accepted')throw $e;}
     verifyRecovery(is_file($archive)&&hash_file('sha256',$archive)===$originalArchiveHash,'Refused overwrite must preserve original backup byte-for-byte');
+    $rejectManual(true,false);
+    verifyRecovery(hash_file('sha256',$archive)===$originalArchiveHash
+        && !file_exists($src.'/storage/.backup-maintenance'),
+        'Coordinated manual backup refuses existing archive without changing site or bytes');
     removeDisposableTables($pdo);Schema::assertFresh($pdo);
     testRoot($dst);
     copy($src.'/config/database.php',$dst.'/config/database.php');
