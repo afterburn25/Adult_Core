@@ -120,6 +120,16 @@ final class SiteBackup
     {
         if(!(new InstallationGate($this->root))->eligibleForBackup())throw new RuntimeException('Only a completed, signed installation without pending recovery can be backed up.');
         $this->assertMysql($pdo);
+        $databaseLock=ProvisioningLock::acquire($pdo);
+        try {
+            return $this->createUnderDatabaseLock($pdo,$destination,$hexKey,$databaseLock);
+        } finally {
+            $databaseLock->release();
+        }
+    }
+
+    private function createUnderDatabaseLock(PDO $pdo,string $destination,string $hexKey,ProvisioningLock $databaseLock):array
+    {
         Schema::verify($pdo);
         $dir=realpath(dirname($destination));$root=realpath($this->root);
         if($dir===false||$root===false||$dir===$root||str_starts_with($dir,$root.'/')||is_link(dirname($destination))
@@ -131,9 +141,8 @@ final class SiteBackup
         $edition=(string)$pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn();
         if(!in_array($edition,['lite','pro'],true))throw new RuntimeException('Installed edition missing.');
         $stats=['tables'=>count($tables),'rows'=>0,'files'=>0,'file_bytes'=>0];
-        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        $pdo->exec('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
         $pdo->beginTransaction(); // repeatable-read snapshot; operator must pause schema migrations and file writers
-        $completedArchive=false;
         try {
             StreamArchive::write($destination,$hexKey,function(callable $emit)use($pdo,$tables,$fileList,$edition,&$stats):void{
                 $emit(['type'=>'meta','source_version'=>trim((string)file_get_contents($this->root.'/VERSION')),
@@ -183,13 +192,14 @@ final class SiteBackup
                 }
                 $emit(['type'=>'end']+$stats);
             });
-            $completedArchive=true;
+            $databaseLock->assertHeld();
             $pdo->commit();
             return $stats;
         }catch(Throwable $e){
             if($pdo->inTransaction())$pdo->rollBack();
-            // StreamArchive removes only archives it created. Never delete a pre-existing backup on an overwrite refusal.
-            if($completedArchive)@unlink($destination);
+            // Preserve completed encrypted evidence when SQL commit or lock
+            // verification fails. Never unlink a possibly replaced filename.
+            // StreamArchive itself removes only its own incomplete output.
             throw $e;
         }
     }
