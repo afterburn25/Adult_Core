@@ -136,6 +136,25 @@ try{
     $token=$claim['release_token'];
     $check(SourceOperationLease::matches($site,$coord,$token),
         'One-time coordinator token authenticates same installed root');
+    // Releasing the operator lease requires the same exclusive request
+    // coordination barrier as source begin/end. It must not race an active
+    // dynamic PHP request, signed receipt writer or future Pro executor.
+    $leaseReleaseReader=SourceHttpRequestLock::enter($site);
+    try {
+        $reject(static fn()=>SourceOperationLease::release($site,$coord,$token),
+            'Source lease cannot be released while a shared site request is active');
+        $check(SourceOperationLease::matches($site,$coord,$token),
+            'Denied release does not consume the operator token');
+    } finally {
+        fclose($leaseReleaseReader);
+    }
+    $leaseReleaseExclusive=SourceHttpRequestLock::exclusive($site);
+    try {
+        $reject(static fn()=>SourceOperationLease::release($site,$coord,$token),
+            'A competing exclusive maintenance guard prevents lease removal');
+    } finally {
+        fclose($leaseReleaseExclusive);
+    }
     $check(!SourceOperationLease::matches($site,$coord,str_repeat('f',64)),
         'Wrong token never authenticates maintenance ownership');
     // Local execution workers must be Pro-edition and must retain the
@@ -261,6 +280,10 @@ try{
         $check($ready==="REQUEST_LOCKED\n",'Independent PHP process holds shared request lock');
         $reject(static fn()=>SourceUpdateMaintenance::begin($site,$coord,$token),
             'Maintenance cannot start with an independent in-flight PHP request');
+        $reject(static fn()=>SourceOperationLease::release($site,$coord,$token),
+            'Independent in-flight PHP request also prevents source lease cleanup');
+        $check(SourceOperationLease::matches($site,$coord,$token),
+            'Cross-process refused lease cleanup retains operator ownership');
         $check(!file_exists($site.'/storage/.source-update-maintenance'),
             'Independent active request keeps maintenance marker absent');
     } finally {

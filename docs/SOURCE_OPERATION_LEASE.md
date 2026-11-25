@@ -32,6 +32,29 @@ php scripts/source-operation-lease.php release \
 
 The release command verifies the exact site root, receipt structure, SHA-256 token hash, private modes and directory inventory before removing the lease. A wrong token, unexpected file, symlink, corrupted receipt or interrupted acquisition fails closed. **There is no automatic lease expiry, reentry, stale-lock deletion or automatic recovery.** If a receipt is incomplete, retain the evidence and use a separately reviewed recovery procedure; never just delete a lock during possible active work.
 
+## Serialization with source HTTP maintenance (local host only)
+
+On an installed site with `storage/`, lease **release** now obtains the same
+nonblocking exclusive `SourceHttpRequestLock` as source-maintenance
+`begin()` and `end()`. The marker-presence check and verified lease removal
+run entirely under that guard; source maintenance rechecks token ownership
+**after** obtaining its exclusive guard, not only before it.
+
+This closes the local race where one process previously could remove a
+lease after another process's preliminary token check but before the
+source-maintenance marker was written, stranding the site with a marker
+whose owner lease had disappeared. If any cooperating local PHP request,
+signed Pro receipt writer or future Pro execution guard is active, lease
+release refuses without consuming the token. Retry only after that
+activity finishes, or enter/exit maintenance through the documented
+operator flow. No lock is silently stolen, deleted or expired.
+
+Bare offline fixtures without any installed `storage/` still use the
+original lease-only control; a present but unsafe storage directory
+fails closed. This is a **local filesystem advisory flock**, not a
+distributed barrier, independent DB transaction drain, Pro daemon
+shutdown, schema migration or live source activation.
+
 ## Limits and verification
 
 Existing staging/preflight scripts do not automatically acquire this lease; operators must coordinate voluntarily. The tool does not change the installation, license, database, authentication cookies or customer content. A coordination lease **does not mean** that PHP requests are paused or that a database restore/migration can be performed safely. Before any production updater is accepted, integrate site maintenance across web and workers, exclusive application-level locks, versioned migration checkpoints, backup/rollback and cPanel/VPS tests.

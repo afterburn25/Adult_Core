@@ -30,6 +30,8 @@ An owner-only `storage/.source-update-maintenance` is created exclusively. The f
 
 The read-only `status` command now cross-checks the marker's hashed owner token against the **exact private coordination lease**, not merely that both records look valid separately. A well-formed marker with a different lease hash returns `incomplete_manual_recovery_required` while HTTP remains blocked. Neither the raw token nor either credential hash appears in status output. This does not end maintenance or certify safe source activation.
 
+Source-maintenance `begin()` and `end()` now also **recheck the exact operator token while holding their nonblocking exclusive local lock**. Lease `release` obtains that same guard before inspecting/removing its owner receipt, preventing a race that could strand a newly created source marker after its lease vanished. An in-flight cooperating local PHP request or signed Pro worker/receipt will prevent release, so retry after it finishes. This does not stop independent SQL/FFmpeg or distributed writers.
+
 The coordination lease cannot be released while the marker exists, even with the right token. This prevents an operator from accidentally discarding the control token before dynamic HTTP is restored.
 
 ## 3. End HTTP maintenance, then release operator coordination
