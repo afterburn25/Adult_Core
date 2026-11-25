@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace AdultCore\Licensing;
 
 use AdultCore\Installer\InstallationState;
+use AdultCore\Installer\InstallationGate;
+use AdultCore\Release\ConsoleRecoveryGuard;
 use RuntimeException;
 use Throwable;
 
@@ -85,7 +87,16 @@ final class LicenseUpdateRecovery
 
     public function rollback(): void
     {
-        if (PHP_SAPI !== 'cli') throw new RuntimeException('Server console required.');
+        $guard = ConsoleRecoveryGuard::enter($this->root, InstallationGate::LICENSE_UPDATE_PENDING);
+        try {
+            $this->rollbackUnderGuard();
+        } finally {
+            fclose($guard);
+        }
+    }
+
+    private function rollbackUnderGuard(): void
+    {
         $marker = $this->root . self::MARKER;
         if (!is_file($marker) || is_link($marker) || !is_readable($marker)) {
             throw new RuntimeException('A regular private pending license update is required.');

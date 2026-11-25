@@ -11,6 +11,7 @@ use AdultCore\Edition\EditionSelector;
 use AdultCore\Installer\AtomicFile;
 use AdultCore\Installer\InstallationGate;
 use AdultCore\Installer\InstallationState;
+use AdultCore\Release\ConsoleRecoveryGuard;
 use Closure;
 use PDO;
 use RuntimeException;
@@ -146,12 +147,17 @@ final class EditionUpgrade
     /** Recovery from a crashed process: run locally with `php scripts/recover-edition-upgrade.php --rollback`. */
     public function rollback(): void
     {
-        $this->locked(function (): void {
-            if (!is_file($this->root . self::PENDING) || is_link($this->root . self::PENDING)) {
-                throw new RuntimeException('No pending edition transition is recorded. Nothing was changed.');
-            }
-            $this->rollbackLocked(Connection::open($this->root), $this->appKey());
-        });
+        $guard = ConsoleRecoveryGuard::enter($this->root, InstallationGate::EDITION_UPGRADE_PENDING);
+        try {
+            $this->locked(function (): void {
+                if (!is_file($this->root . self::PENDING) || is_link($this->root . self::PENDING)) {
+                    throw new RuntimeException('No pending edition transition is recorded. Nothing was changed.');
+                }
+                $this->rollbackLocked(Connection::open($this->root), $this->appKey());
+            });
+        } finally {
+            fclose($guard);
+        }
     }
 
     private function rollbackLocked(PDO $pdo, string $appKey): void
