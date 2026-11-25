@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Backup;
 
 use AdultCore\Database\Schema;
+use AdultCore\Database\ProvisioningLock;
 use AdultCore\Database\Connection;
 use AdultCore\Release\BackupMaintenanceAdmission;
 use AdultCore\Installer\InstallationGate;
@@ -197,6 +198,16 @@ final class SiteBackup
     public function restore(PDO $pdo,string $source,string $hexKey):array
     {
         $this->assertMysql($pdo);
+        $databaseLock=ProvisioningLock::acquire($pdo);
+        try {
+            return $this->restoreUnderDatabaseLock($pdo,$source,$hexKey,$databaseLock);
+        } finally {
+            $databaseLock->release();
+        }
+    }
+
+    private function restoreUnderDatabaseLock(PDO $pdo,string $source,string $hexKey,ProvisioningLock $databaseLock):array
+    {
         if(!is_file($this->root.'/install/index.php')||!is_file($this->root.'/VERSION')||!is_file($this->root.'/config/database.php')
             ||is_file($this->root.'/storage/install-state.json')||is_link($this->root.'/storage/install-state.json')
             ||is_file($this->root.'/config/app-key.php')||is_link($this->root.'/config/app-key.php')
@@ -272,6 +283,7 @@ final class SiteBackup
             }
             $installed=json_decode((string)file_get_contents($stage.'/storage/install-state.json'),true,8,JSON_THROW_ON_ERROR);
             if(($installed['edition']??null)!==$meta['edition'])throw new RuntimeException('Restored edition does not match the archive.');
+            $databaseLock->assertHeld();
             $this->assertEmptyDatabase($pdo);
             $marker=$this->root.'/storage/.backup-restore-pending';
             $pending=@fopen($marker,'x');if(!is_resource($pending))throw new RuntimeException('Unable to lock installation during recovery.');
@@ -306,6 +318,7 @@ final class SiteBackup
             if($pdo->query('SELECT edition FROM ac_installations WHERE id=1')->fetchColumn()!==$meta['edition']){
                 throw new RuntimeException('Restored database edition does not match signed files.');
             }
+            $databaseLock->assertHeld();
             foreach(array_keys($seen) as $rel){
                 $dst=$this->root.'/'.$rel;
                 if(file_exists($dst)||is_link($dst))throw new RuntimeException('Recovery target file unexpectedly exists.');
