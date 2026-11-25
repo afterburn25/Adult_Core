@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace AdultCore\Installer;
 
 use AdultCore\Database\Schema;
+use AdultCore\Database\ProvisioningLock;
 use AdultCore\Licensing\LicenseManager;
 use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Capability\HostInspector;
@@ -33,6 +34,7 @@ final class InstallService
             }
             throw new RuntimeException('Installation already running or locking unavailable.');
         }
+        $databaseLock = null;
         try {
             if ((new InstallationGate($this->root))->status() !== InstallationGate::SETUP_REQUIRED) {
                 throw new RuntimeException('Installation is already complete or invalid.');
@@ -90,6 +92,7 @@ final class InstallService
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_TIMEOUT => 5,
             ]);
+            $databaseLock = ProvisioningLock::acquire($pdo);
             Schema::assertFresh($pdo);
             Schema::create($pdo);
             $passwordHash = password_hash($fields['admin_password'], PASSWORD_DEFAULT);
@@ -115,6 +118,7 @@ final class InstallService
                 throw $error;
             }
             Schema::verify($pdo);
+            $databaseLock->assertHeld();
             $appKey = bin2hex(random_bytes(32));
             $db = [
                 'driver' => 'mysql', 'host' => $fields['db_host'], 'port' => $fields['db_port'],
@@ -128,8 +132,12 @@ final class InstallService
             AtomicFile::write($storage . '/install-state.json', InstallationState::encode($edition, $appKey));
             $this->audit('install_completed', $edition);
         } finally {
-            flock($lock, LOCK_UN);
-            fclose($lock);
+            try {
+                if ($databaseLock !== null) $databaseLock->release();
+            } finally {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
         }
     }
 
