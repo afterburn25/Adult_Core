@@ -62,6 +62,25 @@ The one self-hosted Lite/Pro application remains key-selected by Cajun Web Pro l
 
 `ProJobReceiptAudit` and `scripts/audit-pro-job-inbox.php` can check every local private Pro receipt's HMAC, original signed envelope and status, then report pending/processing counts. The key comes only from stdin, and counts never prove external workers drained. See [PRO_JOB_RECEIPT_AUDIT.md](PRO_JOB_RECEIPT_AUDIT.md).
 
+## Private receipt persistence and replay (shared-host security)
+
+`JobInbox::accept()` now **requires**, rather than merely attempts, private
+`0700` permissions on its `storage/pro-jobs` directory before it creates
+or reads any receipt. After exclusive creation it verifies the new file is
+an owner-only `0600` regular file with the same inode/device as the opened
+handle **before writing** the signed job metadata. Persistence flushes and
+fsyncs where supported; a failure rejects intake and removes the incomplete
+new receipt. Existing receipts with insecure modes cannot be accepted as
+idempotent replays, even if their contents have valid HMACs.
+
+The tests check a newly written receipt's private modes, refusal of a
+world-readable replay, and correction of an existing overly permissive
+private inbox directory before reading. The tests run only in disposable
+directories, not on customer receipts. This is filesystem integrity for
+**signed job receipts only**; it does not launch a Pro worker, enable
+FFmpeg/streaming, authorize private media publication, or satisfy
+production compliance and security signoff.
+
 ## Shared source-operation admission lock — local host only
 
 `JobInbox::accept()` now obtains the **same** private shared advisory flock held by dynamic `public/index.php` requests before its first admission-marker check. It holds this lock throughout receipt file creation, data persistence and duplicate-replay verification. `SourceUpdateMaintenance::begin()` and `end()` require an exclusive nonblocking lock on the same persistent `storage/.source-http-requests.lock` file. Whichever operation acquires its lock first wins: the operator refuses to publish the source marker while a signed receipt is being written, and an incoming receipt refuses when maintenance has exclusive control. `ProJobAdmission::status()` also reports closed under an operator's exclusive lock.
