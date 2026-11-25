@@ -1730,6 +1730,8 @@ try {
     $maintenanceCoord=sys_get_temp_dir().'/ac-maint-db-coord-'.bin2hex(random_bytes(8));
     if(!mkdir($maintenanceCoord,0700))throw new RuntimeException('Unable to create private source-maintenance fixture.');
     $fixtureAutoload=$root.'/src/Support/Autoload.php';
+    $createdSrcDir=!is_dir($root.'/src');
+    $createdSupportDir=!is_dir($root.'/src/Support');
     $createdFixtureAutoload=!is_file($fixtureAutoload);
     if($createdFixtureAutoload){
         if(!is_dir($root.'/src/Support')&&!mkdir($root.'/src/Support',0700,true)){
@@ -1817,7 +1819,7 @@ try {
             ||($cliEvidence['migration_ledger_sha256']??null)!==$migrationDigest
             ||($cliEvidence['ready_for_activation']??null)!==false
             ||str_contains($cliJson,$releaseToken)
-            ||str_contains($cliJson,$pass)){
+            ||($pass!=='' && str_contains($cliJson,$pass))){
             throw new RuntimeException('Installed maintenance SQL CLI did not produce redacted evidence.');
         }
         [$cliWrong,$cliWrongOut]=$runDbCli(str_repeat('f',64));
@@ -1834,11 +1836,9 @@ try {
         if($lease!==null)SourceOperationLease::release(
             $root,$maintenanceCoord,$lease['release_token']);
         rmdir($maintenanceCoord);
-        if($createdFixtureAutoload){
-            unlink($fixtureAutoload);
-            rmdir($root.'/src/Support');
-            rmdir($root.'/src');
-        }
+        if($createdFixtureAutoload)unlink($fixtureAutoload);
+        if($createdSupportDir)rmdir($root.'/src/Support');
+        if($createdSrcDir)rmdir($root.'/src');
     }
     if((new InstallationGate($root))->status()!==InstallationGate::READY
         ||InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest){
