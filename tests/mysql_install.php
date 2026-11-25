@@ -1729,6 +1729,10 @@ try {
     // This is a disposable MySQL/MariaDB fixture, NOT a customer operation.
     $maintenanceCoord=sys_get_temp_dir().'/ac-maint-db-coord-'.bin2hex(random_bytes(8));
     if(!mkdir($maintenanceCoord,0700))throw new RuntimeException('Unable to create private source-maintenance fixture.');
+    $createdVersionFixture=!is_file($root.'/VERSION');
+    if($createdVersionFixture && !copy(dirname(__DIR__).'/VERSION',$root.'/VERSION')){
+        throw new RuntimeException('Cannot prepare signed installed VERSION fixture.');
+    }
     $fixtureAutoload=$root.'/src/Support/Autoload.php';
     $createdSrcDir=!is_dir($root.'/src');
     $createdSupportDir=!is_dir($root.'/src/Support');
@@ -1836,6 +1840,7 @@ try {
         if($lease!==null)SourceOperationLease::release(
             $root,$maintenanceCoord,$lease['release_token']);
         rmdir($maintenanceCoord);
+        if($createdVersionFixture)unlink($root.'/VERSION');
         if($createdFixtureAutoload)unlink($fixtureAutoload);
         if($createdSupportDir)rmdir($root.'/src/Support');
         if($createdSrcDir)rmdir($root.'/src');
