@@ -18,6 +18,10 @@ use AdultCore\Release\SignedCandidateDbContract;
 use AdultCore\Release\SourceArchive;
 use AdultCore\Release\SourceStage;
 use AdultCore\Release\SourceUpdatePreflight;
+use AdultCore\Release\SourceOperationLease;
+use AdultCore\Release\SourceUpdateMaintenance;
+use AdultCore\Release\SourceHttpRequestLock;
+use AdultCore\Release\SourceMaintenanceDatabaseEvidence;
 use AdultCore\Auth\AdminAccounts;
 use AdultCore\Auth\StaffSchema;
 use AdultCore\Auth\StaffRepository;
@@ -1719,6 +1723,126 @@ try {
         || strlen($migrationDigest)!==64
         || InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest) {
         throw new RuntimeException('Identical database migration ledgers should hash deterministically.');
+    }
+    // Verify the same actual installed SQL ledger under a real token-owned
+    // source-maintenance marker and nonblocking exclusive local request lock.
+    // This is a disposable MySQL/MariaDB fixture, NOT a customer operation.
+    $maintenanceCoord=sys_get_temp_dir().'/ac-maint-db-coord-'.bin2hex(random_bytes(8));
+    if(!mkdir($maintenanceCoord,0700))throw new RuntimeException('Unable to create private source-maintenance fixture.');
+    $fixtureAutoload=$root.'/src/Support/Autoload.php';
+    $createdFixtureAutoload=!is_file($fixtureAutoload);
+    if($createdFixtureAutoload){
+        if(!is_dir($root.'/src/Support')&&!mkdir($root.'/src/Support',0700,true)){
+            throw new RuntimeException('Cannot prepare signed installed source fixture.');
+        }
+        if(!copy(dirname(__DIR__).'/src/Support/Autoload.php',$fixtureAutoload)){
+            throw new RuntimeException('Cannot copy installed source fixture.');
+        }
+    }
+    chmod($root.'/storage',0700);
+    $lease=null;
+    $maintenanceActive=false;
+    try{
+        $lease=SourceOperationLease::acquire($root,$maintenanceCoord);
+        $releaseToken=$lease['release_token'];
+        $inspectMaint=static fn()=>SourceMaintenanceDatabaseEvidence::inspect(
+            $root,$maintenanceCoord,$releaseToken,$pdo
+        );
+        try{
+            $inspectMaint();
+            throw new RuntimeException('Maintenance DB evidence accepted without a source marker.');
+        }catch(RuntimeException $error){
+            if($error->getMessage()==='Maintenance DB evidence accepted without a source marker.')throw $error;
+        }
+        SourceUpdateMaintenance::begin($root,$maintenanceCoord,$releaseToken);
+        $maintenanceActive=true;
+        $maintenanceEvidence=$inspectMaint();
+        if($maintenanceEvidence['signed_source_maintenance_owner_verified']!==true
+            ||$maintenanceEvidence['signed_installed_edition_matches_database']!==true
+            ||$maintenanceEvidence['installed_edition']!=='lite'
+            ||$maintenanceEvidence['migration_ledger_sha256']!==$migrationDigest
+            ||$maintenanceEvidence['two_ledger_reads_identical_at_scan']!==true
+            ||$maintenanceEvidence['cooperating_local_guard_exclusive_at_scan']!==true
+            ||$maintenanceEvidence['independent_database_writers_stopped']!==false
+            ||$maintenanceEvidence['database_writers_quiesced']!==false
+            ||$maintenanceEvidence['external_pro_workers_quiesced']!==false
+            ||$maintenanceEvidence['ready_for_activation']!==false){
+            throw new RuntimeException('Operator-owned read-only DB evidence did not stay fail-closed.');
+        }
+        try{
+            SourceMaintenanceDatabaseEvidence::inspect(
+                $root,$maintenanceCoord,str_repeat('0',64),$pdo);
+            throw new RuntimeException('Wrong source-lease token authorized SQL evidence.');
+        }catch(RuntimeException $error){
+            if($error->getMessage()==='Wrong source-lease token authorized SQL evidence.')throw $error;
+        }
+        $activeSqlReader=SourceHttpRequestLock::enter($root);
+        try{
+            try{
+                $inspectMaint();
+                throw new RuntimeException('Active local reader did not block exclusive SQL audit.');
+            }catch(RuntimeException $error){
+                if($error->getMessage()==='Active local reader did not block exclusive SQL audit.')throw $error;
+            }
+        }finally{fclose($activeSqlReader);}
+        $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+        try{
+            try{
+                $inspectMaint();
+                throw new RuntimeException('Mismatched DB edition passed source-maintenance SQL audit.');
+            }catch(RuntimeException $error){
+                if($error->getMessage()==='Mismatched DB edition passed source-maintenance SQL audit.')throw $error;
+            }
+        }finally{
+            $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+        }
+        // CLI uses the customer's installed private DB config, but receives
+        // only the operator lease token over STDIN; it prints no credentials.
+        $dbCli=escapeshellarg(PHP_BINARY).' '
+            .escapeshellarg(dirname(__DIR__).'/scripts/check-source-maintenance-db.php').' '
+            .escapeshellarg($root).' '.escapeshellarg($maintenanceCoord);
+        $runDbCli=static function(string $stdinToken)use($dbCli):array{
+            $pipes=[];
+            $process=proc_open($dbCli,
+                [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+            if(!is_resource($process))throw new RuntimeException('Cannot launch operator DB audit CLI.');
+            fwrite($pipes[0],$stdinToken."\n");fclose($pipes[0]);
+            $stdout=stream_get_contents($pipes[1]);fclose($pipes[1]);
+            $stderr=stream_get_contents($pipes[2]);fclose($pipes[2]);
+            return [proc_close($process),$stdout,$stderr];
+        };
+        [$cliResult,$cliJson,$cliError]=$runDbCli($releaseToken);
+        $cliEvidence=json_decode($cliJson,true,8);
+        if($cliResult!==0 || !is_array($cliEvidence)
+            ||($cliEvidence['migration_ledger_sha256']??null)!==$migrationDigest
+            ||($cliEvidence['ready_for_activation']??null)!==false
+            ||str_contains($cliJson,$releaseToken)
+            ||str_contains($cliJson,$pass)){
+            throw new RuntimeException('Installed maintenance SQL CLI did not produce redacted evidence.');
+        }
+        [$cliWrong,$cliWrongOut]=$runDbCli(str_repeat('f',64));
+        if($cliWrong===0||$cliWrongOut!==''){
+            throw new RuntimeException('Wrong SQL maintenance CLI token emitted success evidence.');
+        }
+        if($inspectMaint()['migration_ledger_sha256']!==$migrationDigest){
+            throw new RuntimeException('Read-only SQL maintenance audit modified migration records.');
+        }
+    }finally{
+        if($maintenanceActive){
+            SourceUpdateMaintenance::end($root,$maintenanceCoord,$lease['release_token']);
+        }
+        if($lease!==null)SourceOperationLease::release(
+            $root,$maintenanceCoord,$lease['release_token']);
+        rmdir($maintenanceCoord);
+        if($createdFixtureAutoload){
+            unlink($fixtureAutoload);
+            rmdir($root.'/src/Support');
+            rmdir($root.'/src');
+        }
+    }
+    if((new InstallationGate($root))->status()!==InstallationGate::READY
+        ||InstalledMigrationLedger::inspect($root,$pdo)['migration_ledger_sha256']!==$migrationDigest){
+        throw new RuntimeException('DB maintenance fixture did not restore installed site state.');
     }
     $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
     try {
