@@ -432,6 +432,51 @@ try{
     try{$recovery->restore(Connection::open($dst),$archive,$backupKey);throw new RuntimeException('Restore overwrote existing site');}
     catch(RuntimeException $e){if($e->getMessage()==='Restore overwrote existing site')throw $e;}
     $check++;
+    // A second fully authenticated archive can have identical plaintext
+    // records but different encrypted bytes. Simulate replacement precisely
+    // after restore preflight, before the database row-import pass.
+    removeDisposableTables($pdo);Schema::assertFresh($pdo);
+    $swapTarget=$base.'/swap-target';testRoot($swapTarget);
+    copy($src.'/config/database.php',$swapTarget.'/config/database.php');
+    $swapSource=$base.'/swap-source.acfull';
+    $swapReplacement=$base.'/swap-replacement.acfull';
+    copy($archive,$swapSource);
+    StreamArchive::write($swapReplacement,$backupKey,
+        static function(callable $emit)use($archive,$backupKey):void{
+            StreamArchive::read($archive,$backupKey,$emit);
+        });
+    verifyRecovery(hash_file('sha256',$swapSource)!==hash_file('sha256',$swapReplacement),
+        'Replacement test uses separately encrypted, individually authenticated archive bytes');
+    $swapPdo=new class(
+        "mysql:host={$host};port={$port};dbname={$db};charset=utf8mb4",$user,$pass,
+        [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_EMULATE_PREPARES=>false]
+    ) extends PDO {
+        public string $source='';
+        public string $replacement='';
+        public bool $swapped=false;
+        public function exec(string $statement): int|false {
+            if(!$this->swapped&&$statement==='SET FOREIGN_KEY_CHECKS=0'){
+                if(!rename($this->replacement,$this->source))
+                    throw new RuntimeException('Unable to substitute disposable archive.');
+                $this->swapped=true;
+            }
+            return parent::exec($statement);
+        }
+    };
+    $swapPdo->source=$swapSource;$swapPdo->replacement=$swapReplacement;
+    $refusedSwap=false;
+    try{
+        (new SiteBackup($swapTarget))->restore($swapPdo,$swapSource,$backupKey);
+    }catch(RuntimeException $error){
+        $refusedSwap=$error->getMessage()==='Recovery archive changed between preflight and row import.';
+    }
+    verifyRecovery($swapPdo->swapped&&$refusedSwap,
+        'Restore refuses a fully authenticated substitute between preflight and row import');
+    verifyRecovery((new InstallationGate($swapTarget))->status()===InstallationGate::BACKUP_RESTORE_PENDING
+        &&!file_exists($swapTarget.'/storage/install-state.json')
+        &&!file_exists($swapTarget.'/config/app-key.php')
+        &&(int)$pdo->query('SELECT COUNT(*) FROM ac_users')->fetchColumn()===0,
+        'Changed archive rolls back imported rows, publishes no private files and leaves fail-closed DDL recovery marker');
     echo "Passed $check real MySQL encrypted full-site recovery checks.\n";
 }finally{
     removeDisposableTables($pdo);

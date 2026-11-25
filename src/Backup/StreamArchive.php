@@ -17,11 +17,17 @@ final class StreamArchive
     public static function write(string $destination, string $hexKey, callable $produce): int
     {
         $secret = self::key($hexKey);
-        $fp = @fopen($destination, 'x+b');
+        $oldMask = umask(0077);
+        try { $fp = @fopen($destination, 'x+b'); }
+        finally { umask($oldMask); }
         if (!is_resource($fp)) throw new RuntimeException('Destination must be a new, writable private file.');
-        @chmod($destination, 0600);
         $success = false;
+        $opened = fstat($fp);
         try {
+            if (!is_array($opened) || !self::sameFile($destination, $opened)
+                || ($opened['mode'] & 0077) !== 0) {
+                throw new RuntimeException('Archive output is not an owner-only regular file.');
+            }
             $header = json_encode(['format'=>'adult-core-portable-recovery','version'=>1,
                 'salt'=>base64_encode(random_bytes(16)), 'nonce_prefix'=>base64_encode(random_bytes(4))], JSON_THROW_ON_ERROR);
             $data=json_decode($header,true,8,JSON_THROW_ON_ERROR);
@@ -43,25 +49,42 @@ final class StreamArchive
                 if($record['type']==='end')$finished=true;
             };
             $produce($emit);
-            if(!$finished||!fflush($fp))throw new RuntimeException('Archive did not finish safely.');
+            if(!$finished||!fflush($fp)||(function_exists('fsync')&&!fsync($fp))
+                ||!self::sameFile($destination,$opened))throw new RuntimeException('Archive did not finish safely.');
             $success=true;
             return $seq;
         } finally {
             fclose($fp);
-            if(!$success) @unlink($destination);
+            // Do not remove another file that replaced the original name.
+            if(!$success && is_array($opened) && self::sameFile($destination,$opened)) @unlink($destination);
         }
     }
 
     /** @param callable(array):void $consume */
     public static function read(string $source, string $hexKey, callable $consume): int
     {
+        return self::readVerified($source,$hexKey,$consume)['records'];
+    }
+
+    /**
+     * Fingerprint the very bytes authenticated and consumed, not a later
+     * reopening of the path. Preserve the original integer-returning API.
+     * @return array{records:int,sha256:string}
+     */
+    public static function readVerified(string $source, string $hexKey, callable $consume): array
+    {
         $secret=self::key($hexKey);
         if(is_link($source)||!is_file($source))throw new RuntimeException('Archive must be a regular private file.');
         $fp=@fopen($source,'rb');
         if(!is_resource($fp))throw new RuntimeException('Cannot open private archive.');
         try {
+            $opened=fstat($fp);
+            if(!is_array($opened)||!self::sameFile($source,$opened))
+                throw new RuntimeException('Archive path changed while opening.');
+            $digest=hash_init('sha256');
             $header=fgets($fp,4096);
             if(!is_string($header)||!str_ends_with($header,"\n"))throw new RuntimeException('Invalid archive header.');
+            hash_update($digest,$header);
             $header=rtrim($header,"\r\n");
             $data=json_decode($header,true,8,JSON_THROW_ON_ERROR);
             if(!is_array($data)||count($data)!==4||($data['format']??null)!=='adult-core-portable-recovery'||($data['version']??null)!==1
@@ -71,6 +94,7 @@ final class StreamArchive
             $key=hash_hkdf('sha256',$secret,32,self::LABEL,$salt);$seq=0;$done=false;
             while(($line=fgets($fp,self::MAX_LINE+1))!==false){
                 if(strlen($line)>self::MAX_LINE||!str_ends_with($line,"\n")||$done)throw new RuntimeException('Invalid archive record/trailing bytes.');
+                hash_update($digest,$line);
                 $row=json_decode($line,true,8,JSON_THROW_ON_ERROR);
                 if(!is_array($row)||count($row)!==3||!is_int($row['seq']??null)||$row['seq']!==$seq+1
                     ||!is_string($row['ciphertext']??null)||!is_string($row['tag']??null)||++$seq>10000000){
@@ -87,8 +111,23 @@ final class StreamArchive
                 if($record['type']==='end')$done=true;
             }
             if(!feof($fp)||!$done)throw new RuntimeException('Archive is truncated or cannot be read.');
-            return $seq;
+            $end=fstat($fp);
+            if(!is_array($end)||!self::sameFile($source,$opened)
+                ||$end['size']!==$opened['size']||$end['mtime']!==$opened['mtime']
+                ||$end['ctime']!==$opened['ctime']||ftell($fp)!==$opened['size'])
+                throw new RuntimeException('Archive changed during authenticated read.');
+            return ['records'=>$seq,'sha256'=>hash_final($digest)];
         }catch(\JsonException $e){throw new RuntimeException('Invalid archive JSON.',0,$e);}finally{fclose($fp);}
+    }
+
+    /** Check that the currently named regular file is still the opened inode. */
+    private static function sameFile(string $path,array $opened):bool
+    {
+        clearstatcache(true,$path);
+        $named=@lstat($path);
+        return is_array($named)&&($opened['mode']&0170000)===0100000
+            &&($named['mode']&0170000)===0100000
+            &&$named['dev']===$opened['dev']&&$named['ino']===$opened['ino'];
     }
 
     private static function key(string $hexKey): string

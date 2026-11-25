@@ -215,7 +215,7 @@ final class SiteBackup
         $ddl=[];$meta=null;$stats=['tables'=>0,'rows'=>0,'files'=>0,'file_bytes'=>0];
         $current=null;$sink=null;$hash=null;$fileBytes=0;$plannedSize=0;$seen=[];$phase=0;$ending=false;
         try {
-            StreamArchive::read($source,$hexKey,function(array $r)use(&$ddl,&$meta,&$stats,&$current,&$sink,&$hash,&$fileBytes,&$plannedSize,&$seen,&$phase,&$ending,$stage):void{
+            $preflightArchive=StreamArchive::readVerified($source,$hexKey,function(array $r)use(&$ddl,&$meta,&$stats,&$current,&$sink,&$hash,&$fileBytes,&$plannedSize,&$seen,&$phase,&$ending,$stage):void{
                 $type=$r['type'];
                 if($ending)throw new RuntimeException('Records after completion.');
                 if($type==='meta'){
@@ -282,7 +282,7 @@ final class SiteBackup
                 foreach($ddl as $sql)$pdo->exec($sql);
                 $insertCache=[];
                 $pdo->beginTransaction();
-                StreamArchive::read($source,$hexKey,static function(array $r)use($pdo,&$insertCache):void{
+                $importArchive=StreamArchive::readVerified($source,$hexKey,static function(array $r)use($pdo,&$insertCache):void{
                     if(($r['type']??null)!=='row')return;
                     $table=$r['table'];$cols=array_keys($r['fields']);
                     if(!self::tableName($table)||$cols===[])throw new RuntimeException('Invalid recovery row.');
@@ -296,6 +296,9 @@ final class SiteBackup
                     $values=[];foreach($r['fields'] as $value)$values[]=$value===null?null:base64_decode($value,true);
                     $insertCache[$signature]->execute($values);
                 });
+                if(!hash_equals($preflightArchive['sha256'],$importArchive['sha256'])){
+                    throw new RuntimeException('Recovery archive changed between preflight and row import.');
+                }
                 $pdo->commit();
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
             finally{$pdo->exec('SET FOREIGN_KEY_CHECKS=1');}
