@@ -160,5 +160,62 @@ try{
         &&file_get_contents($path)===$original
         &&$inspect()['signed_receipts_verified']===1,
         'CLI does not leak signing secret or modify an existing signed receipt');
+    // The lifecycle receives a trusted test handler, not a command or
+    // media path from a signed envelope. No actual media processing occurs.
+    mkdir($site.'/config',0700);
+    $appKey=bin2hex(random_bytes(32));
+    file_put_contents($site.'/config/app-key.php','<?php return '.var_export($appKey,true).';');
+    file_put_contents($site.'/config/database.php',"<?php return ['driver'=>'mysql','database'=>'fixture','username'=>'fixture'];");
+    $state=$storage.'/install-state.json';
+    file_put_contents($state,\AdultCore\Installer\InstallationState::encode('lite',$appKey));
+    $lifecycle=new \AdultCore\Pro\ProJobLifecycle($site);
+    $ran=0;
+    $handler=static function(array $data)use(&$ran):bool{++$ran;return true;};
+    $reject(static fn()=>$lifecycle->execute('verified-job-00001',$secret,$handler),'Lite installation cannot execute jobs');
+    $check($ran===0&&file_get_contents($path)===$original,'Lite denial preserves pending receipt');
+    file_put_contents($state,\AdultCore\Installer\InstallationState::encode('pro',$appKey));
+    $reject(static fn()=>$lifecycle->execute('verified-job-00001',str_repeat('x',40),$handler),
+        'Wrong worker signing secret refused');
+    $check($ran===0&&file_get_contents($path)===$original,'Wrong secret never runs handler or mutates receipt');
+    $second=JobEnvelope::create('verified-job-00002','video.thumbnail',['asset_id'=>8],$secret);
+    $third=JobEnvelope::create('verified-job-00003','video.thumbnail',['asset_id'=>9],$secret);
+    $check($inbox->accept($second,$secret)&&$inbox->accept($third,$secret),'Two additional signed test jobs accepted');
+    $operator=\AdultCore\Release\SourceHttpRequestLock::exclusive($site);
+    try{
+        $reject(static fn()=>$lifecycle->execute('verified-job-00001',$secret,$handler),'Active maintenance guard refuses execution');
+    }finally{fclose($operator);}
+    $check($lifecycle->execute('verified-job-00001',$secret,static function(array $data)use(
+        $check,$reject,$inspect,$site,$lifecycle,$secret,$handler,$inbox,$job,&$ran
+    ):bool{
+        ++$ran;
+        $check($data===$job['data']&&$inspect()['processing_receipts']===1,
+            'Original verified envelope and durable processing state precede handler');
+        $reject(static fn()=>\AdultCore\Release\BackupMaintenanceAdmission::begin($site),
+            'Active local handler blocks backup maintenance');
+        $reject(static fn()=>$lifecycle->execute('verified-job-00002',$secret,$handler),
+            'Second local worker cannot execute another job concurrently');
+        $check(!$inbox->accept($job,$secret),'Receipt replay during processing remains idempotent');
+        return true;
+    }),'Trusted successful handler publishes done');
+    $check($ran===1&&$inspect()['done_receipts']===1,'Successful handler called once and receipt remains authenticated');
+    $reject(static fn()=>$lifecycle->execute('verified-job-00001',$secret,$handler),'Done receipt cannot be rerun');
+    $check(!$lifecycle->execute('verified-job-00002',$secret,static fn(array $data)=>false),
+        'Explicit settled handler failure publishes failed');
+    $reject(static fn()=>$lifecycle->execute('verified-job-00002',$secret,$handler),'Failed receipt cannot be rerun');
+    $reject(static fn()=>$lifecycle->execute('verified-job-00003',$secret,static function(array $data):bool{
+        throw new RuntimeException('Synthetic uncertain worker failure.');
+    }),'Uncertain handler failure propagates');
+    $report=$inspect();
+    $check($report['done_receipts']===1&&$report['failed_receipts']===1&&$report['processing_receipts']===1
+        &&$report['pending_receipts']===0&&!$report['no_locally_open_receipts'],
+        'Uncertain handler leaves signed processing receipt for review');
+    $reject(static fn()=>$lifecycle->execute('verified-job-00003',$secret,$handler),'Uncertain processing receipt cannot be rerun');
+    $check($ran===1,'All rejected replays and concurrent executions leave handler count unchanged');
+    $owned=\AdultCore\Release\BackupMaintenanceAdmission::begin($site);
+    try{
+        $reject(static fn()=>$lifecycle->execute('verified-job-00003',$secret,$handler),'Maintenance marker blocks execution');
+    }finally{\AdultCore\Release\BackupMaintenanceAdmission::finish($site,$owned['finish_token']);}
+    $check((fileperms($storage.'/.pro-worker-execution.lock')&0077)===0,
+        'Persistent local worker mutex is owner-only and maintenance can resume after execution');
     echo "Passed {$checks} private Pro receipt integrity audit checks.\n";
 }finally{$remove($tmp);}
