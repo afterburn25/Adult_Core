@@ -7,6 +7,7 @@ namespace AdultCore\Licensing;
 use AdultCore\Capability\HostInspector;
 use AdultCore\Database\Connection;
 use AdultCore\Database\Schema;
+use AdultCore\Database\ProvisioningLock;
 use AdultCore\Edition\EditionSelector;
 use AdultCore\Installer\AtomicFile;
 use AdultCore\Installer\InstallationGate;
@@ -91,55 +92,61 @@ final class EditionUpgrade
     {
         $this->locked(function () use ($candidateKey, $domain): void {
             $pdo = Connection::open($this->root);
-            $plan = $this->preflight($candidateKey, $domain, $pdo);
-            $key = CajunWebClient::key($candidateKey);
-            $appKey = $this->appKey();
-            $oldState = $this->existingState($appKey);
-            $this->takeBackup($appKey);
-            $pending = false;
+            $databaseLock = ProvisioningLock::acquire($pdo);
             try {
-                AtomicFile::write($this->root . self::PENDING, "Upgrade in progress; do not remove this file manually.\n");
-                $pending = true;
-                // No schema change: preserve all existing data and installed_at.
-                $pdo->beginTransaction();
-                try {
-                    $q = $pdo->prepare("UPDATE ac_installations SET edition='pro' WHERE id=1 AND edition='lite'");
-                    $q->execute();
-                    if ($q->rowCount() !== 1) throw new RuntimeException('Database edition changed during upgrade.');
-                    $pdo->commit();
-                } catch (Throwable $error) {
-                    if ($pdo->inTransaction()) $pdo->rollBack();
-                    throw $error;
-                }
-                if ($this->afterDatabaseUpdate !== null) ($this->afterDatabaseUpdate)();
-                $record = ['license_key' => $key, 'domain' => $plan['domain'], 'sku' => $plan['sku'],
-                    'edition' => 'pro', 'term' => $plan['term']];
-                $this->replace(self::FILES['license.php'], $this->configCode($record));
-                $this->replace(self::FILES['license-cache.json'], LicenseState::encode(
-                    $key, $plan['domain'], $appKey, 'valid', time(), time(), $plan['sku']));
-                $this->replace(self::FILES['install-state.json'], InstallationState::encode(
-                    'pro', $appKey, $oldState['installed_at']));
-                $this->assertEdition($pdo, 'pro');
-                if ((new LicenseManager($this->root))->config()['sku'] !== $plan['sku']) {
-                    throw new RuntimeException('Pro edition receipt did not verify.');
-                }
-                // Only remove maintenance mode after every persisted state agrees.
-                if (!unlink($this->root . self::PENDING)) throw new RuntimeException('Could not clear maintenance lock.');
+                $plan = $this->preflight($candidateKey, $domain, $pdo);
+                $key = CajunWebClient::key($candidateKey);
+                $appKey = $this->appKey();
+                $oldState = $this->existingState($appKey);
+                $this->takeBackup($appKey);
                 $pending = false;
-                // Once the signed Pro state and DB agree, the website is live.
-                // A cleanup failure cannot safely be reported as a failed
-                // transition; leave private backups for operator cleanup.
-                try { $this->cleanBackup(); }
-                catch (Throwable) { error_log('Adult_Core edition upgrade succeeded; private recovery-file cleanup needs review.'); }
-            } catch (Throwable $error) {
-                if ($pending) {
-                    try { $this->rollbackLocked($pdo, $appKey); }
-                    catch (Throwable $rollbackError) {
-                        // Keep maintenance lock and backups. CLI repair is required.
-                        throw new RuntimeException('Upgrade interrupted and automatic rollback failed. Site remains locked; use CLI recovery.', 0, $rollbackError);
+                try {
+                    AtomicFile::write($this->root . self::PENDING, "Upgrade in progress; do not remove this file manually.\n");
+                    $pending = true;
+                    // No schema change: preserve all existing data and installed_at.
+                    $pdo->beginTransaction();
+                    try {
+                        $q = $pdo->prepare("UPDATE ac_installations SET edition='pro' WHERE id=1 AND edition='lite'");
+                        $q->execute();
+                        if ($q->rowCount() !== 1) throw new RuntimeException('Database edition changed during upgrade.');
+                        $pdo->commit();
+                    } catch (Throwable $error) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
+                        throw $error;
                     }
+                    if ($this->afterDatabaseUpdate !== null) ($this->afterDatabaseUpdate)();
+                    $databaseLock->assertHeld();
+                    $record = ['license_key' => $key, 'domain' => $plan['domain'], 'sku' => $plan['sku'],
+                        'edition' => 'pro', 'term' => $plan['term']];
+                    $this->replace(self::FILES['license.php'], $this->configCode($record));
+                    $this->replace(self::FILES['license-cache.json'], LicenseState::encode(
+                        $key, $plan['domain'], $appKey, 'valid', time(), time(), $plan['sku']));
+                    $this->replace(self::FILES['install-state.json'], InstallationState::encode(
+                        'pro', $appKey, $oldState['installed_at']));
+                    $this->assertEdition($pdo, 'pro');
+                    if ((new LicenseManager($this->root))->config()['sku'] !== $plan['sku']) {
+                        throw new RuntimeException('Pro edition receipt did not verify.');
+                    }
+                    // Only remove maintenance mode after every persisted state agrees.
+                    if (!unlink($this->root . self::PENDING)) throw new RuntimeException('Could not clear maintenance lock.');
+                    $pending = false;
+                    // Once the signed Pro state and DB agree, the website is live.
+                    // A cleanup failure cannot safely be reported as a failed
+                    // transition; leave private backups for operator cleanup.
+                    try { $this->cleanBackup(); }
+                    catch (Throwable) { error_log('Adult_Core edition upgrade succeeded; private recovery-file cleanup needs review.'); }
+                } catch (Throwable $error) {
+                    if ($pending) {
+                        try { $this->rollbackLocked($pdo, $appKey, $databaseLock); }
+                        catch (Throwable $rollbackError) {
+                            // Keep maintenance lock and backups. CLI repair is required.
+                            throw new RuntimeException('Upgrade interrupted and automatic rollback failed. Site remains locked; use CLI recovery.', 0, $rollbackError);
+                        }
+                    }
+                    throw new RuntimeException('Pro upgrade did not complete. Existing Lite installation was retained or restored.', 0, $error);
                 }
-                throw new RuntimeException('Pro upgrade did not complete. Existing Lite installation was retained or restored.', 0, $error);
+            } finally {
+                $databaseLock->release();
             }
         });
     }
@@ -153,15 +160,22 @@ final class EditionUpgrade
                 if (!is_file($this->root . self::PENDING) || is_link($this->root . self::PENDING)) {
                     throw new RuntimeException('No pending edition transition is recorded. Nothing was changed.');
                 }
-                $this->rollbackLocked(Connection::open($this->root), $this->appKey());
+                $pdo = Connection::open($this->root);
+                $databaseLock = ProvisioningLock::acquire($pdo);
+                try {
+                    $this->rollbackLocked($pdo, $this->appKey(), $databaseLock);
+                } finally {
+                    $databaseLock->release();
+                }
             });
         } finally {
             fclose($guard);
         }
     }
 
-    private function rollbackLocked(PDO $pdo, string $appKey): void
+    private function rollbackLocked(PDO $pdo, string $appKey, ProvisioningLock $databaseLock): void
     {
+        $databaseLock->assertHeld();
         $originals = $this->readBackup($appKey);
         $pdo->beginTransaction();
         try {
@@ -174,6 +188,7 @@ final class EditionUpgrade
             if ($pdo->inTransaction()) $pdo->rollBack();
             throw $error;
         }
+        $databaseLock->assertHeld();
         foreach (self::FILES as $name => $path) $this->replace($path, $originals[$name]);
         $current = (new LicenseManager($this->root))->config();
         if ($current === null || $current['edition'] !== 'lite') throw new RuntimeException('Restored Lite state is not verifiable.');
