@@ -217,5 +217,55 @@ try{
     }finally{\AdultCore\Release\BackupMaintenanceAdmission::finish($site,$owned['finish_token']);}
     $check((fileperms($storage.'/.pro-worker-execution.lock')&0077)===0,
         'Persistent local worker mutex is owner-only and maintenance can resume after execution');
+    // An interrupted receipt requires explicit operator reconciliation.
+    $coord=$tmp.'/coord';mkdir($coord,0700);
+    $claim=\AdultCore\Release\SourceOperationLease::acquire($site,$coord);
+    $token=$claim['release_token'];
+    $interrupted=$storage.'/pro-jobs/'.hash('sha256','verified-job-00003').'.json';
+    $beforeInterrupted=file_get_contents($interrupted);
+    $resolve=static fn($lease,$ack,$key=null)=>$lifecycle->resolveInterrupted(
+        'verified-job-00003',$key??$secret,$coord,$lease,$ack);
+    $reject(static fn()=>$resolve($token,true),'An owned lease alone cannot resolve an interrupted job');
+    \AdultCore\Release\SourceUpdateMaintenance::begin($site,$coord,$token);
+    $reject(static fn()=>$resolve($token,false),'Operator reconciliation acknowledgment required');
+    $reject(static fn()=>$resolve(str_repeat('0',64),true),'Wrong lease token refused');
+    $reject(static fn()=>$resolve($token,true,str_repeat('w',40)),'Wrong receipt signing secret refused');
+    $reject(static fn()=>$lifecycle->resolveInterrupted('verified-job-00001',$secret,$coord,$token,true),
+        'Completed jobs cannot be relabeled failed');
+    $held=\AdultCore\Release\SourceHttpRequestLock::exclusive($site);
+    try{$reject(static fn()=>$resolve($token,true),'Exclusive operator contention refuses resolution');}
+    finally{fclose($held);}
+    file_put_contents($state,\AdultCore\Installer\InstallationState::encode('lite',$appKey));
+    $reject(static fn()=>$resolve($token,true),'Lite edition cannot resolve Pro receipts');
+    file_put_contents($state,\AdultCore\Installer\InstallationState::encode('pro',$appKey));
+    $check(file_get_contents($interrupted)===$beforeInterrupted&&$inspect()['processing_receipts']===1,
+        'Refused resolutions preserve interrupted receipt bytes');
+    $snapshot=static fn()=>\AdultCore\Pro\ProSourceMaintenanceReceiptSnapshot::inspect($site,$coord,$token,$secret);
+    $reject($snapshot,'Interrupted receipt blocks source-maintenance snapshot');
+    $command=[PHP_BINARY,dirname(__DIR__).'/scripts/resolve-pro-interrupted-job.php',$site,$coord,
+        'verified-job-00003','--work-stopped-and-reconciled'];
+    $pipes=[];
+    $proc=proc_open($command,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
+    if(!is_resource($proc))throw new RuntimeException('Cannot start interrupted-job resolution CLI.');
+    fwrite($pipes[0],$token."\n".$secret."\n");fclose($pipes[0]);
+    $stdout=stream_get_contents($pipes[1]);fclose($pipes[1]);
+    $stderr=stream_get_contents($pipes[2]);fclose($pipes[2]);
+    $exit=proc_close($proc);
+    $resolution=json_decode($stdout,true);
+    $check($exit===0&&is_array($resolution)&&$resolution['resolved_status']==='failed'
+        &&!$resolution['job_retried']&&!$resolution['external_workers_quiesced']
+        &&!$resolution['ready_for_activation']&&!str_contains($stdout.$stderr,$secret)
+        &&!str_contains($stdout.$stderr,$token),'CLI resolves only terminal failure and redacts private credentials');
+    $check($inspect()['failed_receipts']===2&&$inspect()['processing_receipts']===0
+        &&$snapshot()['no_unfinished_signed_local_receipts_at_scan']===true,
+        'Resolved receipt authenticates and permits local receipt snapshot');
+    $reject(static fn()=>$resolve($token,true),'Resolved receipt cannot be resolved a second time');
+    $check((new \AdultCore\Installer\InstallationGate($site))->status()===
+        \AdultCore\Installer\InstallationGate::SOURCE_UPDATE_MAINTENANCE,
+        'Resolution leaves source maintenance intact');
+    \AdultCore\Release\SourceUpdateMaintenance::end($site,$coord,$token);
+    \AdultCore\Release\SourceOperationLease::release($site,$coord,$token);
+    $reject(static fn()=>$lifecycle->execute('verified-job-00003',$secret,$handler),
+        'Resolved interrupted job cannot execute again after maintenance');
     echo "Passed {$checks} private Pro receipt integrity audit checks.\n";
 }finally{$remove($tmp);}
