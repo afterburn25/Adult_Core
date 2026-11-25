@@ -344,6 +344,55 @@ try{
     verifyRecovery($scheduledReport['sha256']===hash_file('sha256',$staged[0])
         &&$scheduledReport['edition']==='lite','Scheduled vault contains the exact installed-site archive');
 
+    copy(dirname(__DIR__).'/scripts/backup-db.php',$src.'/scripts/backup-db.php');
+    $snapshot=$base.'/small-db.acbak';
+    $runSmall=static function(string $destination,bool $paused,bool $stopped)use($src,$backupKey):array{
+        $env=array_merge(getenv(),[
+            'AC_BACKUP_KEY'=>$backupKey,'AC_BACKUP_WRITES_PAUSED'=>$paused?'YES':'NO',
+            'AC_PRO_JOBS_STOPPED'=>$stopped?'YES':'NO',
+        ]);
+        $pipes=[];
+        $proc=proc_open([PHP_BINARY,$src.'/scripts/backup-db.php',$destination],
+            [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,null,$env);
+        if(!is_resource($proc))throw new RuntimeException('Cannot launch disposable small snapshot CLI.');
+        fclose($pipes[0]);$stdout=stream_get_contents($pipes[1]);fclose($pipes[1]);
+        $stderr=stream_get_contents($pipes[2]);fclose($pipes[2]);
+        return [proc_close($proc),$stdout,$stderr];
+    };
+    $rejectSmall=static function(string $destination,bool $paused,bool $stopped)use($runSmall,$src):void{
+        [$code,$out,$err]=$runSmall($destination,$paused,$stopped);
+        verifyRecovery($code!==0&&!str_contains($out,'written and verified')
+            &&!file_exists($destination)&&!file_exists($src.'/storage/.backup-maintenance'),
+            'Refused small SQL snapshot leaves no output or owned marker');
+    };
+    $rejectSmall($snapshot,false,false);
+    $rejectSmall($src.'/inside.acbak',true,false);
+    $guard=SourceHttpRequestLock::enter($src);
+    try{$rejectSmall($snapshot,true,false);}finally{fclose($guard);}
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{$rejectSmall($snapshot,true,true);}
+    finally{$pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");}
+    $pdo->exec('CREATE VIEW ac_snapshot_bad_view AS SELECT id FROM ac_users');
+    try{$rejectSmall($snapshot,true,false);}
+    finally{$pdo->exec('DROP VIEW ac_snapshot_bad_view');}
+    [$snapshotCode,$snapshotOut,$snapshotErr]=$runSmall($snapshot,true,false);
+    verifyRecovery($snapshotCode===0&&is_file($snapshot)
+        &&(fileperms($snapshot)&0077)===0
+        &&str_contains($snapshotOut,'written and verified')
+        &&!str_contains($snapshotOut,$backupKey)
+        &&!file_exists($src.'/storage/.backup-maintenance'),
+        'Small SQL diagnostic CLI produces verified private output and clears own marker');
+    $snapshotData=json_decode(\AdultCore\Backup\EncryptedSnapshot::open(
+        file_get_contents($snapshot),$backupKey),true,32,JSON_THROW_ON_ERROR);
+    verifyRecovery($snapshotData['version']===1
+        &&count($snapshotData['tables']['ac_users'])===2
+        &&$snapshotData['tables']['ac_installations'][0]['edition']==='lite',
+        'Read-only diagnostic contains actual installed SQL rows in unchanged version-one format');
+    $smallHash=hash_file('sha256',$snapshot);
+    [$overwriteCode]=$runSmall($snapshot,true,false);
+    verifyRecovery($overwriteCode!==0&&hash_file('sha256',$snapshot)===$smallHash,
+        'Small snapshot refuses overwrite byte-for-byte');
+
     removeDisposableTables($pdo);Schema::assertFresh($pdo);
     testRoot($dst);
     copy($src.'/config/database.php',$dst.'/config/database.php');
