@@ -64,7 +64,17 @@ final class JobInbox
             || !is_writable($dir)) {
             throw new RuntimeException('Pro job storage unavailable.');
         }
-        @chmod($dir,0700);
+        // A pre-existing inbox must also be made owner-only before any
+        // private job metadata is written or a duplicate is inspected.
+        // Silent chmod failures can leave shared-host receipts exposed.
+        if (!@chmod($dir,0700)) {
+            throw new RuntimeException('Pro inbox permissions cannot be secured.');
+        }
+        clearstatcache(true,$dir);
+        $dirMode=@fileperms($dir);
+        if (is_link($dir) || !is_int($dirMode) || ($dirMode & 0077)!==0) {
+            throw new RuntimeException('Pro inbox directory is not private.');
+        }
         $id=$envelope['data']['id'];
         $path=$dir.'/'.hash('sha256',$id).'.json';
         // Recheck after storage setup, as another operator may have entered
@@ -75,8 +85,12 @@ final class JobInbox
             // A job ID is idempotent only if the stored signed-job data is
             // identical. A conflicting reissue, truncated receipt or unknown
             // status must never be misclassified as a successful duplicate.
+            clearstatcache(true,$path);
+            $mode=@fileperms($path);
+            $size=@filesize($path);
             if (!is_file($path) || is_link($path) || !is_readable($path)
-                || (filesize($path) ?: 0) > 20000) {
+                || !is_int($mode) || ($mode & 0077)!==0
+                || !is_int($size) || $size < 2 || $size > 20000) {
                 throw new RuntimeException('Cannot accept Pro job.');
             }
             $raw = @file_get_contents($path);
@@ -100,6 +114,22 @@ final class JobInbox
             return false;
         }
         try {
+            // Require a private regular file immediately after exclusive
+            // creation, BEFORE writing its signed private job metadata.
+            if (!@chmod($path,0600)) {
+                throw new RuntimeException('Pro receipt permissions cannot be secured.');
+            }
+            clearstatcache(true,$path);
+            $opened=@fstat($fp);
+            $named=@lstat($path);
+            if (is_link($path) || !is_array($opened) || !is_array($named)
+                || ($opened['mode'] & 0170000)!==0100000
+                || ($named['mode'] & 0170000)!==0100000
+                || $opened['ino']!==$named['ino']
+                || $opened['dev']!==$named['dev']
+                || ($named['mode'] & 0077)!==0) {
+                throw new RuntimeException('Pro receipt file changed or is not private.');
+            }
             // Preserve the signed original envelope for later integrity
             // verification. Receipt metadata is not an execution instruction.
             $record=[
@@ -110,11 +140,14 @@ final class JobInbox
             ];
             $record['mac']=self::receiptMac($record,$secret);
             $data=json_encode($record,JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
-            if (fwrite($fp,$data)!==strlen($data) || !fflush($fp)) throw new RuntimeException('Cannot persist Pro job.');
+            if (fwrite($fp,$data)!==strlen($data) || !fflush($fp)
+                || (function_exists('fsync') && !fsync($fp))) {
+                throw new RuntimeException('Cannot persist Pro job.');
+            }
         } catch (\Throwable $e) {
             fclose($fp);@unlink($path);throw $e;
         }
-        fclose($fp);@chmod($path,0600);
+        fclose($fp);
         return true;
     }
 }
