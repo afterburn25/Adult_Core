@@ -372,6 +372,14 @@ try{
     $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
     try{$rejectSmall($snapshot,true,true);}
     finally{$pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");}
+    file_put_contents($src.'/storage/install-state.json',
+        \AdultCore\Installer\InstallationState::encode('pro',$appKey));
+    $pdo->exec("UPDATE ac_installations SET edition='pro' WHERE id=1");
+    try{$rejectSmall($snapshot,true,false);}
+    finally{
+        $pdo->exec("UPDATE ac_installations SET edition='lite' WHERE id=1");
+        file_put_contents($src.'/storage/install-state.json',$originalState);
+    }
     $pdo->exec('CREATE VIEW ac_snapshot_bad_view AS SELECT id FROM ac_users');
     try{$rejectSmall($snapshot,true,false);}
     finally{$pdo->exec('DROP VIEW ac_snapshot_bad_view');}
