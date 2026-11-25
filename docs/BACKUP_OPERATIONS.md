@@ -81,6 +81,10 @@ A maintenance marker blocks *new* web requests but **cannot stop** an in-flight 
 
 Only after arranging that host-level quiescence, a hosting scheduler/cron can call the same command at a chosen time. Do not place the offline key in a world-readable script, command line, or shared hosting web directory. Treat any backup/sync failure as an actionable monitoring alert.
 
+## Manual full-site backup uses the same maintenance boundary
+
+`backup-site.php` now requires `AC_BACKUP_WRITES_PAUSED=YES` and, for a signed Pro installation, `AC_PRO_JOBS_STOPPED=YES`. Use a new `.acfull` destination in an owner-only directory outside the site. The command creates its own token-owned backup maintenance marker, verifies the installed edition against the database, creates and authenticates the encrypted archive against the original site key, compares all export totals, and only then clears its own marker and reports the authenticated hash. It refuses an existing destination or active local shared guard. A caught failure clears only its own intact marker; a hard crash or damaged marker requires manual review. This does not prove independent SQL or external worker shutdown, and does not add production certification.
+
 ## 5. Recovery drills, known gaps and operating requirements
 
 Every vault archive should periodically be restored into a **new isolated same-version source + dedicated empty MySQL database**, following the strict runbook above. Never restore into a live installation. Restore still requires manual removal of the top-level `install/` after independent checks. Reconfirm that the original Cajun Web Pro license is valid for the recovered hostname and that administrator MFA recovery works. Private content and subscriber data remain subject to applicable consent/retention laws.
