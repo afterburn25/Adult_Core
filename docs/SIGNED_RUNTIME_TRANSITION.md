@@ -33,6 +33,10 @@ php tests/release_distribution_tests.php
 
 The report intentionally exposes `ready_for_activation: false`, `rollback_implemented: false`, `licensing_checked: false`, and `migration_compatibility_checked: false`. It is not an approval gate that can flip those flags. A fully supported updater still requires secure host maintenance locking, license and compatibility checks, source and database snapshots, commit/rollback coordination, safe source activation under active requests, deployment evidence and independent review. All ten production release workstreams remain open.
 
+## Maintenance-owned installed database evidence (read-only)
+
+A separate CLI, `scripts/check-source-maintenance-db.php`, checks the real installed MySQL/MariaDB migration ledger only while the current operator token owns an intact source HTTP maintenance marker. It holds a nonblocking exclusive **cooperating local PHP** request/receipt/worker lock for two ledger reads, rejects edition and ledger mismatches, and always reports `database_writers_quiesced: false`, `external_pro_workers_quiesced: false`, and `ready_for_activation: false`. See [SOURCE_MAINTENANCE_DATABASE_EVIDENCE.md](SOURCE_MAINTENANCE_DATABASE_EVIDENCE.md). This does not replace candidate signed-archive verification or real SQL writer shutdown.
+
 ## Optional joined installed database audit (read-only)
 
 On an **already installed, signed** Lite or Pro website, append
