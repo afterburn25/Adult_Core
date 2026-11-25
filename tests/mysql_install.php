@@ -115,6 +115,45 @@ try {
             if ($e->getMessage()==='Invalid installer brand was accepted.') throw $e;
         }
     }
+    // Separate SQL sessions must contend for the same selected schema, even
+    // when no filesystem lock is shared. The actual installer uses its own PDO.
+    $provisioning=\AdultCore\Database\ProvisioningLock::acquire($pdo);
+    try {
+        $provisioning->assertHeld();
+        try {
+            \AdultCore\Database\ProvisioningLock::acquire($pdo);
+            throw new RuntimeException('Reentrant provisioning unexpectedly accepted.');
+        } catch (RuntimeException $error) {
+            if (!str_contains($error->getMessage(),'Another database provisioning operation')) throw $error;
+        }
+        try {
+            (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
+                static function(string $body):array {
+                    $payload=json_decode($body,true,8,JSON_THROW_ON_ERROR);
+                    return ['status'=>200,'body'=>(($payload['product_id']??'')===\AdultCore\Licensing\CajunWebClient::SKU_LITE_ONCE
+                        ? '{"authorized":true}' : '{"authorized":false}')];
+                }
+            )))->install($inputs);
+            throw new RuntimeException('Concurrent installer unexpectedly accepted.');
+        } catch (RuntimeException $error) {
+            if (!str_contains($error->getMessage(),'Another database provisioning operation')) throw $error;
+        }
+        Schema::assertFresh($pdo);
+        if (file_exists($root.'/config/database.php') || file_exists($root.'/config/app-key.php')
+            || file_exists($root.'/storage/install-state.json')) {
+            throw new RuntimeException('Contending installer published private state.');
+        }
+        $provisioning->assertHeld();
+    } finally {
+        $provisioning->release();
+    }
+    $probe=new PDO("mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4",$user,$pass,
+        [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $probeLock=\AdultCore\Database\ProvisioningLock::acquire($probe);
+    $probeLock->assertHeld();
+    $probeLock->release();
+    $probe=null;
+
     // Explicit rejection must occur before MySQL schema creation.
     try {
         (new InstallService($root, new \AdultCore\Licensing\CajunWebClient(
