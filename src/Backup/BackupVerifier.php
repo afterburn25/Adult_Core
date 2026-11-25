@@ -21,6 +21,24 @@ final class BackupVerifier
     /** @return array{source_version:string,edition:string,tables:int,rows:int,files:int,file_bytes:int,sha256:string} */
     public function verify(string $archive, string $key, ?string $expectedInstalledAppKey = null): array
     {
+        return $this->inspect($archive, $key, $expectedInstalledAppKey, false);
+    }
+
+    /**
+     * Internal vault comparison: an opaque, backup-key-scoped site binding.
+     * Never print this value or expose it in the normal verification report.
+     * The raw application key never leaves the verifier.
+     *
+     * @return array<string,mixed>
+     */
+    public function verifyForVault(string $archive, string $key, ?string $expectedInstalledAppKey = null): array
+    {
+        return $this->inspect($archive, $key, $expectedInstalledAppKey, true);
+    }
+
+    private function inspect(
+        string $archive, string $key, ?string $expectedInstalledAppKey, bool $vaultBinding
+    ): array {
         if ($expectedInstalledAppKey !== null
             && preg_match('/^[a-f0-9]{64}$/D', $expectedInstalledAppKey) !== 1) {
             throw new RuntimeException('Installed site identity input is invalid.');
@@ -158,7 +176,16 @@ final class BackupVerifier
         }
         $digest = hash_file('sha256', $archive);
         if (!is_string($digest)) throw new RuntimeException('Unable to hash verified backup.');
-        return ['source_version' => $meta['source_version'], 'edition' => $meta['edition']] + $stats + ['sha256' => $digest];
+        $report = ['source_version' => $meta['source_version'], 'edition' => $meta['edition']]
+            + $stats + ['sha256' => $digest];
+        if ($vaultBinding) {
+            // Scoped to this encryption key, so different installations
+            // sharing a backup key still have different retention identities.
+            $report['vault_site_binding'] = hash_hmac(
+                'sha256', "adult-core-backup-vault-site-v1\n".$match[1], hex2bin($key)
+            );
+        }
+        return $report;
     }
 
     private static function identifier(mixed $name): bool
