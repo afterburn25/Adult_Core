@@ -42,6 +42,10 @@ try {
         'Removing test-only sentinel restores existing signed gate');
     try {$upgrade->rollback();$ok=false;}catch(RuntimeException){$ok=true;}
     $check($ok,'CLI recovery refuses missing pending transition');
+    // A console rollback must first have a real pending edition marker.
+    // Keep that marker present so these tests exercise the original inner
+    // licensing locks rather than the new outer pending-state guard.
+    file_put_contents($root.'/storage/.edition-upgrade-pending','test interruption');
     // Pro migration must not overlap a same-edition license replacement.
     $shared = fopen($root.'/storage/.license-update.lock', 'c+');
     if (!is_resource($shared) || !flock($shared, LOCK_EX | LOCK_NB)) {
@@ -69,7 +73,9 @@ try {
     } finally {
         flock($refresh, LOCK_UN); fclose($refresh);
     }
+    $check(is_file($root.'/storage/.edition-upgrade-pending'), 'Refused recovery retains the pending marker');
     $check(is_file($root.'/storage/install-state.json'),'Refused recovery preserves original signed state');
+    unlink($root.'/storage/.edition-upgrade-pending');
     $script = file_get_contents(dirname(__DIR__).'/scripts/recover-edition-upgrade.php');
     $check(str_contains($script,"PHP_SAPI !== 'cli'"),'Emergency recovery refuses web requests');
     $check(str_contains($script,"'--rollback'"),'Emergency recovery requires explicit rollback command');
