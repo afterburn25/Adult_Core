@@ -11,6 +11,7 @@ use AdultCore\Licensing\CajunWebClient;
 use AdultCore\Licensing\LicenseManager;
 use AdultCore\Licensing\LicenseState;
 use AdultCore\Licensing\LicenseUpdateRecovery;
+use AdultCore\Release\SourceHttpRequestLock;
 
 $n = 0;
 $check = static function (string $name, bool $passed) use (&$n): void {
@@ -134,6 +135,37 @@ try {
             if (is_link($lockPath)) unlink($lockPath);
             rename($safeLock, $lockPath);
         }
+    }
+
+    // Pending recovery must not race a cooperating local request or another
+    // maintenance operation. Neither the marker nor private bytes may change.
+    $beforeRecoveryConfig=file_get_contents($root.'/config/license.php');
+    $beforeRecoveryCache=file_get_contents($root.'/storage/license-cache.json');
+    $beforeRecoveryMarker=file_get_contents($marker);
+    foreach (['shared','exclusive'] as $kind) {
+        $guard=$kind==='shared' ? SourceHttpRequestLock::enter($root)
+            : SourceHttpRequestLock::exclusive($root);
+        try {
+            try { (new LicenseUpdateRecovery($root))->rollback(); $blocked=false; }
+            catch (RuntimeException) { $blocked=true; }
+            $check('Recovery refuses competing '.$kind.' local guard', $blocked
+                && file_get_contents($marker)===$beforeRecoveryMarker
+                && file_get_contents($root.'/config/license.php')===$beforeRecoveryConfig
+                && file_get_contents($root.'/storage/license-cache.json')===$beforeRecoveryCache);
+        } finally { fclose($guard); }
+    }
+    foreach (['.edition-upgrade-pending','.backup-restore-pending',
+        '.backup-maintenance','.source-update-maintenance'] as $otherMarker) {
+        $path=$root.'/storage/'.$otherMarker;
+        AtomicFile::write($path, 'disposable overlapping recovery fixture');
+        try {
+            try { (new LicenseUpdateRecovery($root))->rollback(); $blocked=false; }
+            catch (RuntimeException) { $blocked=true; }
+            $check('Recovery refuses overlapping '.$otherMarker, $blocked
+                && file_get_contents($marker)===$beforeRecoveryMarker
+                && file_get_contents($root.'/config/license.php')===$beforeRecoveryConfig
+                && file_get_contents($root.'/storage/license-cache.json')===$beforeRecoveryCache);
+        } finally { unlink($path); }
     }
 
     // The signed snapshot contains the previous private license key. Refuse
