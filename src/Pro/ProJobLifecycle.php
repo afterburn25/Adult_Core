@@ -24,7 +24,7 @@ final class ProJobLifecycle
      *
      * @param callable(array):bool $handler
      */
-    public function execute(string $jobId, string $secret, callable $handler): bool
+    public function execute(string $jobId, string $secret, callable $handler, bool $requireOldestPending=false): bool
     {
         if (PHP_SAPI !== 'cli' || preg_match('/^[a-zA-Z0-9-]{8,100}$/D',$jobId)!==1
             || strlen($secret)<32 || strlen($secret)>4096) {
@@ -35,6 +35,8 @@ final class ProJobLifecycle
         try {
             $lock=$this->workerLock();
             ProJobAdmission::assertMayAccept($this->root);
+            if($requireOldestPending&&ProJobReceiptAudit::oldestPending($this->root,$secret)!==$jobId)
+                throw new RuntimeException('Pro queue selection changed before exclusive claim.');
             $dir=$this->root.'/storage/pro-jobs';
             $mode=@fileperms($dir);
             if(is_link($dir)||!is_dir($dir)||!is_int($mode)||($mode&0077)!==0)
