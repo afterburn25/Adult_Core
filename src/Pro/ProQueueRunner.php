@@ -32,7 +32,7 @@ final class ProQueueRunner
         try{
             $jobId=ProJobReceiptAudit::oldestPending($this->root,$secret);
             if($jobId===null)return 'idle';
-            $success=(new ProJobLifecycle($this->root))->execute($jobId,$secret,$handler);
+            $success=(new ProJobLifecycle($this->root))->execute($jobId,$secret,$handler,true);
             return $success?'done':'failed';
         }finally{fclose($guard);}
     }
