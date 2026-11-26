@@ -18,6 +18,27 @@ final class ProJobReceiptAudit
     /** @return array<string,mixed> */
     public static function inspect(string $siteRoot, string $hmacSecret): array
     {
+        return self::scan($siteRoot,$hmacSecret);
+    }
+
+    /** Internal worker selection; do not expose job IDs on public routes. */
+    public static function oldestPending(string $siteRoot,string $hmacSecret): ?string
+    {
+        $selected=null;
+        $report=self::scan($siteRoot,$hmacSecret,static function(array $record)use(&$selected):void{
+            if($record['status']!=='pending')return;
+            $candidate=[$record['received_at'],$record['job']['id']];
+            if($selected===null||$candidate[0]<$selected[0]
+                ||($candidate[0]===$selected[0]&&strcmp($candidate[1],$selected[1])<0))$selected=$candidate;
+        });
+        // A prior interrupted job is an unresolved side-effect boundary.
+        if($report['processing_receipts']!==0)
+            throw new RuntimeException('Interrupted Pro work requires operator review before queue dispatch.');
+        return $selected[1]??null;
+    }
+
+    private static function scan(string $siteRoot,string $hmacSecret,?callable $visit=null):array
+    {
         if (strlen($hmacSecret) < 32 || strlen($hmacSecret) > 4096) {
             throw new RuntimeException('Pro receipt audit needs a separately protected signing secret.');
         }
@@ -39,12 +60,11 @@ final class ProJobReceiptAudit
         if (!is_int($permissions) || ($permissions & 0077) !== 0) {
             throw new RuntimeException('Pro inbox directory must be private.');
         }
-        $entries = scandir($dir);
-        if (!is_array($entries)) throw new RuntimeException('Cannot inventory private Pro job receipts.');
+        $entries = new \FilesystemIterator($dir,\FilesystemIterator::SKIP_DOTS);
         $counts = ['pending'=>0,'processing'=>0,'done'=>0,'failed'=>0];
         $seen = 0;
-        foreach ($entries as $name) {
-            if ($name === '.' || $name === '..') continue;
+        foreach ($entries as $entry) {
+            $name=$entry->getFilename();
             if (++$seen > self::MAX_RECEIPTS) {
                 throw new RuntimeException('Pro inbox exceeds bounded offline audit size.');
             }
@@ -106,6 +126,12 @@ final class ProJobReceiptAudit
                 throw new RuntimeException('Pro receipt is not signed by the trusted site secret.');
             }
             ++$counts[$record['status']];
+            if($visit!==null){
+                if($record['received_at']>time()+300||!JobEnvelope::verify(
+                    ['data'=>$record['job'],'signature'=>$record['signature']],$hmacSecret,$record['received_at']))
+                    throw new RuntimeException('Pro receipt has invalid original admission time.');
+                $visit($record);
+            }
         }
         return self::report(true, $counts);
     }
