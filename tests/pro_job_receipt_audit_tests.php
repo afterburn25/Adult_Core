@@ -218,6 +218,13 @@ try{
     $check((fileperms($storage.'/.pro-worker-execution.lock')&0077)===0,
         'Persistent local worker mutex is owner-only and maintenance can resume after execution');
     // An interrupted receipt requires explicit operator reconciliation.
+    // Source operation leases require the installed source identity files.
+    mkdir($site.'/public',0700);
+    mkdir($site.'/src/Support',0700,true);
+    foreach(['VERSION','public/index.php','src/Support/Autoload.php'] as $relative){
+        if(!copy(dirname(__DIR__).'/'.$relative,$site.'/'.$relative))
+            throw new RuntimeException('Cannot prepare source lease fixture.');
+    }
     $coord=$tmp.'/coord';mkdir($coord,0700);
     $claim=\AdultCore\Release\SourceOperationLease::acquire($site,$coord);
     $token=$claim['release_token'];
