@@ -36,6 +36,8 @@ final class SiteBackup
             || (count($parts)===3 && $parts[1]==='trusted-publishers' && str_ends_with($parts[2],'.pem'));
         // Never restore logged-in sessions, old rate-limit state, locks, or crash journals.
         if(in_array($parts[1],['sessions','member-sessions'],true))return false;
+        // Interrupted FFmpeg staging files are never recovery material.
+        if($parts[1]==='pro-video-work'&&isset($parts[2])&&str_starts_with($parts[2],'.thumbnail-'))return false;
         if(str_starts_with($parts[1],'.')||str_starts_with($parts[1],'install-audit'))return false;
         // Module license activation journals and lock files must never be
         // exported as recoverable site state, even inside encrypted archives.
@@ -370,6 +372,7 @@ final class SiteBackup
             foreach($walker as $file){
                 $path=$file->getPathname();$rel=substr($path,strlen($this->root)+1);
                 if($sub==='storage' && (str_starts_with($rel,'storage/sessions/')||str_starts_with($rel,'storage/member-sessions/')||str_starts_with($rel,'storage/.')))continue;
+                if($sub==='storage'&&str_starts_with($rel,'storage/pro-video-work/.thumbnail-'))continue;
                 if(is_link($path))throw new RuntimeException('Backup refuses symlinked private files.');
                 if(!$file->isFile()||!self::safePath($rel)){
                     if($rel==='storage/.gitkeep'||$rel==='storage/install-audit.jsonl'||$rel==='config/trusted-publishers/.gitkeep')continue;
